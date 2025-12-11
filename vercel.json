@@ -1,0 +1,5 @@
+{
+  "buildCommand": "if [ -z \"$KINOPOISK_API_KEY\" ]; then echo 'Warning: KINOPOISK_API_KEY not set'; fi && sed -i \"s/KINOPOISK_API_KEY_PLACEHOLDER/$KINOPOISK_API_KEY/g\" index.html",
+  "outputDirectory": "."
+}
+

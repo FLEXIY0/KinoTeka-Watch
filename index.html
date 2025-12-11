@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:; connect-src 'self' https: http: https://kinopoiskapiunofficial.tech https://api.allorigins.win https://api.github.com https://www.google.com https://html.duckduckgo.com https://api.duckduckgo.com https://flcksbr.top http://flcksbr.top; frame-src 'self' https: http: https://flcksbr.top http://flcksbr.top; frame-ancestors 'self';">
     <title>KinoTeka Watch</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/responsive.css">
     <link rel="icon" href="img/ficon.png" type="image/png">
     <link rel="shortcut icon" href="img/ficon.png" type="image/png">
     <link rel="apple-touch-icon" href="img/ficon.png">
@@ -49,6 +51,9 @@
             </div>
         </div>
         
+        <!-- Закрепленные фильмы -->
+        <div class="favorite-films-section" id="favoriteFilmsContainer" style="display: none;"></div>
+        
         <!-- Футер -->
         <footer class="footer">
             <div class="footer-left">
@@ -66,7 +71,12 @@
         </footer>
     </div>
     
+    <!-- API ключ (будет заменен при деплое на GitHub Pages) -->
+    <script>
+        window.KINOPOISK_API_KEY = 'KINOPOISK_API_KEY_PLACEHOLDER';
+    </script>
     <script src="js/script-lang.js"></script>
+    <script src="js/script-search.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>

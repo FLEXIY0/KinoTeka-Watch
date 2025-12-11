@@ -302,6 +302,7 @@ body {
     font-size: 14px;
     color: #2d2d2d;
     z-index: 10;
+    background-color: transparent;
 }
 
 .footer-left {
@@ -362,24 +363,68 @@ body {
     text-decoration: none;
 }
 
-/* Адаптивность */
-@media (max-width: 768px) {
-    .logo-top {
-        font-size: 20px;
-    }
-    
-    .search-text {
-        font-size: 24px;
-    }
-    
-    .cursor {
-        font-size: 24px;
-    }
-    
-    .footer {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
+
+/* Секция закрепленных фильмов */
+.favorite-films-section {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 0 40px;
+    max-width: 90%;
+}
+
+.favorite-film-tile {
+    background: transparent;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    padding: 8px 16px;
+}
+
+.favorite-film-tile:hover {
+    opacity: 0.7;
+}
+
+.favorite-film-name {
+    color: #959595;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: nowrap;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Контекстное меню */
+#contextMenu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.context-menu-item:hover {
+    background: #575757 !important;
+}
+
+/* Скроллбар для секции закрепленных фильмов */
+.favorite-films-section::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.favorite-films-section::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.favorite-films-section::-webkit-scrollbar-thumb {
+    background: #575757;
+    border-radius: 3px;
+}
+
+.favorite-films-section::-webkit-scrollbar-thumb:hover {
+    background: #696868;
 }
 

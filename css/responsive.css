@@ -1,0 +1,864 @@
+/* Глобальные адаптивные стили для всех мобильных устройств */
+
+/* ============================================
+   ОБЩИЕ НАСТРОЙКИ ДЛЯ ВСЕХ МОБИЛЬНЫХ
+   ============================================ */
+@media (max-width: 1024px) {
+    body {
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .container {
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+}
+
+/* ============================================
+   ПЛАНШЕТЫ И БОЛЬШИЕ МОБИЛЬНЫЕ (768px и меньше)
+   ============================================ */
+@media (max-width: 768px) {
+    /* Контейнер */
+    .container {
+        padding: 25px 20px 100px 20px;
+        min-height: 100vh;
+    }
+
+    /* Логотип */
+    .logo-top {
+        font-size: 20px;
+        top: 25px;
+    }
+
+    /* Tooltip */
+    .logo-tooltip {
+        left: 50%;
+        right: auto;
+        width: calc(100vw - 40px);
+        max-width: 600px;
+    }
+
+    .tooltip-content {
+        width: 100%;
+        max-width: none;
+        padding: 18px 20px;
+        font-size: 12px;
+    }
+
+    .tooltip-text {
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .tooltip-footer {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    /* Языки */
+    .language-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .language-option {
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+
+    .language-button {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+
+    .tooltip-mini-stats {
+        font-size: 10px;
+        gap: 6px;
+    }
+
+    .mini-stat {
+        font-size: 10px;
+    }
+
+    .mini-stat-separator {
+        font-size: 10px;
+    }
+
+    /* Поиск */
+    .search-container {
+        margin-top: 70px;
+        padding: 0 10px;
+    }
+
+    .search-wrapper {
+        max-width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .search-text {
+        font-size: 26px;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    .search-text-background {
+        font-size: 26px;
+    }
+
+    .cursor {
+        font-size: 26px;
+    }
+
+    /* Закрепленные фильмы */
+    .favorite-films-section {
+        bottom: 75px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 0 20px;
+        gap: 10px;
+        max-width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        max-height: 180px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .favorite-film-tile {
+        padding: 6px 12px;
+    }
+
+    .favorite-film-name {
+        font-size: 13px;
+    }
+
+    /* Футер */
+    .footer {
+        padding: 12px 20px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+
+    .footer-left {
+        font-size: 13px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .author {
+        margin-bottom: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .copyright {
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .footer-right {
+        flex-shrink: 0;
+    }
+
+    .github-link {
+        padding: 6px 12px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .github-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+    .github-text {
+        font-size: 13px;
+    }
+
+    /* Контекстное меню */
+    #contextMenu {
+        min-width: 140px;
+        font-size: 13px;
+    }
+
+    .context-menu-item {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+}
+
+/* ============================================
+   СРЕДНИЕ ТЕЛЕФОНЫ (480px и меньше)
+   ============================================ */
+@media (max-width: 480px) {
+    /* Контейнер */
+    .container {
+        padding: 20px 15px 90px 15px;
+    }
+
+    /* Логотип */
+    .logo-top {
+        font-size: 18px;
+        top: 20px;
+    }
+
+    /* Tooltip */
+    .logo-tooltip {
+        width: calc(100vw - 30px);
+        max-width: none;
+    }
+
+    .tooltip-content {
+        padding: 16px 18px;
+        font-size: 11px;
+    }
+
+    .tooltip-text {
+        font-size: 11px;
+        line-height: 1.6;
+    }
+
+    .tooltip-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    /* Языки */
+    .language-dropdown {
+        min-width: 280px;
+        left: 0;
+        right: auto;
+    }
+
+    .language-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+
+    .language-option {
+        padding: 7px 10px;
+        font-size: 10px;
+    }
+
+    .language-button {
+        padding: 5px 10px;
+        font-size: 10px;
+    }
+
+    .tooltip-mini-stats {
+        font-size: 9px;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .mini-stat {
+        font-size: 9px;
+    }
+
+    .mini-stat-separator {
+        font-size: 9px;
+    }
+
+    /* Поиск */
+    .search-container {
+        margin-top: 60px;
+        padding: 0 5px;
+    }
+
+    .search-wrapper {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .search-text {
+        font-size: 20px;
+        text-align: center;
+    }
+
+    .search-text-background {
+        font-size: 20px;
+    }
+
+    .cursor {
+        font-size: 20px;
+    }
+
+    /* Закрепленные фильмы */
+    .favorite-films-section {
+        bottom: 65px;
+        padding: 0 15px;
+        gap: 8px;
+        max-width: 100%;
+        max-height: 140px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .favorite-film-tile {
+        padding: 5px 10px;
+    }
+
+    .favorite-film-name {
+        font-size: 12px;
+        white-space: normal;
+        word-break: break-word;
+        max-width: 140px;
+        text-align: center;
+    }
+
+    /* Футер */
+    .footer {
+        padding: 10px 15px;
+        font-size: 12px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    .footer-left {
+        font-size: 12px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .author {
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .copyright {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .footer-right {
+        flex-shrink: 0;
+    }
+
+    .github-link {
+        padding: 5px 10px;
+        font-size: 12px;
+        gap: 5px;
+        white-space: nowrap;
+    }
+
+    .github-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+    }
+
+    .github-text {
+        font-size: 12px;
+    }
+
+    /* Контекстное меню */
+    #contextMenu {
+        min-width: 130px;
+        font-size: 12px;
+    }
+
+    .context-menu-item {
+        padding: 8px 14px;
+        font-size: 12px;
+    }
+}
+
+/* ============================================
+   МАЛЕНЬКИЕ ТЕЛЕФОНЫ (360px и меньше)
+   ============================================ */
+@media (max-width: 360px) {
+    /* Контейнер */
+    .container {
+        padding: 15px 12px 80px 12px;
+    }
+
+    /* Логотип */
+    .logo-top {
+        font-size: 16px;
+        top: 15px;
+    }
+
+    /* Tooltip */
+    .logo-tooltip {
+        width: calc(100vw - 24px);
+    }
+
+    .tooltip-content {
+        padding: 14px 16px;
+        font-size: 10px;
+    }
+
+    .tooltip-text {
+        font-size: 10px;
+        line-height: 1.5;
+    }
+
+    /* Языки */
+    .language-dropdown {
+        min-width: 260px;
+    }
+
+    .language-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 5px;
+    }
+
+    .language-option {
+        padding: 6px 8px;
+        font-size: 9px;
+    }
+
+    .language-button {
+        padding: 4px 8px;
+        font-size: 9px;
+    }
+
+    .tooltip-mini-stats {
+        font-size: 8px;
+    }
+
+    .mini-stat {
+        font-size: 8px;
+    }
+
+    .mini-stat-separator {
+        font-size: 8px;
+    }
+
+    /* Поиск */
+    .search-container {
+        margin-top: 50px;
+    }
+
+    .search-text {
+        font-size: 18px;
+    }
+
+    .search-text-background {
+        font-size: 18px;
+    }
+
+    .cursor {
+        font-size: 18px;
+    }
+
+    /* Закрепленные фильмы */
+    .favorite-films-section {
+        bottom: 60px;
+        padding: 0 12px;
+        gap: 6px;
+        max-height: 110px;
+        overflow-y: auto;
+    }
+
+    .favorite-film-tile {
+        padding: 4px 8px;
+    }
+
+    .favorite-film-name {
+        font-size: 11px;
+        max-width: 110px;
+    }
+
+    /* Футер */
+    .footer {
+        padding: 8px 12px;
+        font-size: 11px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+    }
+
+    .footer-left {
+        font-size: 11px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .author {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 2px;
+    }
+
+    .copyright {
+        font-size: 9px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .footer-right {
+        flex-shrink: 0;
+    }
+
+    .github-link {
+        padding: 5px 10px;
+        font-size: 11px;
+        gap: 5px;
+        white-space: nowrap;
+    }
+
+    .github-icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+    .github-text {
+        font-size: 11px;
+    }
+
+    /* Контекстное меню */
+    #contextMenu {
+        min-width: 120px;
+        font-size: 11px;
+    }
+
+    .context-menu-item {
+        padding: 7px 12px;
+        font-size: 11px;
+    }
+}
+
+/* ============================================
+   ОЧЕНЬ МАЛЕНЬКИЕ ЭКРАНЫ (320px и меньше)
+   ============================================ */
+@media (max-width: 320px) {
+    /* Контейнер */
+    .container {
+        padding: 12px 10px 70px 10px;
+    }
+
+    /* Логотип */
+    .logo-top {
+        font-size: 14px;
+        top: 12px;
+    }
+
+    /* Tooltip */
+    .tooltip-content {
+        padding: 12px 14px;
+        font-size: 9px;
+    }
+
+    .tooltip-text {
+        font-size: 9px;
+    }
+
+    /* Языки */
+    .language-dropdown {
+        min-width: 240px;
+    }
+
+    .language-option {
+        padding: 5px 6px;
+        font-size: 8px;
+    }
+
+    .language-button {
+        padding: 3px 6px;
+        font-size: 8px;
+    }
+
+    /* Поиск */
+    .search-text {
+        font-size: 16px;
+    }
+
+    .search-text-background {
+        font-size: 16px;
+    }
+
+    .cursor {
+        font-size: 16px;
+    }
+
+    /* Закрепленные фильмы */
+    .favorite-films-section {
+        bottom: 55px;
+        padding: 0 10px;
+        gap: 5px;
+        max-height: 90px;
+        overflow-y: auto;
+    }
+
+    .favorite-film-name {
+        font-size: 10px;
+        max-width: 90px;
+    }
+
+    /* Футер */
+    .footer {
+        padding: 6px 10px;
+        font-size: 10px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 6px;
+    }
+
+    .footer-left {
+        font-size: 10px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .author {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 2px;
+    }
+
+    .copyright {
+        font-size: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .footer-right {
+        flex-shrink: 0;
+    }
+
+    .github-link {
+        padding: 4px 8px;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+
+    .github-text {
+        font-size: 10px;
+    }
+}
+
+/* ============================================
+   ЛАНДШАФТНАЯ ОРИЕНТАЦИЯ
+   ============================================ */
+@media (max-width: 768px) and (orientation: landscape) {
+    .container {
+        padding: 15px 20px 60px 20px;
+    }
+
+    .logo-top {
+        top: 15px;
+        font-size: 18px;
+    }
+
+    .search-container {
+        margin-top: 40px;
+    }
+
+    .search-text {
+        font-size: 22px;
+    }
+
+    .search-text-background {
+        font-size: 22px;
+    }
+
+    .cursor {
+        font-size: 22px;
+    }
+
+    .footer {
+        padding: 6px 20px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+
+    .favorite-films-section {
+        bottom: 50px;
+        max-height: 90px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .tooltip-content {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+}
+
+/* ============================================
+   ВЫСОКИЕ ЭКРАНЫ (iPhone X, 11, 12, 13, 14, 15 и новее)
+   ============================================ */
+@media (max-width: 480px) and (min-height: 800px) {
+    .container {
+        padding-bottom: 130px;
+    }
+
+    .favorite-films-section {
+        bottom: 80px;
+        max-height: 200px;
+    }
+
+    .footer {
+        padding-bottom: max(15px, env(safe-area-inset-bottom));
+    }
+}
+
+/* ============================================
+   АДАПТАЦИЯ МОДАЛЬНЫХ ОКОН И КНОПОК ПЛЕЕРА
+   ============================================ */
+@media (max-width: 768px) {
+    /* Кнопки в плеере */
+    #playerModal button {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 18px !important;
+        top: 15px !important;
+        right: 15px !important;
+    }
+
+    /* Контейнер кнопок */
+    #playerModal > div:first-child {
+        top: 15px !important;
+        right: 15px !important;
+        gap: 8px !important;
+    }
+
+    /* Модальное окно ошибки */
+    #playerModal .error-content {
+        max-width: 90% !important;
+        padding: 30px 20px !important;
+    }
+
+    #playerModal h2 {
+        font-size: 20px !important;
+    }
+
+    #playerModal p {
+        font-size: 14px !important;
+    }
+
+    #playerModal button {
+        padding: 8px 20px !important;
+        font-size: 14px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    #playerModal button {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 16px !important;
+        top: 10px !important;
+        right: 10px !important;
+    }
+
+    #playerModal > div:first-child {
+        top: 10px !important;
+        right: 10px !important;
+        gap: 6px !important;
+    }
+
+    #playerModal .error-content {
+        padding: 25px 18px !important;
+    }
+
+    #playerModal h2 {
+        font-size: 18px !important;
+    }
+
+    #playerModal p {
+        font-size: 13px !important;
+    }
+}
+
+/* ============================================
+   УЛУЧШЕНИЯ ДЛЯ TOUCH-ИНТЕРФЕЙСОВ
+   ============================================ */
+@media (max-width: 768px) {
+    /* Увеличиваем область клика для touch */
+    .logo-top {
+        padding: 8px;
+        margin: -8px;
+    }
+
+    .language-button,
+    .language-option {
+        min-height: 36px;
+        touch-action: manipulation;
+    }
+
+    .favorite-film-tile {
+        min-height: 44px;
+        min-width: 44px;
+        touch-action: manipulation;
+    }
+
+    .github-link {
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+
+    /* Убираем hover эффекты на touch устройствах */
+    @media (hover: none) {
+        .favorite-film-tile:hover {
+            opacity: 1;
+        }
+
+        .github-link:hover {
+            transform: none;
+        }
+    }
+}
+
+/* ============================================
+   ПРЕДОТВРАЩЕНИЕ ZOOM ПРИ ДВОЙНОМ КАСАНИИ
+   ============================================ */
+@media (max-width: 768px) {
+    input,
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+
+/* ============================================
+   АДАПТАЦИЯ ДЛЯ SAFE AREA (iPhone с вырезом)
+   ============================================ */
+@supports (padding: max(0px)) {
+    @media (max-width: 768px) {
+        .container {
+            padding-top: max(25px, env(safe-area-inset-top));
+            padding-bottom: max(100px, env(safe-area-inset-bottom));
+        }
+
+        .footer {
+            padding-bottom: max(15px, env(safe-area-inset-bottom));
+        }
+
+        .logo-top {
+            top: max(25px, env(safe-area-inset-top));
+        }
+
+        .favorite-films-section {
+            bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px));
+        }
+    }
+}

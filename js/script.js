@@ -779,6 +779,11 @@ function resetToAnimationMode() {
 
 // Обработчик ввода текста - мгновенная реакция
 function handleInput(e) {
+    // Игнорируем, если идет переименование фильма
+    if (window.isRenamingFilm) {
+        return;
+    }
+    
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер при каждом вводе
         startIdleTimer();
@@ -787,19 +792,32 @@ function handleInput(e) {
 
 // Обработчик нажатия клавиш - для мгновенной реакции
 function handleKeyDown(e) {
+    // Игнорируем, если идет переименование фильма
+    if (window.isRenamingFilm) {
+        return;
+    }
+    
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер при нажатии любой клавиши
         startIdleTimer();
         
-        // Предотвращаем Enter
+        // Обрабатываем Enter для поиска
         if (e.key === 'Enter') {
             e.preventDefault();
+            if (typeof handleSearch === 'function') {
+                handleSearch();
+            }
         }
     }
 }
 
 // Глобальный обработчик нажатий клавиш - для быстрого перехода в режим редактирования
 function handleGlobalKeyDown(e) {
+    // Игнорируем, если идет переименование фильма
+    if (window.isRenamingFilm) {
+        return;
+    }
+    
     // Если уже в режиме редактирования, не обрабатываем
     if (searchTextElement.contentEditable === 'true') {
         return;
@@ -862,6 +880,11 @@ function handleGlobalKeyDown(e) {
 
 // Обработчик отпускания клавиш
 function handleKeyUp(e) {
+    // Игнорируем, если идет переименование фильма
+    if (window.isRenamingFilm) {
+        return;
+    }
+    
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер
         startIdleTimer();

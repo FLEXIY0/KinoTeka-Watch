@@ -1,0 +1,22 @@
+# Конфигурационные файлы с секретами
+config.js
+*.local.js
+.env
+.env.local
+
+# Временные файлы
+.DS_Store
+*.log
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (если будет использоваться)
+node_modules/
+package-lock.json
+

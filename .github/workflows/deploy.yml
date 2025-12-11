@@ -1,0 +1,55 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Inject API Key
+        run: |
+          # Проверяем наличие секрета
+          if [ -z "${{ secrets.KINOPOISK_API_KEY }}" ]; then
+            echo "❌ Ошибка: KINOPOISK_API_KEY не установлен в Secrets!"
+            exit 1
+          fi
+          # Экранируем специальные символы для sed
+          API_KEY=$(echo "${{ secrets.KINOPOISK_API_KEY }}" | sed 's/[[\.*^$()+?{|]/\\&/g')
+          # Заменяем placeholder на реальный ключ в index.html
+          sed -i "s/KINOPOISK_API_KEY_PLACEHOLDER/$API_KEY/g" index.html
+          # Также заменяем в js/script-search.js на случай, если там остался placeholder
+          sed -i "s/KINOPOISK_API_KEY_PLACEHOLDER/$API_KEY/g" js/script-search.js
+          echo "✅ API ключ успешно внедрен"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

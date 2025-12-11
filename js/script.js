@@ -751,7 +751,7 @@ function startIdleTimer() {
             searchTextElement.blur();
             resetToAnimationMode();
         }
-    }, 500);
+    }, 7000);
 }
 
 // Сброс в режим анимации

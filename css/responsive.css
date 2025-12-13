@@ -30,6 +30,12 @@
     .logo-top {
         font-size: 20px;
         top: 25px;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+        margin: 0 !important;
+        text-align: center !important;
     }
 
     /* Tooltip */
@@ -113,19 +119,36 @@
     
     /* Список предложений */
     .search-suggestions-wrapper {
-        top: -100px !important;
+        bottom: calc(100% + 12px) !important;
+        top: auto !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 1000 !important;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     
     .search-suggestions-icon {
-        width: 20px !important;
-        height: 20px !important;
-        font-size: 18px !important;
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 22px !important;
+        color: #696868 !important;
+        margin: 0 auto !important;
+        display: flex !important;
     }
     
     .search-suggestions-list {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
         min-width: calc(100vw - 40px) !important;
         max-width: calc(100vw - 40px) !important;
         padding: 4px 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
     
     .search-suggestion-tile {
@@ -241,6 +264,12 @@
     .logo-top {
         font-size: 18px;
         top: 20px;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+        margin: 0 !important;
+        text-align: center !important;
     }
 
     /* Tooltip */
@@ -327,20 +356,37 @@
     
     /* Список предложений */
     .search-suggestions-wrapper {
-        top: -100px !important;
+        bottom: calc(100% + 12px) !important;
+        top: auto !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 1000 !important;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     
     .search-suggestions-icon {
-        width: 20px !important;
-        height: 20px !important;
-        font-size: 18px !important;
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 22px !important;
+        color: #696868 !important;
+        margin: 0 auto !important;
+        display: flex !important;
     }
     
     .search-suggestions-list {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
         min-width: calc(100vw - 30px) !important;
         max-width: calc(100vw - 30px) !important;
         padding: 4px 0 !important;
         max-height: 300px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
     
     .search-suggestion-tile {
@@ -507,6 +553,40 @@
     .search-container {
         margin-top: 50px;
     }
+    
+    /* Список предложений */
+    .search-suggestions-wrapper {
+        bottom: calc(100% + 10px) !important;
+        top: auto !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 1000 !important;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .search-suggestions-icon {
+        margin: 0 auto !important;
+        display: flex !important;
+    }
+    
+    .search-suggestions-list {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    
+    .search-suggestions-icon {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 22px !important;
+        color: #696868 !important;
+    }
 
     .search-text {
         font-size: 18px;
@@ -614,6 +694,12 @@
     .logo-top {
         font-size: 14px;
         top: 12px;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+        margin: 0 !important;
+        text-align: center !important;
     }
 
     /* Tooltip */
@@ -724,10 +810,50 @@
     .logo-top {
         top: 15px;
         font-size: 18px;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+        margin: 0 !important;
+        text-align: center !important;
     }
 
     .search-container {
         margin-top: 40px;
+    }
+    
+    /* Список предложений */
+    .search-suggestions-wrapper {
+        bottom: calc(100% + 10px) !important;
+        top: auto !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        z-index: 1000 !important;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .search-suggestions-icon {
+        margin: 0 auto !important;
+        display: flex !important;
+    }
+    
+    .search-suggestions-list {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    
+    .search-suggestions-icon {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 22px !important;
+        color: #696868 !important;
     }
 
     .search-text {
@@ -949,6 +1075,12 @@
 
         .logo-top {
             top: max(25px, env(safe-area-inset-top));
+            left: 50% !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+            width: auto !important;
+            margin: 0 !important;
+            text-align: center !important;
         }
 
         .favorite-films-section {

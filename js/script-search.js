@@ -115,8 +115,8 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
             return;
         }
         
-        // Сохраняем все результаты (максимум 7)
-        searchResults = data.films.slice(0, 7).map(film => ({
+        // Сохраняем все результаты (максимум 10)
+        searchResults = data.films.slice(0, 10).map(film => ({
             id: film.filmId,
             name: film.nameRu || film.nameEn || film.nameOriginal,
             poster: film.posterUrl || film.posterUrlPreview || '',
@@ -226,8 +226,8 @@ async function searchKinopoisk(query) {
             return;
         }
         
-        // Сохраняем все результаты (максимум 7)
-        searchResults = data.films.slice(0, 7).map(film => ({
+        // Сохраняем все результаты (максимум 10)
+        searchResults = data.films.slice(0, 10).map(film => ({
             id: film.filmId,
             name: film.nameRu || film.nameEn || film.nameOriginal,
             poster: film.posterUrl || film.posterUrlPreview || '',
@@ -451,7 +451,21 @@ function renderSearchSuggestions() {
         
         const name = document.createElement('div');
         name.className = 'search-suggestion-name';
-        name.textContent = film.name;
+        
+        // Формируем название с английской версией в скобках, если она отличается
+        let displayName = film.name;
+        if (film.nameRu && film.nameEn && film.nameRu !== film.nameEn) {
+            // Если есть и русское, и английское название, и они различаются
+            displayName = film.nameRu + ' (' + film.nameEn + ')';
+        } else if (film.nameRu && film.nameOriginal && film.nameRu !== film.nameOriginal) {
+            // Если есть русское и оригинальное название
+            displayName = film.nameRu + ' (' + film.nameOriginal + ')';
+        } else if (film.nameEn && film.nameOriginal && film.nameEn !== film.nameOriginal) {
+            // Если есть английское и оригинальное название
+            displayName = film.nameEn + ' (' + film.nameOriginal + ')';
+        }
+        
+        name.textContent = displayName;
         
         tile.appendChild(name);
         

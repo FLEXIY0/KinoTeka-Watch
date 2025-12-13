@@ -1,0 +1,275 @@
+/* Светлая тема */
+
+body.light-theme {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.light-theme .container {
+    background-color: #ffffff !important;
+    transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.light-theme .logo-top {
+    color: #959595;
+    transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.light-theme .search-text,
+body.light-theme .search-text-background,
+body.light-theme .cursor {
+    color: #000000 !important;
+    transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.light-theme .search-text[contenteditable="true"] {
+    color: #000000 !important;
+    transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.light-theme .tooltip-content {
+    background-color: #ffffff;
+    border: 1px solid #d3d3d3;
+    color: #000000 !important;
+}
+
+body.light-theme .tooltip-text {
+    color: #000000 !important;
+}
+
+body.light-theme .tooltip-mini-stats {
+    color: #696868;
+}
+
+body.light-theme .language-button,
+body.light-theme .theme-toggle-button {
+    border: 1px solid #d3d3d3;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+}
+
+body.light-theme .language-button:hover,
+body.light-theme .theme-toggle-button:hover {
+    background-color: #f5f5f5;
+    border-color: #b3b3b3;
+}
+
+body.light-theme .language-dropdown {
+    background-color: #ffffff;
+    border: 1px solid #d3d3d3;
+}
+
+body.light-theme .language-option {
+    border: 1px solid #d3d3d3;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+}
+
+body.light-theme .language-option:hover {
+    background-color: #f5f5f5;
+    border-color: #b3b3b3;
+}
+
+body.light-theme .language-option.selected {
+    background-color: #e8e8e8;
+    border-color: #b3b3b3;
+}
+
+body.light-theme .theme-icon {
+    color: #000000 !important;
+}
+
+body.light-theme .footer {
+    color: #696868 !important;
+    background-color: transparent !important;
+}
+
+body.light-theme .footer-left {
+    color: #696868 !important;
+}
+
+body.light-theme .footer-left:hover {
+    color: #2d2d2d !important;
+}
+
+body.light-theme .github-icon {
+    color: #696868;
+}
+
+body.light-theme .search-suggestions-icon {
+    color: #959595;
+}
+
+body.light-theme .search-suggestions-icon:hover {
+    color: #000000 !important;
+}
+
+body.light-theme .search-suggestions-list {
+    background-color: #ffffff;
+    border: 1px solid #d3d3d3;
+}
+
+body.light-theme .search-suggestion-tile {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+body.light-theme .search-suggestion-tile:hover {
+    background-color: #f5f5f5;
+}
+
+body.light-theme .search-suggestion-name {
+    color: #696868;
+}
+
+body.light-theme .search-suggestion-tile:hover .search-suggestion-name {
+    color: #000000 !important;
+}
+
+body.light-theme .search-suggestion-year {
+    color: #b3b3b3;
+}
+
+body.light-theme .search-suggestion-tile:hover .search-suggestion-year {
+    color: #959595;
+}
+
+body.light-theme .favorite-film-tile {
+    border: 1px solid #d3d3d3;
+    color: #000000 !important;
+}
+
+body.light-theme .favorite-film-tile:hover {
+    background-color: #f5f5f5;
+    border-color: #b3b3b3;
+}
+
+body.light-theme .favorite-film-name {
+    color: #696868;
+}
+
+body.light-theme .author,
+body.light-theme .copyright {
+    color: #696868;
+}
+
+body.light-theme .footer-left:hover {
+    color: #000000 !important;
+}
+
+body.light-theme .github-link {
+    color: #000000 !important;
+    border-color: #d3d3d3;
+    background-color: #ffffff !important;
+}
+
+body.light-theme .github-link:hover {
+    color: #000000 !important;
+    border-color: #b3b3b3;
+    background-color: #f5f5f5 !important;
+}
+
+body.light-theme .github-text {
+    color: #000000 !important;
+}
+
+body.light-theme .favorite-films-section::-webkit-scrollbar-track {
+    background: #f5f5f5;
+}
+
+body.light-theme .favorite-films-section::-webkit-scrollbar-thumb {
+    background: #d3d3d3;
+}
+
+body.light-theme .favorite-films-section::-webkit-scrollbar-thumb:hover {
+    background: #b3b3b3;
+}
+
+body.light-theme #contextMenu {
+    background-color: #ffffff;
+    border: 1px solid #d3d3d3;
+}
+
+body.light-theme .context-menu-item {
+    color: #000000 !important;
+}
+
+body.light-theme .context-menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+body.light-theme #playerModal {
+    background-color: rgba(255, 255, 255, 0.95);
+}
+
+body.light-theme #playerModal button {
+    color: #000000 !important;
+}
+
+body.light-theme #playerModal .close-button,
+body.light-theme #playerModal .favorite-button {
+    color: #000000 !important;
+}
+
+/* Модальные окна ошибок */
+body.light-theme .error-modal {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+body.light-theme .error-content {
+    background-color: #ffffff !important;
+    border: 1px solid #d3d3d3;
+    color: #000000 !important;
+}
+
+body.light-theme .error-title {
+    color: #000000 !important;
+}
+
+body.light-theme .error-content button {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+body.light-theme .error-content button:hover {
+    background-color: #333333 !important;
+    border-color: #333333 !important;
+}
+
+body.light-theme .error-text {
+    color: #696868;
+}
+
+
+/* Модальное окно предупреждения о рекламе */
+body.light-theme #adWarningModal {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+body.light-theme #adWarningModal > div {
+    background-color: #ffffff !important;
+    border: 1px solid #d3d3d3;
+    color: #000000 !important;
+}
+
+body.light-theme #adWarningModal h2 {
+    color: #000000 !important;
+}
+
+body.light-theme #adWarningModal p {
+    color: #696868;
+}
+
+body.light-theme #adWarningModal button {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+body.light-theme #adWarningModal button:hover {
+    background-color: #333333 !important;
+    border-color: #333333 !important;
+}
+

@@ -607,6 +607,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Загрузка статистики посещений
     loadVisitStats();
     
+    // Инициализация переключения темы
+    initThemeToggle();
+    
     // Начинаем печатать первую фразу
     setTimeout(() => {
         typePhrase();
@@ -1247,5 +1250,96 @@ function formatNumber(num) {
         return (num / 1000).toFixed(1) + 'K';
     }
     return num.toString();
+}
+
+// Инициализация переключения темы
+function initThemeToggle() {
+    const themeToggleButton = document.getElementById('themeToggleButton');
+    if (!themeToggleButton) return;
+    
+    // Загружаем сохраненную тему
+    const savedTheme = localStorage.getItem('ktw_theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+    }
+    
+    // Обработчик клика на кнопку
+    themeToggleButton.addEventListener('click', (e) => {
+        toggleTheme(e);
+    });
+}
+
+// Переключение темы с анимацией
+function toggleTheme(event) {
+    const body = document.body;
+    const isLight = body.classList.contains('light-theme');
+    
+    // Получаем координаты клика
+    let x, y;
+    if (event && event.clientX !== undefined && event.clientY !== undefined) {
+        x = event.clientX;
+        y = event.clientY;
+    } else {
+        // Если событие не передано, используем центр экрана
+        x = window.innerWidth / 2;
+        y = window.innerHeight / 2;
+    }
+    
+    // Создаем контейнер для маски
+    const overlay = document.createElement('div');
+    overlay.className = 'theme-transition-overlay';
+    
+    // Вычисляем максимальный радиус для полного покрытия экрана
+    const maxRadius = Math.sqrt(
+        Math.pow(Math.max(x, window.innerWidth - x), 2) +
+        Math.pow(Math.max(y, window.innerHeight - y), 2)
+    );
+    
+    // Переключаем тему сразу, чтобы элементы начали плавно менять цвета
+    if (isLight) {
+        body.classList.remove('light-theme');
+        localStorage.setItem('ktw_theme', 'dark');
+    } else {
+        body.classList.add('light-theme');
+        localStorage.setItem('ktw_theme', 'light');
+    }
+    
+    // Создаем тонкий градиентный эффект "волны" вместо сплошного круга
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle at ${x}px ${y}px, 
+            ${isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)'} 0%, 
+            transparent 40%,
+            transparent 100%);
+        clip-path: circle(0% at ${x}px ${y}px);
+        pointer-events: none;
+        z-index: 999999;
+        transition: clip-path 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 1;
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Запускаем анимацию раскрытия
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            overlay.style.clipPath = `circle(${maxRadius * 1.2}px at ${x}px ${y}px)`;
+            // Плавно скрываем overlay в конце анимации
+            setTimeout(() => {
+                overlay.style.opacity = '0';
+            }, 700);
+        });
+    });
+    
+    // Удаляем overlay после завершения анимации
+    setTimeout(() => {
+        if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    }, 800);
 }
 

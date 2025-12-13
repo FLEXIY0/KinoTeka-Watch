@@ -92,7 +92,14 @@
     </div>
     
     <!-- API ключ -->
-    <script src="kinopoisk-key.js"></script>
+    <!-- Плейсхолдер для деплоя (заменяется через sed на Vercel) -->
+    <!-- Локально: файл kinopoisk-key.js перезапишет это значение -->
+    <script>
+        window.KINOPOISK_API_KEY = 'KINOPOISK_API_KEY_PLACEHOLDER';
+    </script>
+    <!-- Локальный файл с ключом (в .gitignore, не попадает в репозиторий) -->
+    <!-- При деплое этот файл отсутствует, используется значение из плейсхолдера (замененное через sed) -->
+    <script src="kinopoisk-key.js" onerror="this.remove(); console.log('Локальный kinopoisk-key.js не найден, используется ключ из плейсхолдера/переменной окружения');"></script>
     <script src="js/script-lang.js"></script>
     <script src="js/script-search.js"></script>
     <script src="js/script.js"></script>

@@ -110,6 +110,35 @@
     .cursor {
         font-size: 26px;
     }
+    
+    /* Список предложений */
+    .search-suggestions-wrapper {
+        top: -100px !important;
+    }
+    
+    .search-suggestions-icon {
+        width: 20px !important;
+        height: 20px !important;
+        font-size: 18px !important;
+    }
+    
+    .search-suggestions-list {
+        min-width: calc(100vw - 40px) !important;
+        max-width: calc(100vw - 40px) !important;
+        padding: 4px 0 !important;
+    }
+    
+    .search-suggestion-tile {
+        padding: 8px 14px !important;
+    }
+    
+    .search-suggestion-name {
+        font-size: 12px !important;
+    }
+    
+    .search-suggestion-year {
+        font-size: 10px !important;
+    }
 
     /* Закрепленные фильмы */
     .favorite-films-section {
@@ -294,6 +323,36 @@
 
     .cursor {
         font-size: 20px;
+    }
+    
+    /* Список предложений */
+    .search-suggestions-wrapper {
+        top: -100px !important;
+    }
+    
+    .search-suggestions-icon {
+        width: 20px !important;
+        height: 20px !important;
+        font-size: 18px !important;
+    }
+    
+    .search-suggestions-list {
+        min-width: calc(100vw - 30px) !important;
+        max-width: calc(100vw - 30px) !important;
+        padding: 4px 0 !important;
+        max-height: 300px !important;
+    }
+    
+    .search-suggestion-tile {
+        padding: 8px 12px !important;
+    }
+    
+    .search-suggestion-name {
+        font-size: 12px !important;
+    }
+    
+    .search-suggestion-year {
+        font-size: 10px !important;
     }
 
     /* Закрепленные фильмы */
@@ -725,6 +784,20 @@
    АДАПТАЦИЯ МОДАЛЬНЫХ ОКОН И КНОПОК ПЛЕЕРА
    ============================================ */
 @media (max-width: 768px) {
+    /* Модальное окно предупреждения о рекламе */
+    #adWarningModal > div {
+        padding: 30px 25px !important;
+        max-width: 85% !important;
+    }
+    
+    #adWarningModal h2 {
+        font-size: 22px !important;
+    }
+    
+    #adWarningModal div[style*="line-height"] {
+        font-size: 13px !important;
+    }
+    
     /* Кнопки в плеере */
     #playerModal button {
         width: 32px !important;
@@ -786,6 +859,27 @@
 
     #playerModal p {
         font-size: 13px !important;
+    }
+    
+    /* Модальное окно предупреждения о рекламе */
+    #adWarningModal > div {
+        padding: 25px 20px !important;
+        max-width: 90% !important;
+    }
+    
+    #adWarningModal h2 {
+        font-size: 20px !important;
+        margin-bottom: 15px !important;
+    }
+    
+    #adWarningModal div[style*="line-height"] {
+        font-size: 13px !important;
+        line-height: 1.6 !important;
+    }
+    
+    #adWarningModal button {
+        padding: 10px 30px !important;
+        font-size: 14px !important;
     }
 }
 

@@ -288,6 +288,133 @@ body {
     display: none;
 }
 
+/* Список предложений фильмов */
+.search-suggestions-wrapper {
+    position: absolute;
+    top: 170px; /* Посередине между input и логотипом */
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.search-suggestions-wrapper.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.search-suggestions-icon {
+    font-size: 20px;
+    color: #2d2d2d;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    font-family: 'Consolas', 'Courier New', monospace;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    font-weight: normal;
+}
+
+.search-suggestions-icon:hover {
+    color: #575757;
+    opacity: 0.9;
+}
+
+.search-suggestions-list {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #000000;
+    border: 1px solid #2d2d2d;
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 280px;
+    max-width: 400px;
+    max-height: 300px;
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.search-suggestions-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.search-suggestions-list::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.search-suggestions-list::-webkit-scrollbar-thumb {
+    background: #575757;
+    border-radius: 3px;
+}
+
+.search-suggestions-list::-webkit-scrollbar-thumb:hover {
+    background: #696868;
+}
+
+.search-suggestion-tile {
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.search-suggestion-tile:last-child {
+    border-bottom: none;
+}
+
+.search-suggestion-tile:hover {
+    background-color: #1a1a1a;
+}
+
+.search-suggestion-name {
+    color: #959595;
+    font-size: 13px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.search-suggestion-tile:hover .search-suggestion-name {
+    color: #ffffff;
+}
+
+.search-suggestion-year {
+    color: #2d2d2d;
+    font-size: 11px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    flex-shrink: 0;
+}
+
+.search-suggestion-tile:hover .search-suggestion-year {
+    color: #575757;
+}
+
 /* Футер */
 .footer {
     position: fixed;

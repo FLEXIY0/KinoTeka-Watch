@@ -466,62 +466,98 @@ const tooltipTranslations = {
     ru: {
         disclaimer: 'Все инструменты, ссылки и функции, предоставляемые ktw, предназначены исключительно для удобства и информационных целей. Сайт не хранит и не распространяет аудио- или видеоматериалы. Любые медиафайлы, воспроизводимые через сайт, размещаются и управляются сторонними ресурсами. Мы не принимаем на себя ответственности за содержание, легальность, качество или доступность такого контента на внешних сайтах. Использование любых материалов, полученных через наш сайт, происходит на ваш страх и риск.',
         accept: 'принято',
-        copyright: '2025 все права защищены.'
+        copyright: '2025 все права защищены.',
+        adWarningTitle: 'Важная информация',
+        adWarningText: 'Сторонние видеоплееры, используемые на сайте, могут содержать рекламу и баннеры.\n\nДля комфортного просмотра без рекламы рекомендуем:\n\n• Установить AdGuard или другой блокировщик рекламы\n• Использовать браузер с блокировкой рекламы для Android:',
+        adWarningButton: 'Понятно'
     },
     en: {
         disclaimer: 'All tools, links and functions provided by ktw are intended solely for convenience and informational purposes. The site does not store or distribute audio or video materials. Any media files played through the site are hosted and managed by third-party resources. We do not assume responsibility for the content, legality, quality or availability of such content on external sites. The use of any materials obtained through our site is at your own risk.',
         accept: 'accepted',
-        copyright: '2025 all rights reserved.'
+        copyright: '2025 all rights reserved.',
+        adWarningTitle: 'Important Information',
+        adWarningText: 'Third-party video players used on the site may contain advertisements and banners.\n\nFor ad-free viewing, we recommend:\n\n• Install AdGuard or another ad blocker\n• Use an ad-blocking browser for Android:',
+        adWarningButton: 'OK'
     },
     de: {
         disclaimer: 'Alle von ktw bereitgestellten Tools, Links und Funktionen dienen ausschließlich der Bequemlichkeit und zu Informationszwecken. Die Website speichert oder verteilt keine Audio- oder Videomaterialien. Alle über die Website abgespielten Mediendateien werden von Drittanbietern gehostet und verwaltet. Wir übernehmen keine Verantwortung für den Inhalt, die Legalität, die Qualität oder die Verfügbarkeit solcher Inhalte auf externen Websites. Die Verwendung von Materialien, die über unsere Website erhalten werden, erfolgt auf eigenes Risiko.',
         accept: 'akzeptiert',
-        copyright: '2025 alle Rechte vorbehalten.'
+        copyright: '2025 alle Rechte vorbehalten.',
+        adWarningTitle: 'Wichtige Information',
+        adWarningText: 'Von Drittanbietern bereitgestellte Videoplayer können Werbung und Banner enthalten.\n\nFür werbefreies Ansehen empfehlen wir:\n\n• AdGuard oder einen anderen Werbeblocker installieren\n• Einen werbeblockierenden Browser für Android verwenden:',
+        adWarningButton: 'OK'
     },
     fr: {
         disclaimer: 'Tous les outils, liens et fonctions fournis par ktw sont destinés uniquement à la commodité et à des fins d\'information. Le site ne stocke ni ne distribue de matériel audio ou vidéo. Tous les fichiers multimédias lus via le site sont hébergés et gérés par des ressources tierces. Nous n\'assumons aucune responsabilité concernant le contenu, la légalité, la qualité ou la disponibilité de ce contenu sur les sites externes. L\'utilisation de tout matériel obtenu via notre site se fait à vos risques et périls.',
         accept: 'accepté',
-        copyright: '2025 tous droits réservés.'
+        copyright: '2025 tous droits réservés.',
+        adWarningTitle: 'Information importante',
+        adWarningText: 'Les lecteurs vidéo tiers utilisés sur le site peuvent contenir des publicités et des bannières.\n\nPour une visualisation sans publicité, nous recommandons:\n\n• Installer AdGuard ou un autre bloqueur de publicités\n• Utiliser un navigateur avec blocage de publicités pour Android:',
+        adWarningButton: 'OK'
     },
     es: {
         disclaimer: 'Todas las herramientas, enlaces y funciones proporcionadas por ktw están destinadas únicamente para conveniencia y fines informativos. El sitio no almacena ni distribuye materiales de audio o video. Cualquier archivo multimedia reproducido a través del sitio está alojado y gestionado por recursos de terceros. No asumimos responsabilidad por el contenido, la legalidad, la calidad o la disponibilidad de dicho contenido en sitios externos. El uso de cualquier material obtenido a través de nuestro sitio es bajo su propio riesgo.',
         accept: 'aceptado',
-        copyright: '2025 todos los derechos reservados.'
+        copyright: '2025 todos los derechos reservados.',
+        adWarningTitle: 'Información importante',
+        adWarningText: 'Los reproductores de video de terceros utilizados en el sitio pueden contener anuncios y banners.\n\nPara una visualización sin anuncios, recomendamos:\n\n• Instalar AdGuard u otro bloqueador de anuncios\n• Usar un navegador con bloqueo de anuncios para Android:',
+        adWarningButton: 'OK'
     },
     it: {
         disclaimer: 'Tutti gli strumenti, i collegamenti e le funzioni forniti da ktw sono destinati esclusivamente alla comodità e a scopi informativi. Il sito non memorizza né distribuisce materiali audio o video. Eventuali file multimediali riprodotti tramite il sito sono ospitati e gestiti da risorse di terze parti. Non ci assumiamo la responsabilità del contenuto, della legalità, della qualità o della disponibilità di tale contenuto su siti esterni. L\'uso di eventuali materiali ottenuti tramite il nostro sito è a proprio rischio.',
         accept: 'accettato',
-        copyright: '2025 tutti i diritti riservati.'
+        copyright: '2025 tutti i diritti riservati.',
+        adWarningTitle: 'Informazione importante',
+        adWarningText: 'I lettori video di terze parti utilizzati sul sito possono contenere pubblicità e banner.\n\nPer una visione senza pubblicità, consigliamo:\n\n• Installare AdGuard o un altro bloccatore di pubblicità\n• Utilizzare un browser con blocco pubblicità per Android:',
+        adWarningButton: 'OK'
     },
     pt: {
         disclaimer: 'Todas as ferramentas, links e funções fornecidos pelo ktw destinam-se exclusivamente à conveniência e fins informativos. O site não armazena nem distribui materiais de áudio ou vídeo. Quaisquer arquivos de mídia reproduzidos através do site são hospedados e gerenciados por recursos de terceiros. Não assumimos responsabilidade pelo conteúdo, legalidade, qualidade ou disponibilidade de tal conteúdo em sites externos. O uso de qualquer material obtido através do nosso site é por sua conta e risco.',
         accept: 'aceito',
-        copyright: '2025 todos os direitos reservados.'
+        copyright: '2025 todos os direitos reservados.',
+        adWarningTitle: 'Informação importante',
+        adWarningText: 'Os reprodutores de vídeo de terceiros usados no site podem conter anúncios e banners.\n\nPara visualização sem anúncios, recomendamos:\n\n• Instalar AdGuard ou outro bloqueador de anúncios\n• Usar um navegador com bloqueio de anúncios para Android:',
+        adWarningButton: 'OK'
     },
     pl: {
         disclaimer: 'Wszystkie narzędzia, linki i funkcje zapewniane przez ktw przeznaczone są wyłącznie do celów wygody i informacyjnych. Strona nie przechowuje ani nie rozpowszechnia materiałów audio lub wideo. Wszelkie pliki multimedialne odtwarzane za pośrednictwem strony są hostowane i zarządzane przez zasoby stron trzecich. Nie ponosimy odpowiedzialności za treść, legalność, jakość lub dostępność takiej treści na zewnętrznych stronach. Korzystanie z jakichkolwiek materiałów uzyskanych za pośrednictwem naszej strony odbywa się na własne ryzyko.',
         accept: 'zaakceptowano',
-        copyright: '2025 wszystkie prawa zastrzeżone.'
+        copyright: '2025 wszystkie prawa zastrzeżone.',
+        adWarningTitle: 'Ważna informacja',
+        adWarningText: 'Odtwarzacze wideo stron trzecich używane na stronie mogą zawierać reklamy i banery.\n\nAby oglądać bez reklam, zalecamy:\n\n• Zainstalować AdGuard lub inny bloker reklam\n• Użyć przeglądarki z blokowaniem reklam na Androida:',
+        adWarningButton: 'OK'
     },
     uk: {
         disclaimer: 'Всі інструменти, посилання та функції, надані ktw, призначені виключно для зручності та інформаційних цілей. Сайт не зберігає та не поширює аудіо- або відеоматеріали. Будь-які медіафайли, що відтворюються через сайт, розміщуються та керуються сторонніми ресурсами. Ми не беремо на себе відповідальності за зміст, законність, якість або доступність такого контенту на зовнішніх сайтах. Використання будь-яких матеріалів, отриманих через наш сайт, відбувається на ваш страх і ризик.',
         accept: 'прийнято',
-        copyright: '2025 всі права захищені.'
+        copyright: '2025 всі права захищені.',
+        adWarningTitle: 'Важлива інформація',
+        adWarningText: 'Сторонні відеоплеєри, що використовуються на сайті, можуть містити рекламу та банери.\n\nДля комфортного перегляду без реклами рекомендуємо:\n\n• Встановити AdGuard або інший блокувальник реклами\n• Використовувати браузер з блокуванням реклами для Android:',
+        adWarningButton: 'Зрозуміло'
     },
     ja: {
         disclaimer: 'ktwが提供するすべてのツール、リンク、機能は、便宜と情報提供の目的のみを目的としています。サイトはオーディオまたはビデオ素材を保存または配布しません。サイトを通じて再生されるメディアファイルは、サードパーティのリソースによってホストおよび管理されています。外部サイトでのこのようなコンテンツの内容、合法性、品質、または可用性について責任を負いません。当サイトを通じて取得した資料の使用は、自己責任で行われます。',
         accept: '受け入れました',
-        copyright: '2025 全著作権所有。'
+        copyright: '2025 全著作権所有。',
+        adWarningTitle: '重要な情報',
+        adWarningText: 'サイトで使用されるサードパーティのビデオプレーヤーには、広告やバナーが含まれる場合があります。\n\n広告なしで視聴するために、以下を推奨します:\n\n• AdGuardまたは他の広告ブロッカーをインストール\n• Android用の広告ブロックブラウザを使用:',
+        adWarningButton: 'OK'
     },
     ko: {
         disclaimer: 'ktw가 제공하는 모든 도구, 링크 및 기능은 편의 및 정보 제공 목적으로만 사용됩니다. 사이트는 오디오 또는 비디오 자료를 저장하거나 배포하지 않습니다. 사이트를 통해 재생되는 모든 미디어 파일은 타사 리소스에서 호스팅 및 관리됩니다. 외부 사이트에서 이러한 콘텐츠의 내용, 합법성, 품질 또는 가용성에 대해 책임을 지지 않습니다. 당사 사이트를 통해 얻은 자료 사용은 귀하의 위험 부담입니다.',
         accept: '수락됨',
-        copyright: '2025 모든 권리 보유.'
+        copyright: '2025 모든 권리 보유.',
+        adWarningTitle: '중요한 정보',
+        adWarningText: '사이트에서 사용되는 타사 비디오 플레이어에는 광고 및 배너가 포함될 수 있습니다.\n\n광고 없이 시청하려면 다음을 권장합니다:\n\n• AdGuard 또는 다른 광고 차단기 설치\n• Android용 광고 차단 브라우저 사용:',
+        adWarningButton: '확인'
     },
     zh: {
         disclaimer: 'ktw提供的所有工具、链接和功能仅用于便利和信息目的。该网站不存储或分发音频或视频材料。通过该网站播放的任何媒体文件都由第三方资源托管和管理。我们不对外部网站上此类内容的内容、合法性、质量或可用性承担责任。通过我们的网站获得的任何材料的使用均由您自行承担风险。',
         accept: '已接受',
-        copyright: '2025 版权所有。'
+        copyright: '2025 版权所有。',
+        adWarningTitle: '重要信息',
+        adWarningText: '网站上使用的第三方视频播放器可能包含广告和横幅。\n\n为了无广告观看，我们建议:\n\n• 安装AdGuard或其他广告拦截器\n• 使用Android广告拦截浏览器:',
+        adWarningButton: '确定'
     }
 };
 
@@ -556,6 +592,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Инициализация tooltip
     initTooltip();
+    
+    // Показываем предупреждение о рекламе при первом запуске
+    setTimeout(() => {
+        showAdWarningModal();
+    }, 300);
     
     // Инициализация анимации логотипа для новых пользователей
     initLogoShake();
@@ -787,6 +828,27 @@ function handleInput(e) {
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер при каждом вводе
         startIdleTimer();
+        
+        // Автоматический поиск для показа списка предложений (через 800ms после остановки ввода)
+        if (window.autoSuggestTimer) {
+            clearTimeout(window.autoSuggestTimer);
+        }
+        
+        const searchText = searchTextElement.textContent.trim();
+        if (searchText.length >= 2) {
+            window.autoSuggestTimer = setTimeout(() => {
+                // Выполняем поиск только для показа списка предложений
+                if (typeof window.searchKinopoiskForSuggestions === 'function') {
+                    window.searchKinopoiskForSuggestions(searchText);
+                }
+            }, 800);
+        } else {
+            // Если текст слишком короткий, скрываем предложения
+            if (typeof hideSearchSuggestions === 'function') {
+                hideSearchSuggestions();
+            }
+            searchResults = [];
+        }
     }
 }
 
@@ -919,6 +981,146 @@ function initTooltip() {
     const translations = tooltipTranslations[currentLanguage] || tooltipTranslations['en'];
     
     document.getElementById('disclaimerText').textContent = translations.disclaimer;
+}
+
+// Показ предупреждения о рекламе при первом запуске
+function showAdWarningModal() {
+    // Проверяем, показывали ли уже предупреждение
+    const adWarningShown = localStorage.getItem('ktw_ad_warning_shown');
+    if (adWarningShown === 'true') {
+        return;
+    }
+    
+    const translations = tooltipTranslations[currentLanguage] || tooltipTranslations['en'];
+    
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.id = 'adWarningModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.95);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Consolas', 'Courier New', monospace;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background-color: #000000;
+        border: 1px solid #575757;
+        padding: 40px;
+        max-width: 600px;
+        width: 90%;
+        color: #ffffff;
+        text-align: left;
+    `;
+    
+    // Заголовок
+    const title = document.createElement('h2');
+    title.textContent = translations.adWarningTitle || 'Important Information';
+    title.style.cssText = `
+        margin: 0 0 20px 0;
+        color: #ffffff;
+        font-size: 24px;
+        font-weight: 400;
+    `;
+    
+    // Текст
+    const text = document.createElement('div');
+    const textLines = (translations.adWarningText || '').split('\n');
+    text.style.cssText = `
+        margin: 0 0 30px 0;
+        color: #cccccc;
+        line-height: 1.8;
+        font-size: 14px;
+        white-space: pre-line;
+    `;
+    
+    // Форматируем текст с поддержкой ссылок
+    textLines.forEach((line, index) => {
+        const lineDiv = document.createElement('div');
+        
+        if (line.trim().startsWith('•')) {
+            lineDiv.style.marginLeft = '20px';
+            lineDiv.style.marginBottom = '8px';
+        }
+        
+        // Последняя строка - добавляем ссылку после текста
+        if (index === textLines.length - 1 && line.trim()) {
+            lineDiv.appendChild(document.createTextNode(line));
+            
+            const link = document.createElement('a');
+            link.href = 'https://play.google.com/store/apps/details?id=org.adblockplus.browser&pli=1';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = ' Adblock Browser';
+            link.style.cssText = `
+                color: #ffffff;
+                text-decoration: underline;
+                text-decoration-color: #575757;
+                transition: text-decoration-color 0.2s ease;
+            `;
+            link.onmouseenter = function() {
+                this.style.textDecorationColor = '#ffffff';
+            };
+            link.onmouseleave = function() {
+                this.style.textDecorationColor = '#575757';
+            };
+            
+            lineDiv.appendChild(link);
+        } else {
+            lineDiv.textContent = line;
+        }
+        
+        text.appendChild(lineDiv);
+    });
+    
+    // Кнопка OK
+    const button = document.createElement('button');
+    button.textContent = translations.adWarningButton || 'OK';
+    button.style.cssText = `
+        background: #2d2d2d;
+        border: 1px solid #575757;
+        color: #ffffff;
+        padding: 12px 40px;
+        cursor: pointer;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 16px;
+        transition: all 0.2s ease;
+        width: 100%;
+        margin-top: 10px;
+    `;
+    
+    button.onmouseover = function() {
+        this.style.background = '#575757';
+        this.style.borderColor = '#696868';
+    };
+    
+    button.onmouseout = function() {
+        this.style.background = '#2d2d2d';
+        this.style.borderColor = '#575757';
+    };
+    
+    button.onclick = function() {
+        // Сохраняем, что предупреждение было показано
+        localStorage.setItem('ktw_ad_warning_shown', 'true');
+        // Удаляем модальное окно
+        if (modal.parentNode) {
+            document.body.removeChild(modal);
+        }
+    };
+    
+    modalContent.appendChild(title);
+    modalContent.appendChild(text);
+    modalContent.appendChild(button);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
 }
 
 // Инициализация анимации шатания логотипа для новых пользователей

@@ -593,12 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Инициализация tooltip
     initTooltip();
     
-    // Показываем предупреждение о рекламе при первом запуске
-    setTimeout(() => {
-        showAdWarningModal();
-    }, 300);
-    
-    // Инициализация анимации логотипа для новых пользователей
+    // Инициализация меню KTW (первый запуск: принятие условий + определение языка)
     initLogoShake();
     
     // Загрузка статистики GitHub
@@ -986,161 +981,33 @@ function initTooltip() {
     document.getElementById('disclaimerText').textContent = translations.disclaimer;
 }
 
-// Показ предупреждения о рекламе при первом запуске
-function showAdWarningModal() {
-    // Проверяем, показывали ли уже предупреждение
-    const adWarningShown = localStorage.getItem('ktw_ad_warning_shown');
-    if (adWarningShown === 'true') {
-        return;
-    }
-    
-    const translations = tooltipTranslations[currentLanguage] || tooltipTranslations['en'];
-    
-    // Создаем модальное окно
-    const modal = document.createElement('div');
-    modal.id = 'adWarningModal';
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.95);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: 'Consolas', 'Courier New', monospace;
-    `;
-    
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-        background-color: #000000;
-        border: 1px solid #575757;
-        padding: 40px;
-        max-width: 600px;
-        width: 90%;
-        color: #ffffff;
-        text-align: left;
-    `;
-    
-    // Заголовок
-    const title = document.createElement('h2');
-    title.textContent = translations.adWarningTitle || 'Important Information';
-    title.style.cssText = `
-        margin: 0 0 20px 0;
-        color: #ffffff;
-        font-size: 24px;
-        font-weight: 400;
-    `;
-    
-    // Текст
-    const text = document.createElement('div');
-    const textLines = (translations.adWarningText || '').split('\n');
-    text.style.cssText = `
-        margin: 0 0 30px 0;
-        color: #cccccc;
-        line-height: 1.8;
-        font-size: 14px;
-        white-space: pre-line;
-    `;
-    
-    // Форматируем текст с поддержкой ссылок
-    textLines.forEach((line, index) => {
-        const lineDiv = document.createElement('div');
-        
-        if (line.trim().startsWith('•')) {
-            lineDiv.style.marginLeft = '20px';
-            lineDiv.style.marginBottom = '8px';
-        }
-        
-        // Последняя строка - добавляем ссылку после текста
-        if (index === textLines.length - 1 && line.trim()) {
-            lineDiv.appendChild(document.createTextNode(line));
-            
-            const link = document.createElement('a');
-            link.href = 'https://play.google.com/store/apps/details?id=org.adblockplus.browser&pli=1';
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = ' Adblock Browser';
-            link.style.cssText = `
-                color: #ffffff;
-                text-decoration: underline;
-                text-decoration-color: #575757;
-                transition: text-decoration-color 0.2s ease;
-            `;
-            link.onmouseenter = function() {
-                this.style.textDecorationColor = '#ffffff';
-            };
-            link.onmouseleave = function() {
-                this.style.textDecorationColor = '#575757';
-            };
-            
-            lineDiv.appendChild(link);
-        } else {
-            lineDiv.textContent = line;
-        }
-        
-        text.appendChild(lineDiv);
-    });
-    
-    // Кнопка OK
-    const button = document.createElement('button');
-    button.textContent = translations.adWarningButton || 'OK';
-    button.style.cssText = `
-        background: #2d2d2d;
-        border: 1px solid #575757;
-        color: #ffffff;
-        padding: 12px 40px;
-        cursor: pointer;
-        font-family: 'Consolas', 'Courier New', monospace;
-        font-size: 16px;
-        transition: all 0.2s ease;
-        width: 100%;
-        margin-top: 10px;
-    `;
-    
-    button.onmouseover = function() {
-        this.style.background = '#575757';
-        this.style.borderColor = '#696868';
-    };
-    
-    button.onmouseout = function() {
-        this.style.background = '#2d2d2d';
-        this.style.borderColor = '#575757';
-    };
-    
-    button.onclick = function() {
-        // Сохраняем, что предупреждение было показано
-        localStorage.setItem('ktw_ad_warning_shown', 'true');
-        // Удаляем модальное окно
-        if (modal.parentNode) {
-            document.body.removeChild(modal);
-        }
-    };
-    
-    modalContent.appendChild(title);
-    modalContent.appendChild(text);
-    modalContent.appendChild(button);
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-}
+// showAdWarningModal удалена — логика перенесена в initLogoShake
+// Предупреждение о рекламе теперь показывается вместе с дисплеймером при первом визите
 
-// Инициализация анимации шатания логотипа для новых пользователей
+// Инициализация меню KTW: первый визит — принятие условий + определение языка
 function initLogoShake() {
-    const logoTop = document.getElementById('logoTop');
-    const logoTooltip = document.getElementById('logoTooltip');
-    let hoverTimeout = null;
-    let isHovering = false;
-    
-    // Проверяем, является ли это первым визитом
-    const isFirstVisit = !localStorage.getItem('ktw_disclaimer_viewed');
-    
-    if (isFirstVisit) {
-        // Добавляем класс с анимацией шатания
-        logoTop.classList.add('shake');
-    }
-    
+    var logoTop = document.getElementById('logoTop');
+    var logoTooltip = document.getElementById('logoTooltip');
+    var hoverTimeout = null;
+    var isHovering = false;
+    var termsAccepted = !!localStorage.getItem('ktw_terms_accepted');
+
+    // Тексты для уведомления об автоопределении языка
+    var langDetectedTexts = {
+        ru: 'Язык определён автоматически',
+        en: 'Language detected automatically',
+        de: 'Sprache automatisch erkannt',
+        fr: 'Langue détectée automatiquement',
+        es: 'Idioma detectado automáticamente',
+        it: 'Lingua rilevata automaticamente',
+        pt: 'Idioma detectado automaticamente',
+        pl: 'Język wykryty automatycznie',
+        uk: 'Мова визначена автоматично',
+        ja: '言語は自動的に検出されました',
+        ko: '언어가 자동으로 감지되었습니다',
+        zh: '语言已自动检测'
+    };
+
     // Функция показа tooltip
     function showTooltip() {
         if (hoverTimeout) {
@@ -1153,44 +1020,129 @@ function initLogoShake() {
         logoTooltip.style.transform = 'translateX(-50%) translateY(0)';
         logoTooltip.style.pointerEvents = 'auto';
     }
-    
+
     // Функция скрытия tooltip
     function hideTooltip() {
+        // Не скрываем, если условия не приняты
+        if (!termsAccepted) return;
+
         if (hoverTimeout) {
             clearTimeout(hoverTimeout);
         }
-        hoverTimeout = setTimeout(() => {
+        hoverTimeout = setTimeout(function() {
             if (!isHovering) {
                 logoTooltip.style.opacity = '0';
                 logoTooltip.style.visibility = 'hidden';
                 logoTooltip.style.transform = 'translateX(-50%) translateY(-10px)';
                 logoTooltip.style.pointerEvents = 'none';
             }
-        }, 100); // Небольшая задержка для плавного перехода
+        }, 100);
     }
-    
-    // Обработчики для логотипа
+
+    // Первый визит: показываем меню открытым с оверлеем и кнопкой принятия
+    if (!termsAccepted) {
+        logoTop.classList.add('shake');
+
+        // Оверлей поверх всего контента
+        var overlay = document.createElement('div');
+        overlay.id = 'disclaimerOverlay';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%;' +
+            'background-color: rgba(0, 0, 0, 0.7); z-index: 99;';
+        document.body.appendChild(overlay);
+
+        // Добавляем информацию о рекламе в текст дисплеймера
+        var disclaimerText = document.getElementById('disclaimerText');
+        var translations = tooltipTranslations[currentLanguage] || tooltipTranslations['en'];
+        if (disclaimerText && translations.adWarningText) {
+            var adInfo = document.createElement('div');
+            adInfo.style.cssText = 'margin-top: 14px; padding-top: 14px; border-top: 1px solid #2d2d2d;';
+            adInfo.textContent = translations.adWarningText.replace(/\n+/g, ' ');
+            disclaimerText.parentNode.insertBefore(adInfo, disclaimerText.nextSibling);
+        }
+
+        // Уведомление об автоопределении языка (если нет сохранённого)
+        var savedLang = localStorage.getItem('ktw_selected_language');
+        if (!savedLang && typeof supportedLanguages !== 'undefined') {
+            var userLang = (navigator.language || navigator.userLanguage || 'en').split('-')[0].toLowerCase();
+            if (supportedLanguages[userLang] && userLang !== 'en') {
+                var langNote = document.createElement('div');
+                langNote.style.cssText = 'margin-top: 12px; font-size: 11px; color: #959595;';
+                var langText = langDetectedTexts[currentLanguage] || langDetectedTexts['en'];
+                langNote.textContent = langText + ': ' + supportedLanguages[currentLanguage];
+                var tooltipFooter = document.querySelector('.tooltip-footer');
+                if (tooltipFooter) {
+                    tooltipFooter.parentNode.insertBefore(langNote, tooltipFooter);
+                }
+            }
+        }
+
+        // Кнопка принятия условий
+        var tooltipContent = document.querySelector('.tooltip-content');
+        var acceptButton = document.createElement('button');
+        acceptButton.id = 'acceptTermsButton';
+        acceptButton.textContent = translations.accept || 'accepted';
+        acceptButton.style.cssText = 'background: #2d2d2d; border: 1px solid #575757; color: #ffffff;' +
+            'padding: 10px 30px; cursor: pointer; font-family: "Consolas", "Courier New", monospace;' +
+            'font-size: 14px; transition: all 0.2s ease; width: 100%; margin-top: 16px;';
+        acceptButton.onmouseover = function() { this.style.background = '#575757'; this.style.borderColor = '#696868'; };
+        acceptButton.onmouseout = function() { this.style.background = '#2d2d2d'; this.style.borderColor = '#575757'; };
+        acceptButton.onclick = function() {
+            localStorage.setItem('ktw_terms_accepted', 'true');
+            localStorage.setItem('ktw_ad_warning_shown', 'true');
+            localStorage.setItem('ktw_disclaimer_viewed', 'true');
+            termsAccepted = true;
+
+            // Убираем оверлей
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+
+            // Убираем кнопку и доп. элементы
+            if (acceptButton.parentNode) acceptButton.parentNode.removeChild(acceptButton);
+            if (adInfo && adInfo.parentNode) adInfo.parentNode.removeChild(adInfo);
+            var langNoteEl = document.querySelector('#disclaimerLangNote');
+            if (langNoteEl) langNoteEl.parentNode.removeChild(langNoteEl);
+
+            // Убираем шатание
+            logoTop.classList.remove('shake');
+
+            // Скрываем tooltip
+            isHovering = false;
+            logoTooltip.style.opacity = '0';
+            logoTooltip.style.visibility = 'hidden';
+            logoTooltip.style.transform = 'translateX(-50%) translateY(-10px)';
+            logoTooltip.style.pointerEvents = 'none';
+        };
+
+        if (tooltipContent) {
+            tooltipContent.appendChild(acceptButton);
+        }
+
+        // Показываем tooltip с задержкой
+        setTimeout(function() {
+            logoTop.classList.remove('shake');
+            showTooltip();
+        }, 300);
+    }
+
+    // Обработчики hover для логотипа
     logoTop.addEventListener('mouseenter', function() {
-        // Убираем анимацию шатания
         logoTop.classList.remove('shake');
-        
-        // Сохраняем в localStorage, что пользователь навел (ознакомился с дисплеймером)
-        localStorage.setItem('ktw_disclaimer_viewed', 'true');
-        
+        if (termsAccepted) {
+            localStorage.setItem('ktw_disclaimer_viewed', 'true');
+        }
         showTooltip();
     });
-    
+
     logoTop.addEventListener('mouseleave', function() {
         isHovering = false;
         hideTooltip();
     });
-    
-    // Обработчики для tooltip
+
+    // Обработчики hover для tooltip
     logoTooltip.addEventListener('mouseenter', function() {
         isHovering = true;
         showTooltip();
     });
-    
+
     logoTooltip.addEventListener('mouseleave', function() {
         isHovering = false;
         hideTooltip();
@@ -1203,7 +1155,7 @@ async function loadGitHubStats() {
     let forks = 0;
     
     try {
-        const response = await fetch('https://api.github.com/repos/KinoTeka-watch/KinoTeka-watch');
+        const response = await fetch('https://api.github.com/repos/FLEXIY0/KinoTeka-Watch');
         if (response.ok) {
             const data = await response.json();
             stars = data.stargazers_count || 0;

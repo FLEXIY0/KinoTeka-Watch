@@ -118,47 +118,19 @@
     }
     
     /* Список предложений */
-    .search-suggestions-wrapper {
-        bottom: calc(100% + 12px) !important;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
     .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
         min-width: calc(100vw - 40px) !important;
         max-width: calc(100vw - 40px) !important;
-        padding: 4px 0 !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
     }
-    
+
     .search-suggestion-tile {
         padding: 8px 14px !important;
     }
-    
+
     .search-suggestion-name {
         font-size: 12px !important;
     }
-    
+
     .search-suggestion-year {
         font-size: 10px !important;
     }
@@ -355,48 +327,20 @@
     }
     
     /* Список предложений */
-    .search-suggestions-wrapper {
-        bottom: calc(100% + 12px) !important;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
     .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
         min-width: calc(100vw - 30px) !important;
         max-width: calc(100vw - 30px) !important;
-        padding: 4px 0 !important;
         max-height: 300px !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
     }
-    
+
     .search-suggestion-tile {
         padding: 8px 12px !important;
     }
-    
+
     .search-suggestion-name {
         font-size: 12px !important;
     }
-    
+
     .search-suggestion-year {
         font-size: 10px !important;
     }
@@ -554,40 +498,6 @@
         margin-top: 50px;
     }
     
-    /* Список предложений */
-    .search-suggestions-wrapper {
-        bottom: calc(100% + 10px) !important;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
-    .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-    }
-
     .search-text {
         font-size: 18px;
     }
@@ -822,40 +732,6 @@
         margin-top: 40px;
     }
     
-    /* Список предложений */
-    .search-suggestions-wrapper {
-        bottom: calc(100% + 10px) !important;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
-    .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-    }
-
     .search-text {
         font-size: 22px;
     }

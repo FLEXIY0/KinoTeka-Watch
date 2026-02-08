@@ -400,40 +400,32 @@ function openFilmFromSearch(filmId, filmData = null) {
     openPlayerWindow(convertedUrl, filmId, filmName, filmPoster);
 }
 
-// Показ списка предложений фильмов
+// Показ списка предложений фильмов (выпадающий список под инпутом)
 function showSearchSuggestions() {
-    const wrapper = document.getElementById('searchSuggestionsWrapper');
+    var wrapper = document.getElementById('searchSuggestionsWrapper');
     if (!wrapper) return;
-    
-    wrapper.style.display = 'flex';
+
+    wrapper.style.display = 'block';
     renderSearchSuggestions();
-    
+
     // Применяем fade-in анимацию
-    setTimeout(() => {
+    setTimeout(function() {
         wrapper.classList.add('visible');
     }, 10);
 }
 
 // Скрытие списка предложений
 function hideSearchSuggestions() {
-    const wrapper = document.getElementById('searchSuggestionsWrapper');
-    const list = document.getElementById('searchSuggestionsList');
-    
+    var wrapper = document.getElementById('searchSuggestionsWrapper');
+
     if (wrapper) {
-        // Убираем класс для fade-out анимации
         wrapper.classList.remove('visible');
-        
-        // После завершения анимации скрываем элемент
-        setTimeout(() => {
+
+        setTimeout(function() {
             if (wrapper && !wrapper.classList.contains('visible')) {
                 wrapper.style.display = 'none';
             }
-        }, 300); // Длительность анимации из CSS
-    }
-    
-    if (list) {
-        list.style.opacity = '0';
-        list.style.visibility = 'hidden';
+        }, 300);
     }
 }
 
@@ -487,65 +479,13 @@ function renderSearchSuggestions() {
 
 // Инициализация обработчиков для списка предложений
 function initSearchSuggestions() {
-    const wrapper = document.getElementById('searchSuggestionsWrapper');
-    const icon = document.getElementById('searchSuggestionsIcon');
-    const list = document.getElementById('searchSuggestionsList');
-    
-    if (!wrapper || !icon || !list) return;
-    
-    let hoverTimeout = null;
-    let isHovering = false;
-    
-    // Показываем список при наведении на иконку
-    icon.addEventListener('mouseenter', function() {
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-            hoverTimeout = null;
-        }
-        isHovering = true;
-        if (searchResults.length > 0) {
-            list.style.opacity = '1';
-            list.style.visibility = 'visible';
-        }
-    });
-    
-    // Скрываем список при уходе с иконки или списка
-    const hideList = function() {
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-        }
-        hoverTimeout = setTimeout(() => {
-            if (!isHovering) {
-                list.style.opacity = '0';
-                list.style.visibility = 'hidden';
-            }
-        }, 100);
-    };
-    
-    icon.addEventListener('mouseleave', function() {
-        isHovering = false;
-        hideList();
-    });
-    
-    list.addEventListener('mouseenter', function() {
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-            hoverTimeout = null;
-        }
-        isHovering = true;
-    });
-    
-    list.addEventListener('mouseleave', function() {
-        isHovering = false;
-        hideList();
-    });
-    
+    var wrapper = document.getElementById('searchSuggestionsWrapper');
+    if (!wrapper) return;
+
     // Скрываем список при клике вне его
     document.addEventListener('click', function(e) {
         if (!wrapper.contains(e.target)) {
-            isHovering = false;
-            list.style.opacity = '0';
-            list.style.visibility = 'hidden';
+            hideSearchSuggestions();
         }
     });
 }

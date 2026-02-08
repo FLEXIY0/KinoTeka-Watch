@@ -261,6 +261,17 @@ body {
     font-size: 11px;
 }
 
+/* Оверлей для принятия условий при первом визите */
+#disclaimerOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 99;
+}
+
 /* Основной блок поиска */
 .search-container {
     flex: 1;
@@ -280,6 +291,7 @@ body {
     margin-bottom: 20px;
     line-height: 1;
     white-space: nowrap;
+    z-index: 100;
 }
 
 .search-text-background {
@@ -345,22 +357,17 @@ body {
     display: none;
 }
 
-/* Список предложений фильмов */
+/* Список предложений фильмов (выпадающий список под инпутом) */
 .search-suggestions-wrapper {
     position: absolute;
-    bottom: calc(100% + 15px); /* Над input'ом с небольшим отступом */
+    top: calc(100% + 8px);
     left: 50%;
-    right: auto;
     transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 100;
+    z-index: 1000;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
-    width: auto;
-    max-width: 100%;
+    white-space: normal;
 }
 
 .search-suggestions-wrapper.visible {
@@ -368,35 +375,7 @@ body {
     visibility: visible;
 }
 
-.search-suggestions-icon {
-    font-size: 20px;
-    color: #575757;
-    cursor: pointer;
-    transition: color 0.2s ease;
-    font-family: 'Consolas', 'Courier New', monospace;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 0;
-    background-color: transparent;
-    font-weight: normal;
-    opacity: 1;
-}
-
-.search-suggestions-icon:hover {
-    color: #575757;
-    opacity: 0.9;
-}
-
 .search-suggestions-list {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
     background-color: #000000;
     border: 1px solid #2d2d2d;
     padding: 4px 0;
@@ -406,13 +385,8 @@ body {
     max-width: 400px;
     max-height: 300px;
     overflow-y: auto;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-    margin: 0;
-    width: auto;
 }
 
 .search-suggestions-list::-webkit-scrollbar {

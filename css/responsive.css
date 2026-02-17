@@ -731,7 +731,7 @@
     .search-container {
         margin-top: 40px;
     }
-    
+
     .search-text {
         font-size: 22px;
     }
@@ -751,16 +751,111 @@
         align-items: flex-end;
     }
 
+    /* Боковая панель избранного для ландшафтной ориентации */
     .favorite-films-section {
-        bottom: 50px;
-        max-height: 90px;
+        position: fixed;
+        bottom: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        left: auto;
+        right: 12px;
+        max-height: calc(100vh - 100px);
+        max-width: 160px;
         overflow-y: auto;
         overflow-x: hidden;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 4px;
+        padding: 8px 4px;
+        justify-content: flex-start;
+        align-items: flex-end;
+        z-index: 10;
+    }
+
+    .favorite-films-section::-webkit-scrollbar {
+        width: 3px;
+    }
+
+    .favorite-films-section::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .favorite-films-section::-webkit-scrollbar-thumb {
+        background: #2d2d2d;
+        border-radius: 2px;
+    }
+
+    .favorite-films-section::-webkit-scrollbar-thumb:hover {
+        background: #575757;
+    }
+
+    .favorite-film-tile {
+        padding: 4px 8px;
+    }
+
+    .favorite-film-name {
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+        text-align: right;
     }
 
     .tooltip-content {
         max-height: 60vh;
         overflow-y: auto;
+    }
+}
+
+/* ============================================
+   БОКОВАЯ ПАНЕЛЬ ИЗБРАННОГО ДЛЯ ПЛАНШЕТОВ В ЛАНДШАФТЕ
+   ============================================ */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+    .favorite-films-section {
+        position: fixed;
+        bottom: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        left: auto;
+        right: 20px;
+        max-height: calc(100vh - 120px);
+        max-width: 200px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 6px;
+        padding: 10px 6px;
+        justify-content: flex-start;
+        align-items: flex-end;
+        z-index: 10;
+    }
+
+    .favorite-films-section::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .favorite-films-section::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .favorite-films-section::-webkit-scrollbar-thumb {
+        background: #2d2d2d;
+        border-radius: 2px;
+    }
+
+    .favorite-films-section::-webkit-scrollbar-thumb:hover {
+        background: #575757;
+    }
+
+    .favorite-film-name {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+        text-align: right;
     }
 }
 

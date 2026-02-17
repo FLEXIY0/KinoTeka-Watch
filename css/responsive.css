@@ -117,7 +117,12 @@
         font-size: 26px;
     }
     
-    /* Список предложений */
+    /* Список предложений — над инпутом, чтобы клавиатура не закрывала */
+    .search-suggestions-wrapper {
+        top: auto !important;
+        bottom: calc(100% + 8px) !important;
+    }
+
     .search-suggestions-list {
         min-width: calc(100vw - 40px) !important;
         max-width: calc(100vw - 40px) !important;
@@ -326,7 +331,12 @@
         font-size: 20px;
     }
     
-    /* Список предложений */
+    /* Список предложений — над инпутом */
+    .search-suggestions-wrapper {
+        top: auto !important;
+        bottom: calc(100% + 8px) !important;
+    }
+
     .search-suggestions-list {
         min-width: calc(100vw - 30px) !important;
         max-width: calc(100vw - 30px) !important;

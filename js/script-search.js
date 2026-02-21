@@ -29,9 +29,9 @@ function handleSearch() {
         clearTimeout(window.autoSuggestTimer);
         window.autoSuggestTimer = null;
     }
-    
+
     const searchText = searchTextElement.textContent.trim();
-    
+
     // Если есть сохраненные результаты, открываем первый (самый релевантный)
     if (searchResults.length > 0) {
         const firstFilm = searchResults[0].fullData || searchResults[0];
@@ -40,30 +40,30 @@ function handleSearch() {
         searchResults = [];
         return;
     }
-    
+
     // Если результатов нет, выполняем поиск
     // Скрываем предыдущие предложения
     hideSearchSuggestions();
     searchResults = [];
-    
+
     // Проверяем, что есть текст для поиска
     if (searchText.length < 2) {
         showSearchError(searchText, 'Запрос слишком короткий. Введите хотя бы 2 символа.');
         return;
     }
-    
+
     // Убираем слово "кинопоиск" из запроса, если пользователь его случайно ввел
     let query = searchText;
     const kinopoiskKeywords = ['кинопоиск', 'kinopoisk'];
     kinopoiskKeywords.forEach(keyword => {
         query = query.replace(new RegExp(keyword, 'gi'), '').trim();
     });
-    
+
     if (!query) {
         showSearchError(searchText, 'Не удалось извлечь запрос из введенного текста.');
         return;
     }
-    
+
     // Выполняем поиск и сразу открываем первый результат
     searchKinopoiskAndOpen(query);
 }
@@ -73,25 +73,25 @@ function handleSearch() {
 window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggestions(query) {
     // Очищаем предыдущие результаты
     searchResults = [];
-    
+
     // Убираем слово "кинопоиск" из запроса, если пользователь его случайно ввел
     let cleanQuery = query;
     const kinopoiskKeywords = ['кинопоиск', 'kinopoisk'];
     kinopoiskKeywords.forEach(keyword => {
         cleanQuery = cleanQuery.replace(new RegExp(keyword, 'gi'), '').trim();
     });
-    
+
     if (!cleanQuery || cleanQuery.length < 2) {
         hideSearchSuggestions();
         return;
     }
-    
+
     try {
         console.log('🔍 Поиск предложений через API:', cleanQuery);
-        
+
         // Формируем URL для поиска
         const searchUrl = `${KINOPOISK_API_BASE}?keyword=${encodeURIComponent(cleanQuery)}`;
-        
+
         // Выполняем запрос к API
         const response = await fetch(searchUrl, {
             method: 'GET',
@@ -100,21 +100,21 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('📡 Ответ API для предложений:', data);
-        
+
         // Проверяем, есть ли результаты
         if (!data.films || data.films.length === 0) {
             hideSearchSuggestions();
             searchResults = [];
             return;
         }
-        
+
         // Сохраняем все результаты (максимум 10)
         searchResults = data.films.slice(0, 10).map(film => ({
             id: film.filmId,
@@ -128,14 +128,14 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
             posterUrlPreview: film.posterUrlPreview,
             fullData: film
         }));
-        
+
         // Показываем список предложений
         if (searchResults.length > 0) {
             showSearchSuggestions();
         } else {
             hideSearchSuggestions();
         }
-        
+
     } catch (error) {
         console.error('❌ Ошибка при поиске предложений:', error);
         hideSearchSuggestions();
@@ -147,10 +147,10 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
 async function searchKinopoiskAndOpen(query) {
     try {
         console.log('🔍 Поиск и открытие через API:', query);
-        
+
         // Формируем URL для поиска
         const searchUrl = `${KINOPOISK_API_BASE}?keyword=${encodeURIComponent(query)}`;
-        
+
         // Выполняем запрос к API
         const response = await fetch(searchUrl, {
             method: 'GET',
@@ -159,30 +159,30 @@ async function searchKinopoiskAndOpen(query) {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('📡 Ответ API:', data);
-        
+
         // Проверяем, есть ли результаты
         if (!data.films || data.films.length === 0) {
             hideSearchSuggestions();
             showSearchError(query, `Не удалось найти фильм "${query}". Попробуйте другое название или проверьте написание.`);
             return;
         }
-        
+
         // Открываем первый результат (самый релевантный)
         const firstFilm = data.films[0];
         openFilmFromSearch(firstFilm.filmId, firstFilm);
         hideSearchSuggestions();
-        
+
     } catch (error) {
         console.error('❌ Ошибка при поиске:', error);
         let errorMessage = `Произошла ошибка при поиске.`;
-        
+
         if (error.message.includes('429')) {
             errorMessage += ' Превышен лимит запросов к API. Попробуйте позже.';
         } else if (error.message.includes('401') || error.message.includes('403')) {
@@ -190,7 +190,7 @@ async function searchKinopoiskAndOpen(query) {
         } else {
             errorMessage += ` ${error.message}`;
         }
-        
+
         showSearchError(query, errorMessage);
     }
 }
@@ -199,10 +199,10 @@ async function searchKinopoiskAndOpen(query) {
 async function searchKinopoisk(query) {
     try {
         console.log('🔍 Начинаем поиск через API:', query);
-        
+
         // Формируем URL для поиска
         const searchUrl = `${KINOPOISK_API_BASE}?keyword=${encodeURIComponent(query)}`;
-        
+
         // Выполняем запрос к API
         const response = await fetch(searchUrl, {
             method: 'GET',
@@ -211,21 +211,21 @@ async function searchKinopoisk(query) {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('📡 Ответ API:', data);
-        
+
         // Проверяем, есть ли результаты
         if (!data.films || data.films.length === 0) {
             hideSearchSuggestions();
             showSearchError(query, `Не удалось найти фильм "${query}". Попробуйте другое название или проверьте написание.`);
             return;
         }
-        
+
         // Сохраняем все результаты (максимум 10)
         searchResults = data.films.slice(0, 10).map(film => ({
             id: film.filmId,
@@ -239,7 +239,7 @@ async function searchKinopoisk(query) {
             posterUrlPreview: film.posterUrlPreview,
             fullData: film
         }));
-        
+
         // Показываем список предложений, но не открываем первый результат автоматически
         // Пользователь может выбрать вариант или нажать Enter для открытия первого
         if (data.films.length > 1) {
@@ -250,11 +250,11 @@ async function searchKinopoisk(query) {
         } else {
             hideSearchSuggestions();
         }
-        
+
     } catch (error) {
         console.error('❌ Ошибка при поиске:', error);
         let errorMessage = `Произошла ошибка при поиске.`;
-        
+
         if (error.message.includes('429')) {
             errorMessage += ' Превышен лимит запросов к API. Попробуйте позже.';
         } else if (error.message.includes('401') || error.message.includes('403')) {
@@ -262,7 +262,7 @@ async function searchKinopoisk(query) {
         } else {
             errorMessage += ` ${error.message}`;
         }
-        
+
         showSearchError(query, errorMessage);
     }
 }
@@ -270,7 +270,7 @@ async function searchKinopoisk(query) {
 // Извлечение URL из Google редиректа
 function extractUrlFromGoogleRedirect(googleUrl) {
     if (!googleUrl) return null;
-    
+
     // Если это уже прямой URL на kinopoisk.ru
     if (googleUrl.includes('kinopoisk.ru') && !googleUrl.includes('google.com')) {
         try {
@@ -284,7 +284,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
             }
         }
     }
-    
+
     try {
         // Google редирект имеет формат: /url?sa=t&source=web&rct=j&url=REAL_URL&...
         let urlObj;
@@ -293,9 +293,9 @@ function extractUrlFromGoogleRedirect(googleUrl) {
         } else {
             urlObj = new URL(googleUrl, 'https://www.google.com');
         }
-        
+
         const realUrl = urlObj.searchParams.get('url');
-        
+
         if (realUrl && realUrl.includes('kinopoisk.ru')) {
             try {
                 const decodedUrl = decodeURIComponent(realUrl);
@@ -317,7 +317,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
             /url%3D([^&"']+kinopoisk\.ru[^&"']*)/i,
             /(https?:\/\/[^&"']*kinopoisk\.ru[^&"']*)/i
         ];
-        
+
         for (const pattern of patterns) {
             const match = googleUrl.match(pattern);
             if (match && match[1]) {
@@ -329,7 +329,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
                     } catch (e2) {
                         // Оставляем как есть
                     }
-                    
+
                     if (decodedUrl.includes('kinopoisk.ru')) {
                         const url = new URL(decodedUrl);
                         url.search = '';
@@ -345,7 +345,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
             }
         }
     }
-    
+
     return null;
 }
 
@@ -353,7 +353,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
 // Открытие фильма из результатов поиска
 function openFilmFromSearch(filmId, filmData = null) {
     let film;
-    
+
     if (filmData) {
         // Если переданы данные из API напрямую
         film = {
@@ -374,17 +374,17 @@ function openFilmFromSearch(filmId, filmData = null) {
             return;
         }
     }
-    
+
     const filmName = film.nameRu || film.nameEn || film.nameOriginal || film.name;
     const filmPoster = film.posterUrl || film.posterUrlPreview || film.poster || '';
-    
+
     // Формируем URL для страницы фильма на Кинопоиске
     let kinopoiskUrl = `https://www.kinopoisk.ru/film/${filmId}/`;
-    
+
     // Преобразуем URL: заменяем домен на flcksbr.top
     const convertedUrl = kinopoiskUrl.replace(/https?:\/\/(www\.)?kinopoisk\.ru/g, 'https://flcksbr.top');
     console.log('🎬 Открываем плеер:', convertedUrl);
-    
+
     // Сохраняем информацию о текущем фильме для возможного закрепления
     currentFilmInfo = {
         id: filmId,
@@ -392,10 +392,10 @@ function openFilmFromSearch(filmId, filmData = null) {
         url: convertedUrl,
         poster: filmPoster
     };
-    
+
     // Скрываем список предложений
     hideSearchSuggestions();
-    
+
     // Открываем в отдельном окне/iframe на том же сайте
     openPlayerWindow(convertedUrl, filmId, filmName, filmPoster);
 }
@@ -409,7 +409,7 @@ function showSearchSuggestions() {
     renderSearchSuggestions();
 
     // Применяем fade-in анимацию
-    setTimeout(function() {
+    setTimeout(function () {
         wrapper.classList.add('visible');
     }, 10);
 }
@@ -421,7 +421,7 @@ function hideSearchSuggestions() {
     if (wrapper) {
         wrapper.classList.remove('visible');
 
-        setTimeout(function() {
+        setTimeout(function () {
             if (wrapper && !wrapper.classList.contains('visible')) {
                 wrapper.style.display = 'none';
             }
@@ -433,17 +433,17 @@ function hideSearchSuggestions() {
 function renderSearchSuggestions() {
     const list = document.getElementById('searchSuggestionsList');
     if (!list || searchResults.length === 0) return;
-    
+
     list.innerHTML = '';
-    
+
     searchResults.forEach((film, index) => {
         const tile = document.createElement('div');
         tile.className = 'search-suggestion-tile';
         tile.dataset.filmId = film.id;
-        
+
         const name = document.createElement('div');
         name.className = 'search-suggestion-name';
-        
+
         // Формируем название с английской версией в скобках, если она отличается
         let displayName = film.name;
         if (film.nameRu && film.nameEn && film.nameRu !== film.nameEn) {
@@ -456,23 +456,23 @@ function renderSearchSuggestions() {
             // Если есть английское и оригинальное название
             displayName = film.nameEn + ' (' + film.nameOriginal + ')';
         }
-        
+
         name.textContent = displayName;
-        
+
         tile.appendChild(name);
-        
+
         if (film.year) {
             const year = document.createElement('div');
             year.className = 'search-suggestion-year';
             year.textContent = film.year;
             tile.appendChild(year);
         }
-        
+
         tile.addEventListener('click', (e) => {
             e.stopPropagation();
             openFilmFromSearch(film.id);
         });
-        
+
         list.appendChild(tile);
     });
 }
@@ -483,7 +483,7 @@ function initSearchSuggestions() {
     if (!wrapper) return;
 
     // Скрываем список при клике вне его
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (!wrapper.contains(e.target)) {
             hideSearchSuggestions();
         }
@@ -497,7 +497,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
     if (existingModal) {
         document.body.removeChild(existingModal);
     }
-    
+
     // Создаем модальное окно с iframe
     const modal = document.createElement('div');
     modal.id = 'playerModal';
@@ -512,7 +512,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         display: flex;
         flex-direction: column;
     `;
-    
+
     // Контейнер для кнопок
     const buttonsContainer = document.createElement('div');
     buttonsContainer.style.cssText = `
@@ -523,20 +523,20 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         gap: 10px;
         z-index: 10001;
     `;
-    
+
     // Проверяем, закреплен ли фильм при открытии плеера
     let isFavorite = false;
     if (filmId) {
         // Преобразуем filmId для сравнения
         const checkId = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
-        
+
         // Проверяем в localStorage
         const favorites = getFavoriteFilms();
         const existingFilm = favorites.find(f => {
             const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
             return fId === checkId;
         });
-        
+
         if (existingFilm) {
             // Фильм уже закреплен, используем данные из localStorage
             isFavorite = true;
@@ -559,7 +559,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
             isFavorite = false;
         }
     }
-    
+
     // Кнопка закрепления (звездочка)
     const favoriteButton = document.createElement('button');
     favoriteButton.innerHTML = isFavorite ? '★' : '☆';
@@ -579,16 +579,16 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         align-items: center;
         justify-content: center;
     `;
-    
-    favoriteButton.onmouseover = function() {
+
+    favoriteButton.onmouseover = function () {
         this.style.opacity = '0.7';
     };
-    
-    favoriteButton.onmouseout = function() {
+
+    favoriteButton.onmouseout = function () {
         this.style.opacity = '1';
     };
-    
-    favoriteButton.onclick = function(e) {
+
+    favoriteButton.onclick = function (e) {
         e.stopPropagation();
         if (filmId && currentFilmInfo) {
             toggleFavorite(filmId, currentFilmInfo.name, url, currentFilmInfo.poster);
@@ -598,7 +598,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
             favoriteButton.title = newIsFavorite ? 'Открепить фильм' : 'Закрепить фильм';
         }
     };
-    
+
     // Кнопка закрытия
     const closeButton = document.createElement('button');
     closeButton.textContent = '✕';
@@ -617,27 +617,44 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         align-items: center;
         justify-content: center;
     `;
-    
-    closeButton.onmouseover = function() {
+
+    closeButton.onmouseover = function () {
         this.style.opacity = '0.7';
     };
-    
-    closeButton.onmouseout = function() {
+
+    closeButton.onmouseout = function () {
         this.style.opacity = '1';
     };
-    
-    closeButton.onclick = function() {
+
+    closeButton.onclick = function () {
         closeModalAndRestoreSearch();
     };
-    
+
     buttonsContainer.appendChild(favoriteButton);
     buttonsContainer.appendChild(closeButton);
-    
+
     // Iframe с плеером
     const iframe = document.createElement('iframe');
-    
-    // Пробуем сначала HTTPS, если не загрузится - пробуем HTTP
-    iframe.src = url;
+
+    // Функция для безопасного подключения: если API недоступно (например, на live-server), откроет напрямую
+    const setupIframeSrc = async (targetUrl) => {
+        try {
+            // Быстро проверяем, жива ли Serverless функция
+            const check = await fetch('/api/player?url=check', { method: 'HEAD' }).catch(() => null);
+            if (check && check.status !== 404) {
+                iframe.src = `/api/player?url=${encodeURIComponent(targetUrl)}`;
+            } else {
+                console.log('⚠️ Сервер Vercel недоступен (локальная среда). Открываем прямой URL (реклама не вырезана).');
+                iframe.src = targetUrl;
+            }
+        } catch (e) {
+            iframe.src = targetUrl;
+        }
+    };
+
+    // Запускаем подключение
+    setupIframeSrc(url);
+
     iframe.style.cssText = `
         width: 100%;
         height: 100%;
@@ -645,19 +662,19 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         flex: 1;
     `;
     iframe.setAttribute('allowfullscreen', 'true');
-    iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+    iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write;');
     iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
     iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
-    
+
     // Обработка ошибок загрузки - пробуем HTTP версию
-    iframe.onerror = function() {
+    iframe.onerror = function () {
         console.warn('⚠️ HTTPS не загрузился, пробуем HTTP...');
         const httpUrl = url.replace(/^https:/, 'http:');
         if (httpUrl !== url) {
-            iframe.src = httpUrl;
+            setupIframeSrc(httpUrl);
         }
     };
-    
+
     // Если iframe не загружается через некоторое время, пробуем HTTP
     const loadTimeout = setTimeout(() => {
         try {
@@ -666,7 +683,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
                 console.warn('⚠️ Iframe не загрузился, пробуем HTTP...');
                 const httpUrl = url.replace(/^https:/, 'http:');
                 if (httpUrl !== url) {
-                    iframe.src = httpUrl;
+                    setupIframeSrc(httpUrl);
                 }
             }
         } catch (e) {
@@ -674,15 +691,15 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
             console.warn('⚠️ Cross-origin ошибка, пробуем HTTP...');
             const httpUrl = url.replace(/^https:/, 'http:');
             if (httpUrl !== url) {
-                iframe.src = httpUrl;
+                setupIframeSrc(httpUrl);
             }
         }
     }, 3000);
-    
-    iframe.onload = function() {
+
+    iframe.onload = function () {
         clearTimeout(loadTimeout);
         console.log('✅ Iframe загружен успешно');
-        
+
         // Попытка отправки скрипта очистки через postMessage
         // ВАЖНО: Это может не сработать из-за ограничений безопасности браузера.
         // Рекомендуется использовать userscript для Tampermonkey (см. adblock-userscript.js)
@@ -713,17 +730,17 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
                 })();
             `;
             // Попытка отправить скрипт (может не сработать из-за CORS)
-            iframe.contentWindow?.postMessage({type: 'injectScript', script: adblockScript}, '*');
+            iframe.contentWindow?.postMessage({ type: 'injectScript', script: adblockScript }, '*');
         } catch (e) {
             console.log('⚠️ Автоматическая очистка рекламы недоступна (нормально для кросс-доменных iframe)');
             console.log('💡 Используйте userscript для Tampermonkey (см. файл adblock-userscript.js)');
         }
     };
-    
+
     modal.appendChild(buttonsContainer);
     modal.appendChild(iframe);
     document.body.appendChild(modal);
-    
+
     // Закрытие по Escape
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
@@ -742,7 +759,7 @@ function closeModalAndRestoreSearch() {
     if (modal) {
         document.body.removeChild(modal);
     }
-    
+
     // Восстанавливаем состояние поля поиска
     const searchTextElement = document.getElementById('searchText');
     if (searchTextElement && typeof resetToAnimationMode === 'function') {
@@ -767,7 +784,7 @@ function showSearchError(query, customMessage = null) {
     if (existingModal) {
         document.body.removeChild(existingModal);
     }
-    
+
     const modal = document.createElement('div');
     modal.id = 'playerModal';
     modal.style.cssText = `
@@ -782,7 +799,7 @@ function showSearchError(query, customMessage = null) {
         align-items: center;
         justify-content: center;
     `;
-    
+
     const errorContent = document.createElement('div');
     errorContent.style.cssText = `
         background: #1a1a1a;
@@ -793,7 +810,7 @@ function showSearchError(query, customMessage = null) {
         color: #ffffff;
         font-family: 'Consolas', 'Courier New', monospace;
     `;
-    
+
     const errorTitle = document.createElement('h2');
     errorTitle.textContent = 'Поиск не удался';
     errorTitle.style.cssText = `
@@ -801,7 +818,7 @@ function showSearchError(query, customMessage = null) {
         color: #ffffff;
         font-size: 24px;
     `;
-    
+
     const errorText = document.createElement('p');
     errorText.textContent = customMessage || `Не удалось найти "${query}" на Кинопоиске. Попробуйте изменить запрос или проверить интернет-соединение.`;
     errorText.style.cssText = `
@@ -809,7 +826,7 @@ function showSearchError(query, customMessage = null) {
         color: #cccccc;
         line-height: 1.6;
     `;
-    
+
     const closeButton = document.createElement('button');
     closeButton.textContent = 'Закрыть';
     closeButton.style.cssText = `
@@ -822,27 +839,27 @@ function showSearchError(query, customMessage = null) {
         font-size: 16px;
         transition: all 0.2s ease;
     `;
-    
-    closeButton.onmouseover = function() {
+
+    closeButton.onmouseover = function () {
         this.style.background = '#575757';
         this.style.borderColor = '#696868';
     };
-    
-    closeButton.onmouseout = function() {
+
+    closeButton.onmouseout = function () {
         this.style.background = '#2d2d2d';
         this.style.borderColor = '#575757';
     };
-    
-    closeButton.onclick = function() {
+
+    closeButton.onclick = function () {
         closeModalAndRestoreSearch();
     };
-    
+
     errorContent.appendChild(errorTitle);
     errorContent.appendChild(errorText);
     errorContent.appendChild(closeButton);
     modal.appendChild(errorContent);
     document.body.appendChild(modal);
-    
+
     // Закрытие по Escape
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
@@ -888,13 +905,13 @@ function toggleFavorite(filmId, filmName, filmUrl, filmPoster) {
     // Преобразуем filmId для корректного сравнения
     const id = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
     let favorites = getFavoriteFilms();
-    
+
     // Ищем существующий фильм с правильным сравнением типов
     const existingIndex = favorites.findIndex(f => {
         const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
         return fId === id;
     });
-    
+
     if (existingIndex >= 0) {
         // Открепляем
         favorites.splice(existingIndex, 1);
@@ -909,7 +926,7 @@ function toggleFavorite(filmId, filmName, filmUrl, filmPoster) {
         });
         console.log('Фильм закреплен, ID:', id);
     }
-    
+
     saveFavoriteFilms(favorites);
     renderFavoriteFilms();
 }
@@ -931,22 +948,22 @@ function removeFavorite(filmId) {
 function renderFavoriteFilms() {
     const container = document.getElementById('favoriteFilmsContainer');
     if (!container) return;
-    
+
     const favorites = getFavoriteFilms();
-    
+
     if (favorites.length === 0) {
         container.innerHTML = '';
         container.style.display = 'none';
         return;
     }
-    
+
     container.style.display = 'flex';
     container.innerHTML = favorites.map(film => `
         <div class="favorite-film-tile" data-film-id="${String(film.id)}" data-film-url="${film.url.replace(/"/g, '&quot;')}">
             <div class="favorite-film-name">${film.name}</div>
         </div>
     `).join('');
-    
+
     // Добавляем обработчики событий
     container.querySelectorAll('.favorite-film-tile').forEach(tile => {
         // ЛКМ - открытие
@@ -956,7 +973,7 @@ function renderFavoriteFilms() {
                 openFavoriteFilm(url);
             }
         });
-        
+
         // ПКМ - контекстное меню
         tile.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -972,10 +989,10 @@ function showContextMenu(x, y, tile) {
     if (existingMenu) {
         existingMenu.remove();
     }
-    
+
     const filmId = tile.dataset.filmId;
     const filmName = tile.querySelector('.favorite-film-name').textContent;
-    
+
     const menu = document.createElement('div');
     menu.id = 'contextMenu';
     menu.style.cssText = `
@@ -990,7 +1007,7 @@ function showContextMenu(x, y, tile) {
         font-family: 'Consolas', 'Courier New', monospace;
         font-size: 13px;
     `;
-    
+
     // Опция: Открепить
     const unfavoriteOption = document.createElement('div');
     unfavoriteOption.className = 'context-menu-item';
@@ -1001,13 +1018,13 @@ function showContextMenu(x, y, tile) {
         cursor: pointer;
         transition: background 0.2s ease;
     `;
-    unfavoriteOption.onmouseover = function() {
+    unfavoriteOption.onmouseover = function () {
         this.style.background = '#575757';
     };
-    unfavoriteOption.onmouseout = function() {
+    unfavoriteOption.onmouseout = function () {
         this.style.background = 'transparent';
     };
-    unfavoriteOption.onclick = function(e) {
+    unfavoriteOption.onclick = function (e) {
         e.preventDefault();
         e.stopPropagation();
         console.log('Открепление фильма, ID из dataset:', filmId);
@@ -1016,10 +1033,10 @@ function showContextMenu(x, y, tile) {
         }
         menu.remove();
     };
-    
+
     menu.appendChild(unfavoriteOption);
     document.body.appendChild(menu);
-    
+
     // Закрытие меню при клике вне его
     const closeMenu = (e) => {
         // Не закрываем меню, если клик был по пункту меню
@@ -1030,12 +1047,12 @@ function showContextMenu(x, y, tile) {
         document.removeEventListener('click', closeMenu);
         document.removeEventListener('contextmenu', closeMenu);
     };
-    
+
     // Закрытие при клике ЛКМ
     setTimeout(() => {
         document.addEventListener('click', closeMenu, true);
     }, 100);
-    
+
     // Закрытие при клике ПКМ
     setTimeout(() => {
         document.addEventListener('contextmenu', closeMenu, true);
@@ -1046,11 +1063,11 @@ function openFavoriteFilm(url) {
     // Извлекаем ID из URL
     const match = url.match(/\/film\/(\d+)/);
     const filmId = match ? match[1] : null;
-    
+
     // Пробуем получить информацию о фильме из закрепленных
     const favorites = getFavoriteFilms();
     const film = favorites.find(f => f.id == filmId);
-    
+
     if (film) {
         currentFilmInfo = {
             id: film.id,
@@ -1059,7 +1076,7 @@ function openFavoriteFilm(url) {
             poster: film.poster
         };
     }
-    
+
     openPlayerWindow(url, filmId, film?.name || '', film?.poster || '');
 }
 

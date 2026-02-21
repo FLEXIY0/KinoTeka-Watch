@@ -325,6 +325,11 @@ body {
     line-height: 1;
 }
 
+/* Скрываем кастомный курсор, когда активно редактирование для предотвращения двойного курсора */
+.search-text[contenteditable="true"] ~ .cursor {
+    display: none !important;
+}
+
 .search-text.fade-out {
     opacity: 0;
 }

@@ -551,12 +551,22 @@ body {
 
 
 /* Секция закрепленных фильмов */
-.favorite-films-section {
+/* Обертка для нижних панелей (история и закрепленные) */
+.bottom-panels-wrapper {
     position: absolute;
     bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.favorite-films-section,
+.history-films-section {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -564,10 +574,34 @@ body {
     gap: 20px;
     padding: 0 40px;
     max-width: 90%;
-    max-height: 200px;
+    max-height: 120px;
     overflow-y: auto;
 }
 
+/* Скроллбары работают для обеих секций */
+.favorite-films-section::-webkit-scrollbar,
+.history-films-section::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.favorite-films-section::-webkit-scrollbar-track,
+.history-films-section::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.favorite-films-section::-webkit-scrollbar-thumb,
+.history-films-section::-webkit-scrollbar-thumb {
+    background: #575757;
+    border-radius: 3px;
+}
+
+.favorite-films-section::-webkit-scrollbar-thumb:hover,
+.history-films-section::-webkit-scrollbar-thumb:hover {
+    background: #696868;
+}
+
+.history-film-tile,
 .favorite-film-tile {
     background: transparent;
     border: none;
@@ -576,6 +610,7 @@ body {
     padding: 8px 16px;
 }
 
+.history-film-tile:hover,
 .favorite-film-tile:hover {
     opacity: 0.7;
 }
@@ -591,7 +626,7 @@ body {
 
 /* Скрываем футер и избранное при открытом плеере */
 body:has(#playerModal) .footer,
-body:has(#playerModal) .favorite-films-section,
+body:has(#playerModal) .bottom-panels-wrapper,
 body:has(#playerModal) .logo-top {
     display: none !important;
 }
@@ -606,20 +641,20 @@ body:has(#playerModal) .logo-top {
 }
 
 /* Скроллбар для секции закрепленных фильмов */
-.favorite-films-section::-webkit-scrollbar {
+.bottom-panels-wrapper::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
-.favorite-films-section::-webkit-scrollbar-track {
+.bottom-panels-wrapper::-webkit-scrollbar-track {
     background: #1a1a1a;
 }
 
-.favorite-films-section::-webkit-scrollbar-thumb {
+.bottom-panels-wrapper::-webkit-scrollbar-thumb {
     background: #575757;
     border-radius: 3px;
 }
 
-.favorite-films-section::-webkit-scrollbar-thumb:hover {
+.bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
     background: #696868;
 }

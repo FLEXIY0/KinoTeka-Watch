@@ -142,7 +142,7 @@
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 75px;
         left: 50%;
         transform: translateX(-50%);
@@ -358,7 +358,7 @@
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 65px;
         padding: 0 15px;
         gap: 8px;
@@ -524,7 +524,7 @@
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 60px;
         padding: 0 12px;
         gap: 6px;
@@ -665,7 +665,7 @@
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 55px;
         padding: 0 10px;
         gap: 5px;
@@ -766,7 +766,7 @@
     }
 
     /* Боковая панель избранного для ландшафтной ориентации */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         position: fixed;
         bottom: auto;
         top: 50%;
@@ -790,20 +790,20 @@
         -webkit-backdrop-filter: blur(8px);
     }
 
-    .favorite-films-section::-webkit-scrollbar {
+    .bottom-panels-wrapper::-webkit-scrollbar {
         width: 3px;
     }
 
-    .favorite-films-section::-webkit-scrollbar-track {
+    .bottom-panels-wrapper::-webkit-scrollbar-track {
         background: transparent;
     }
 
-    .favorite-films-section::-webkit-scrollbar-thumb {
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb {
         background: #575757;
         border-radius: 2px;
     }
 
-    .favorite-films-section::-webkit-scrollbar-thumb:hover {
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
         background: #696868;
     }
 
@@ -839,7 +839,7 @@
    БОКОВАЯ ПАНЕЛЬ ИЗБРАННОГО ДЛЯ ПЛАНШЕТОВ В ЛАНДШАФТЕ
    ============================================ */
 @media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         position: fixed;
         bottom: auto;
         top: 50%;
@@ -863,20 +863,20 @@
         -webkit-backdrop-filter: blur(8px);
     }
 
-    .favorite-films-section::-webkit-scrollbar {
+    .bottom-panels-wrapper::-webkit-scrollbar {
         width: 4px;
     }
 
-    .favorite-films-section::-webkit-scrollbar-track {
+    .bottom-panels-wrapper::-webkit-scrollbar-track {
         background: transparent;
     }
 
-    .favorite-films-section::-webkit-scrollbar-thumb {
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb {
         background: #575757;
         border-radius: 2px;
     }
 
-    .favorite-films-section::-webkit-scrollbar-thumb:hover {
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
         background: #696868;
     }
 
@@ -911,7 +911,7 @@
         padding-bottom: 130px;
     }
 
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 80px;
         max-height: 200px;
     }
@@ -1103,7 +1103,7 @@
             text-align: center !important;
         }
 
-        .favorite-films-section {
+        .bottom-panels-wrapper {
             bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px));
         }
     }

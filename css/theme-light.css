@@ -174,15 +174,15 @@ body.light-theme .github-text {
     color: #000000 !important;
 }
 
-body.light-theme .favorite-films-section::-webkit-scrollbar-track {
+body.light-theme .bottom-panels-wrapper::-webkit-scrollbar-track {
     background: #f5f5f5;
 }
 
-body.light-theme .favorite-films-section::-webkit-scrollbar-thumb {
+body.light-theme .bottom-panels-wrapper::-webkit-scrollbar-thumb {
     background: #d3d3d3;
 }
 
-body.light-theme .favorite-films-section::-webkit-scrollbar-thumb:hover {
+body.light-theme .bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
     background: #b3b3b3;
 }
 

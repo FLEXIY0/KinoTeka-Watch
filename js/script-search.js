@@ -491,6 +491,11 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         document.body.removeChild(existingModal);
     }
 
+    // Гарантируем наличие URL (строим из filmId если не передан)
+    if (!url && filmId) {
+        url = `https://www.kinopoisk.ru/film/${filmId}/`;
+    }
+
     // Запоминаем текущий фильм в sessionStorage для восстановления после F5
     if (filmId) {
         sessionStorage.setItem('ktw_last_film', JSON.stringify({
@@ -499,6 +504,9 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
             url: url,
             poster: filmPoster
         }));
+
+        // Добавляем в локальную историю
+        addToHistory(filmId, filmName || 'Неизвестный фильм', url, filmPoster || '');
     }
 
     // Создаем модальное окно...
@@ -585,7 +593,8 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         favoriteButton.onclick = function (e) {
             e.stopPropagation();
             if (filmId && currentFilmInfo) {
-                toggleFavorite(filmId, currentFilmInfo.name, url, currentFilmInfo.poster);
+                const filmUrl = currentFilmInfo.url || url || `https://www.kinopoisk.ru/film/${filmId}/`;
+                toggleFavorite(filmId, currentFilmInfo.name, filmUrl, currentFilmInfo.poster);
                 const newIsFavorite = isFilmFavorite(filmId);
                 favoriteButton.innerHTML = newIsFavorite ? '★' : '☆';
                 favoriteButton.style.color = newIsFavorite ? '#ffd700' : '#ffffff';
@@ -629,6 +638,54 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         closeModalAndRestoreSearch();
     };
 
+    // Кнопка обновления плеера
+    const refreshButton = document.createElement('button');
+    refreshButton.innerHTML = '↻';
+    refreshButton.title = 'Обновить плеер';
+    refreshButton.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 24px;
+        transition: opacity 0.2s ease, transform 0.3s ease;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        font-family: Arial, sans-serif;
+    `;
+
+    refreshButton.onmouseover = function () {
+        this.style.opacity = '0.7';
+    };
+
+    refreshButton.onmouseout = function () {
+        this.style.opacity = '1';
+    };
+
+    refreshButton.onclick = function (e) {
+        e.stopPropagation();
+        // Анимация вращения при клике
+        this.style.transform = 'rotate(360deg)';
+        setTimeout(() => this.style.transform = 'rotate(0deg)', 300);
+
+        // Очищаем и перезапускаем плеер
+        if (typeof kinobox !== 'undefined') {
+            const playerDiv = document.querySelector('.kinobox_player');
+            if (playerDiv) {
+                playerDiv.innerHTML = '';
+                kinobox(playerDiv, {
+                    search: { kinopoisk: filmId }
+                });
+            }
+        }
+    };
+
+    buttonsContainer.appendChild(refreshButton);
     buttonsContainer.appendChild(closeButton);
 
     // Контейнер плеера (должен иметь класс kinobox_player)
@@ -876,11 +933,14 @@ function renderFavoriteFilms() {
     }
 
     container.style.display = 'flex';
-    container.innerHTML = favorites.map(film => `
-        <div class="favorite-film-tile" data-film-id="${String(film.id)}" data-film-url="${film.url.replace(/"/g, '&quot;')}">
+    container.innerHTML = favorites.map(film => {
+        const safeUrl = (film.url || `https://www.kinopoisk.ru/film/${film.id}/`).replace(/"/g, '&quot;');
+        return `
+        <div class="favorite-film-tile" data-film-id="${String(film.id)}" data-film-url="${safeUrl}">
             <div class="favorite-film-name">${film.name}</div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Добавляем обработчики событий
     container.querySelectorAll('.favorite-film-tile').forEach(tile => {
@@ -984,13 +1044,19 @@ function openFavoriteFilm(url) {
 
     // Пробуем получить информацию о фильме из закрепленных
     const favorites = getFavoriteFilms();
-    const film = favorites.find(f => f.id == filmId);
+    let film = favorites.find(f => f.id == filmId);
+
+    // Если не нашли в избранном — ищем в истории
+    if (!film) {
+        const history = getHistoryFilms();
+        film = history.find(f => f.id == filmId);
+    }
 
     if (film) {
         currentFilmInfo = {
             id: film.id,
             name: film.name,
-            url: film.url,
+            url: film.url || url,
             poster: film.poster
         };
     }
@@ -1006,11 +1072,13 @@ window.openFavoriteFilm = openFavoriteFilm;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(renderFavoriteFilms, 500);
+        setTimeout(renderHistoryFilms, 500);
         initSearchSuggestions();
         checkAndRestoreLastSession();
     });
 } else {
     setTimeout(renderFavoriteFilms, 500);
+    setTimeout(renderHistoryFilms, 500);
     initSearchSuggestions();
     checkAndRestoreLastSession();
 }
@@ -1031,4 +1099,302 @@ function checkAndRestoreLastSession() {
         console.error('Ошибка при восстановлении последней сессии фильма:', e);
     }
 }
+
+// ==========================================
+// ИСТОРИЯ ПРОСМОТРОВ
+// ==========================================
+
+function getHistoryFilms() {
+    try {
+        const historyData = localStorage.getItem('ktw_history_films');
+        if (historyData) {
+            let parsed = JSON.parse(historyData);
+            if (!Array.isArray(parsed)) parsed = [];
+            return parsed;
+        }
+    } catch (e) {
+        console.error('Ошибка при чтении истории из localStorage:', e);
+    }
+    return [];
+}
+
+function saveHistoryFilms(films) {
+    try {
+        localStorage.setItem('ktw_history_films', JSON.stringify(films));
+    } catch (e) {
+        console.error('Ошибка при сохранении истории:', e);
+    }
+}
+
+function addToHistory(filmId, name, url, poster) {
+    if (!filmId) return;
+
+    let history = getHistoryFilms();
+    const checkId = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
+
+    // Удаляем этот фильм из истории, если он там уже есть (чтобы обновить время и перенести наверх)
+    history = history.filter(f => {
+        const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
+        return fId !== checkId;
+    });
+
+    // Добавляем в начало списка
+    history.unshift({
+        id: checkId,
+        name: name,
+        url: url,
+        poster: poster,
+        timestamp: Date.now()
+    });
+
+    // Храним последние 50 фильмов (для полной истории)
+    if (history.length > 50) {
+        history = history.slice(0, 50);
+    }
+
+    saveHistoryFilms(history);
+    renderHistoryFilms();
+}
+
+function removeHistory(filmId) {
+    const id = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
+    let history = getHistoryFilms();
+    history = history.filter(f => {
+        const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
+        return fId !== id;
+    });
+    saveHistoryFilms(history);
+    renderHistoryFilms();
+}
+
+// Экспортируем ф-цию для возможности использования через HTML onclick и т.д.
+window.removeHistory = removeHistory;
+
+function renderHistoryFilms() {
+    const container = document.getElementById('historyFilmsContainer');
+    if (!container) return;
+
+    const history = getHistoryFilms();
+
+    if (history.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'center';
+    container.style.gap = '15px';
+
+    // Отображаем только последний открытый на главной
+    const lastFilm = history[0];
+
+    container.innerHTML = `
+        <div class="history-film-tile" data-film-id="${String(lastFilm.id)}" data-film-url="${lastFilm.url ? lastFilm.url.replace(/"/g, '&quot;') : ''}" title="Последний просмотренный">
+            <div class="favorite-film-name" style="color: #696868;">${lastFilm.name}</div>
+        </div>
+        <button id="openHistoryBtn" style="background: transparent; border: 1px solid #1a1a1a; border-radius: 4px; color: #575757; font-size: 11px; font-family: inherit; cursor: pointer; transition: all 0.2s ease; padding: 4px 8px;">история</button>
+    `;
+
+    // Добавляем обработчики событий
+    const tile = container.querySelector('.history-film-tile');
+    if (tile) {
+        tile.addEventListener('click', (e) => {
+            if (e.button === 0 || !e.button) { // ЛКМ
+                const url = tile.dataset.filmUrl;
+                if (url) openFavoriteFilm(url);
+            }
+        });
+
+        // ПКМ - контекстное меню
+        tile.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // Возвращаем старое контекстное меню для tile внизу экрана
+            showHistoryContextMenu(e.clientX, e.clientY, tile);
+        });
+    }
+
+    // Обработчик для кнопки полной истории
+    const btn = container.querySelector('#openHistoryBtn');
+    if (btn) {
+        btn.onmouseover = () => {
+            btn.style.color = '#959595';
+            btn.style.borderColor = '#2d2d2d';
+        };
+        btn.onmouseout = () => {
+            btn.style.color = '#575757';
+            btn.style.borderColor = '#1a1a1a';
+        };
+        btn.onclick = showFullHistoryModal;
+    }
+}
+
+// Отдельный список всех просмотренных
+function showFullHistoryModal() {
+    let modal = document.getElementById('fullHistoryModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fullHistoryModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 20000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const history = getHistoryFilms();
+
+    // Минималистичный рендер списка
+    let listHtml = history.map((film, index) => `
+        <div class="full-history-item" data-id="${film.id}" data-url="${film.url || ''}" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #1a1a1a; cursor: pointer; transition: background 0.2s ease;">
+            <span style="color: #959595; font-size: 13px; font-family: 'Consolas', 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 15px;">${film.name}</span>
+            <span class="history-item-remove" style="color: #575757; font-size: 13px; cursor: pointer;">✕</span>
+        </div>
+    `).join('');
+
+    if (history.length === 0) {
+        listHtml = '<div style="color: #575757; font-size: 13px; text-align: center; padding: 20px;">История пуста</div>';
+    }
+
+    modal.innerHTML = `
+        <div style="background: #000; border: 1px solid #2d2d2d; border-radius: 4px; padding: 24px; min-width: 300px; max-width: 500px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <span style="color: #d3d3d3; font-size: 15px; font-family: 'Consolas', 'Courier New', monospace;">История просмотров</span>
+                <button id="closeFullHistoryBtn" style="background: transparent; border: none; color: #575757; cursor: pointer; font-size: 16px; transition: color 0.2s ease;">✕</button>
+            </div>
+            <div style="overflow-y: auto; flex: 1; display: flex; flex-direction: column;" class="full-history-list">
+                ${listHtml}
+            </div>
+            ${history.length > 0 ? `<button id="clearHistoryBtn" style="margin-top: 20px; background: transparent; border: 1px solid #1a1a1a; border-radius: 4px; color: #575757; padding: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s ease; font-family: 'Consolas', 'Courier New', monospace;">Очистить всё</button>` : ''}
+        </div>
+    `;
+
+    // Стилизация скролла
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .full-history-list::-webkit-scrollbar { width: 4px; }
+        .full-history-list::-webkit-scrollbar-track { background: transparent; }
+        .full-history-list::-webkit-scrollbar-thumb { background: #2d2d2d; border-radius: 2px; }
+        .full-history-item:hover { background: #111; }
+        .full-history-item:hover span:first-child { color: #fff !important; }
+        .history-item-remove:hover { color: #fff !important; }
+        #closeFullHistoryBtn:hover { color: #fff !important; }
+        #clearHistoryBtn:hover { border-color: #2d2d2d !important; color: #959595 !important; }
+    `;
+    modal.appendChild(style);
+
+    // События
+    modal.querySelector('#closeFullHistoryBtn').onclick = () => {
+        modal.style.display = 'none';
+        renderHistoryFilms(); // Обновить основной экран на случай изменений
+    };
+
+    // Закрытие по клику вне окна
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+            renderHistoryFilms();
+        }
+    };
+
+    if (history.length > 0) {
+        modal.querySelector('#clearHistoryBtn').onclick = () => {
+            saveHistoryFilms([]);
+            renderHistoryFilms();
+            modal.style.display = 'none';
+        };
+
+        const removeBtns = modal.querySelectorAll('.history-item-remove');
+        removeBtns.forEach((btn, index) => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                removeHistory(history[index].id);
+                showFullHistoryModal(); // Обновляем модалку
+            };
+        });
+
+        const items = modal.querySelectorAll('.full-history-item');
+        items.forEach((item, index) => {
+            item.onclick = () => {
+                const url = history[index].url;
+                if (url) {
+                    modal.style.display = 'none';
+                    openFavoriteFilm(url);
+                }
+            };
+        });
+    }
+
+    modal.style.display = 'flex';
+}
+
+function showHistoryContextMenu(x, y, tile) {
+    const existingMenu = document.getElementById('contextMenu');
+    if (existingMenu) existingMenu.remove();
+
+    const filmId = tile.dataset.filmId;
+
+    const menu = document.createElement('div');
+    menu.id = 'contextMenu';
+    menu.style.cssText = `
+        position: fixed;
+        left: ${x}px;
+        top: ${y}px;
+        background: #1a1a1a;
+        border: 1px solid #575757;
+        padding: 8px 0;
+        z-index: 10002;
+        min-width: 150px;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 13px;
+    `;
+
+    // Опция: Удалить из истории
+    const removeOption = document.createElement('div');
+    removeOption.className = 'context-menu-item';
+    removeOption.textContent = 'Удалить из истории';
+    removeOption.style.cssText = `
+        padding: 8px 16px;
+        color: #ffffff;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    `;
+    removeOption.onmouseover = function () {
+        this.style.background = '#575757';
+    };
+    removeOption.onmouseout = function () {
+        this.style.background = 'transparent';
+    };
+    removeOption.onclick = function () {
+        removeHistory(filmId);
+        menu.remove();
+    };
+
+    menu.appendChild(removeOption);
+    document.body.appendChild(menu);
+
+    // Удаление меню
+    const closeMenu = function (e) {
+        if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener('click', closeMenu);
+            document.removeEventListener('contextmenu', closeMenu, true);
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+        document.addEventListener('contextmenu', closeMenu, true);
+    }, 100);
+}
+
 

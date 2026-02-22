@@ -491,39 +491,47 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         document.body.removeChild(existingModal);
     }
 
-    // Создаем модальное окно с iframe
+    // Запоминаем текущий фильм в sessionStorage для восстановления после F5
+    if (filmId) {
+        sessionStorage.setItem('ktw_last_film', JSON.stringify({
+            id: filmId,
+            name: filmName,
+            url: url,
+            poster: filmPoster
+        }));
+    }
+
+    // Создаем модальное окно...
     const modal = document.createElement('div');
     modal.id = 'playerModal';
     modal.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.95);
+        right: 0;
+        bottom: 0;
+        background-color: #000;
         z-index: 10000;
         display: flex;
-        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     `;
 
     // Контейнер для кнопок
     const buttonsContainer = document.createElement('div');
     buttonsContainer.style.cssText = `
         position: absolute;
-        top: 20px;
-        right: 20px;
+        top: 2%;
+        right: 2%;
         display: flex;
-        gap: 10px;
+        gap: 16px;
         z-index: 10001;
     `;
 
-    // Проверяем, закреплен ли фильм при открытии плеера
-    let isFavorite = false;
+    // Кнопка закрепления (звездочка), если есть filmId
     if (filmId) {
-        // Преобразуем filmId для сравнения
+        let isFavorite = false;
         const checkId = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
-
-        // Проверяем в localStorage
         const favorites = getFavoriteFilms();
         const existingFilm = favorites.find(f => {
             const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
@@ -531,7 +539,6 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         });
 
         if (existingFilm) {
-            // Фильм уже закреплен, используем данные из localStorage
             isFavorite = true;
             currentFilmInfo = {
                 id: existingFilm.id,
@@ -539,58 +546,55 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
                 url: existingFilm.url,
                 poster: existingFilm.poster
             };
-        } else {
-            // Фильм не закреплен, но убеждаемся, что currentFilmInfo заполнен
-            if (!currentFilmInfo || !currentFilmInfo.name) {
-                currentFilmInfo = {
-                    id: checkId,
-                    name: filmName || 'Неизвестный фильм',
-                    url: url,
-                    poster: filmPoster || ''
-                };
+        } else if (!currentFilmInfo || !currentFilmInfo.name) {
+            currentFilmInfo = {
+                id: filmId,
+                name: filmName || 'Неизвестный фильм',
+                url: url,
+                poster: filmPoster || ''
+            };
+        }
+
+        const favoriteButton = document.createElement('button');
+        favoriteButton.innerHTML = isFavorite ? '★' : '☆';
+        favoriteButton.title = isFavorite ? 'Открепить фильм' : 'Закрепить фильм';
+        favoriteButton.style.cssText = `
+            background: transparent;
+            border: none;
+            color: ${isFavorite ? '#ffd700' : '#ffffff'};
+            cursor: pointer;
+            font-size: 20px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            transition: opacity 0.2s ease;
+            padding: 0;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        favoriteButton.onmouseover = function () {
+            this.style.opacity = '0.7';
+        };
+
+        favoriteButton.onmouseout = function () {
+            this.style.opacity = '1';
+        };
+
+        favoriteButton.onclick = function (e) {
+            e.stopPropagation();
+            if (filmId && currentFilmInfo) {
+                toggleFavorite(filmId, currentFilmInfo.name, url, currentFilmInfo.poster);
+                const newIsFavorite = isFilmFavorite(filmId);
+                favoriteButton.innerHTML = newIsFavorite ? '★' : '☆';
+                favoriteButton.style.color = newIsFavorite ? '#ffd700' : '#ffffff';
+                favoriteButton.title = newIsFavorite ? 'Открепить фильм' : 'Закрепить фильм';
             }
-            isFavorite = false;
-        }
+        };
+
+        buttonsContainer.appendChild(favoriteButton);
     }
-
-    // Кнопка закрепления (звездочка)
-    const favoriteButton = document.createElement('button');
-    favoriteButton.innerHTML = isFavorite ? '★' : '☆';
-    favoriteButton.title = isFavorite ? 'Открепить фильм' : 'Закрепить фильм';
-    favoriteButton.style.cssText = `
-        background: transparent;
-        border: none;
-        color: ${isFavorite ? '#ffd700' : '#ffffff'};
-        cursor: pointer;
-        font-size: 20px;
-        font-family: 'Consolas', 'Courier New', monospace;
-        transition: opacity 0.2s ease;
-        padding: 0;
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
-
-    favoriteButton.onmouseover = function () {
-        this.style.opacity = '0.7';
-    };
-
-    favoriteButton.onmouseout = function () {
-        this.style.opacity = '1';
-    };
-
-    favoriteButton.onclick = function (e) {
-        e.stopPropagation();
-        if (filmId && currentFilmInfo) {
-            toggleFavorite(filmId, currentFilmInfo.name, url, currentFilmInfo.poster);
-            const newIsFavorite = isFilmFavorite(filmId);
-            favoriteButton.innerHTML = newIsFavorite ? '★' : '☆';
-            favoriteButton.style.color = newIsFavorite ? '#ffd700' : '#ffffff';
-            favoriteButton.title = newIsFavorite ? 'Открепить фильм' : 'Закрепить фильм';
-        }
-    };
 
     // Кнопка закрытия
     const closeButton = document.createElement('button');
@@ -600,8 +604,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         border: none;
         color: #ffffff;
         cursor: pointer;
-        font-size: 20px;
-        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 24px;
         transition: opacity 0.2s ease;
         padding: 0;
         width: 36px;
@@ -609,6 +612,8 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         display: flex;
         align-items: center;
         justify-content: center;
+        line-height: 1;
+        font-family: Arial, sans-serif;
     `;
 
     closeButton.onmouseover = function () {
@@ -620,20 +625,21 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
     };
 
     closeButton.onclick = function () {
+        sessionStorage.removeItem('ktw_last_film');
         closeModalAndRestoreSearch();
     };
 
-    buttonsContainer.appendChild(favoriteButton);
     buttonsContainer.appendChild(closeButton);
 
-    // Контейнер плеера (должен иметь класс kinobox_player для CSS и селектора)
+    // Контейнер плеера (должен иметь класс kinobox_player)
     const playerContainer = document.createElement('div');
     playerContainer.className = 'kinobox_player';
     playerContainer.style.cssText = `
-        width: 100%;
-        height: 100%;
-        flex: 1;
-        margin-top: 60px; /* Чтобы не перекрывать кнопки */
+        width: 100vw;
+        height: 100vh;
+        max-width: 177.78vh; /* 16/9 aspect-ratio horizontal cap */
+        max-height: 56.25vw; /* 16/9 aspect-ratio vertical cap */
+        margin: auto;
         background: #000;
     `;
 
@@ -651,12 +657,12 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
     } else {
         console.error('Kinobox JS не загружен!');
     }
-    document.body.appendChild(modal);
 
     // Закрытие по Escape
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
             if (document.body.contains(modal)) {
+                sessionStorage.removeItem('ktw_last_film');
                 closeModalAndRestoreSearch();
                 document.removeEventListener('keydown', escapeHandler);
             }
@@ -1001,9 +1007,28 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(renderFavoriteFilms, 500);
         initSearchSuggestions();
+        checkAndRestoreLastSession();
     });
 } else {
     setTimeout(renderFavoriteFilms, 500);
     initSearchSuggestions();
+    checkAndRestoreLastSession();
+}
+
+function checkAndRestoreLastSession() {
+    try {
+        const lastFilmData = sessionStorage.getItem('ktw_last_film');
+        if (lastFilmData) {
+            const parsed = JSON.parse(lastFilmData);
+            if (parsed && parsed.id) {
+                // Ждём, пока инициализируются все визуальные штуки, затем открываем плеер
+                setTimeout(() => {
+                    openPlayerWindow(null, parsed.id, parsed.name, parsed.poster);
+                }, 600);
+            }
+        }
+    } catch (e) {
+        console.error('Ошибка при восстановлении последней сессии фильма:', e);
+    }
 }
 

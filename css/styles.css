@@ -14,7 +14,7 @@ body {
     justify-content: center;
     overflow: hidden;
     transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .container {
@@ -55,13 +55,24 @@ body {
 }
 
 @keyframes logoShake {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateX(-50%) rotate(0deg);
     }
-    10%, 30%, 50%, 70%, 90% {
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
         transform: translateX(-50%) rotate(-3deg);
     }
-    20%, 40%, 60%, 80% {
+
+    20%,
+    40%,
+    60%,
+    80% {
         transform: translateX(-50%) rotate(3deg);
     }
 }
@@ -103,8 +114,8 @@ body {
     white-space: normal;
     position: relative;
     transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .language-selector {
@@ -120,8 +131,8 @@ body {
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
 }
 
@@ -210,7 +221,7 @@ body {
     padding: 6px;
     cursor: pointer;
     transition: all 0.2s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
     display: flex;
     align-items: center;
@@ -326,7 +337,7 @@ body {
 }
 
 /* Скрываем кастомный курсор, когда активно редактирование для предотвращения двойного курсора */
-.search-text[contenteditable="true"] ~ .cursor {
+.search-text[contenteditable="true"]~.cursor {
     display: none !important;
 }
 
@@ -350,10 +361,14 @@ body {
 }
 
 @keyframes blink {
-    0%, 49% {
+
+    0%,
+    49% {
         opacity: 1;
     }
-    50%, 100% {
+
+    50%,
+    100% {
         opacity: 0;
     }
 }
@@ -460,7 +475,7 @@ body {
 
 /* Футер */
 .footer {
-    position: fixed;
+    position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
@@ -504,7 +519,7 @@ body {
     color: #2d2d2d;
     text-decoration: none;
     transition: all 0.3s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     padding: 8px 16px;
     border-radius: 20px;
     border: 1px solid #2d2d2d;
@@ -537,7 +552,7 @@ body {
 
 /* Секция закрепленных фильмов */
 .favorite-films-section {
-    position: fixed;
+    position: absolute;
     bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
@@ -549,6 +564,8 @@ body {
     gap: 20px;
     padding: 0 40px;
     max-width: 90%;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .favorite-film-tile {
@@ -570,6 +587,13 @@ body {
     white-space: nowrap;
     font-family: 'Consolas', 'Courier New', monospace;
     transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Скрываем футер и избранное при открытом плеере */
+body:has(#playerModal) .footer,
+body:has(#playerModal) .favorite-films-section,
+body:has(#playerModal) .logo-top {
+    display: none !important;
 }
 
 /* Контекстное меню */
@@ -599,4 +623,3 @@ body {
 .favorite-films-section::-webkit-scrollbar-thumb:hover {
     background: #696868;
 }
-

@@ -378,18 +378,11 @@ function openFilmFromSearch(filmId, filmData = null) {
     const filmName = film.nameRu || film.nameEn || film.nameOriginal || film.name;
     const filmPoster = film.posterUrl || film.posterUrlPreview || film.poster || '';
 
-    // Формируем URL для страницы фильма на Кинопоиске
-    let kinopoiskUrl = `https://www.kinopoisk.ru/film/${filmId}/`;
-
-    // Преобразуем URL: заменяем домен на flcksbr.top
-    const convertedUrl = kinopoiskUrl.replace(/https?:\/\/(www\.)?kinopoisk\.ru/g, 'https://flcksbr.top');
-    console.log('🎬 Открываем плеер:', convertedUrl);
-
     // Сохраняем информацию о текущем фильме для возможного закрепления
     currentFilmInfo = {
         id: filmId,
         name: filmName,
-        url: convertedUrl,
+        url: `https://www.kinopoisk.ru/film/${filmId}/`,
         poster: filmPoster
     };
 
@@ -397,7 +390,7 @@ function openFilmFromSearch(filmId, filmData = null) {
     hideSearchSuggestions();
 
     // Открываем в отдельном окне/iframe на том же сайте
-    openPlayerWindow(convertedUrl, filmId, filmName, filmPoster);
+    openPlayerWindow(null, filmId, filmName, filmPoster);
 }
 
 // Показ списка предложений фильмов (выпадающий список под инпутом)
@@ -633,112 +626,31 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
     buttonsContainer.appendChild(favoriteButton);
     buttonsContainer.appendChild(closeButton);
 
-    // Iframe с плеером
-    const iframe = document.createElement('iframe');
-
-    // Функция для безопасного подключения: если API недоступно (например, на live-server), откроет напрямую
-    const setupIframeSrc = async (targetUrl) => {
-        try {
-            // Быстро проверяем, жива ли Serverless функция
-            const check = await fetch('/api/player?url=check', { method: 'HEAD' }).catch(() => null);
-            if (check && check.status !== 404) {
-                iframe.src = `/api/player?url=${encodeURIComponent(targetUrl)}`;
-            } else {
-                console.log('⚠️ Сервер Vercel недоступен (локальная среда). Открываем прямой URL (реклама не вырезана).');
-                iframe.src = targetUrl;
-            }
-        } catch (e) {
-            iframe.src = targetUrl;
-        }
-    };
-
-    // Запускаем подключение
-    setupIframeSrc(url);
-
-    iframe.style.cssText = `
+    // Контейнер плеера (должен иметь класс kinobox_player для CSS и селектора)
+    const playerContainer = document.createElement('div');
+    playerContainer.className = 'kinobox_player';
+    playerContainer.style.cssText = `
         width: 100%;
         height: 100%;
-        border: none;
         flex: 1;
+        margin-top: 60px; /* Чтобы не перекрывать кнопки */
+        background: #000;
     `;
-    iframe.setAttribute('allowfullscreen', 'true');
-    iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write;');
-    iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
-
-    // Обработка ошибок загрузки - пробуем HTTP версию
-    iframe.onerror = function () {
-        console.warn('⚠️ HTTPS не загрузился, пробуем HTTP...');
-        const httpUrl = url.replace(/^https:/, 'http:');
-        if (httpUrl !== url) {
-            setupIframeSrc(httpUrl);
-        }
-    };
-
-    // Если iframe не загружается через некоторое время, пробуем HTTP
-    const loadTimeout = setTimeout(() => {
-        try {
-            // Пробуем получить доступ к содержимому iframe
-            if (iframe.contentWindow === null || iframe.contentDocument === null) {
-                console.warn('⚠️ Iframe не загрузился, пробуем HTTP...');
-                const httpUrl = url.replace(/^https:/, 'http:');
-                if (httpUrl !== url) {
-                    setupIframeSrc(httpUrl);
-                }
-            }
-        } catch (e) {
-            // Cross-origin ошибка - это нормально, но пробуем HTTP
-            console.warn('⚠️ Cross-origin ошибка, пробуем HTTP...');
-            const httpUrl = url.replace(/^https:/, 'http:');
-            if (httpUrl !== url) {
-                setupIframeSrc(httpUrl);
-            }
-        }
-    }, 3000);
-
-    iframe.onload = function () {
-        clearTimeout(loadTimeout);
-        console.log('✅ Iframe загружен успешно');
-
-        // Попытка отправки скрипта очистки через postMessage
-        // ВАЖНО: Это может не сработать из-за ограничений безопасности браузера.
-        // Рекомендуется использовать userscript для Tampermonkey (см. adblock-userscript.js)
-        try {
-            const adblockScript = `
-                (function() {
-                    function removeAds() {
-                        const selectors = [
-                            '[class*="ad"]', '[id*="ad"]',
-                            '[class*="banner"]', '[id*="banner"]',
-                            '[class*="ads"]', '[id*="ads"]',
-                            'iframe[src*="ad"]', 'iframe[src*="doubleclick"]',
-                            '[class*="sidebar"]:not([class*="player"])'
-                        ];
-                        selectors.forEach(sel => {
-                            try {
-                                document.querySelectorAll(sel).forEach(el => {
-                                    if (!el.closest('[class*="player"]') && !el.closest('[id*="player"]')) {
-                                        el.remove();
-                                    }
-                                });
-                            } catch(e) {}
-                        });
-                    }
-                    removeAds();
-                    setInterval(removeAds, 2000);
-                    new MutationObserver(removeAds).observe(document.body, {childList: true, subtree: true});
-                })();
-            `;
-            // Попытка отправить скрипт (может не сработать из-за CORS)
-            iframe.contentWindow?.postMessage({ type: 'injectScript', script: adblockScript }, '*');
-        } catch (e) {
-            console.log('⚠️ Автоматическая очистка рекламы недоступна (нормально для кросс-доменных iframe)');
-            console.log('💡 Используйте userscript для Tampermonkey (см. файл adblock-userscript.js)');
-        }
-    };
 
     modal.appendChild(buttonsContainer);
-    modal.appendChild(iframe);
+    modal.appendChild(playerContainer);
+
+    // ВАЖНО: Сначала добавляем всё в DOM!
+    document.body.appendChild(modal);
+
+    // Инициализируем плеер (используя рабочую версию библиотеки kinobox)
+    if (typeof kinobox !== 'undefined') {
+        kinobox(playerContainer, {
+            search: { kinopoisk: filmId }
+        });
+    } else {
+        console.error('Kinobox JS не загружен!');
+    }
     document.body.appendChild(modal);
 
     // Закрытие по Escape

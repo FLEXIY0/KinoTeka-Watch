@@ -474,7 +474,8 @@ body {
     border-bottom: none;
 }
 
-.search-suggestion-tile:hover {
+.search-suggestion-tile:hover,
+.search-suggestion-tile.active {
     background-color: #1a1a1a;
 }
 
@@ -488,7 +489,8 @@ body {
     flex: 1;
 }
 
-.search-suggestion-tile:hover .search-suggestion-name {
+.search-suggestion-tile:hover .search-suggestion-name,
+.search-suggestion-tile.active .search-suggestion-name {
     color: #ffffff;
 }
 
@@ -499,7 +501,8 @@ body {
     flex-shrink: 0;
 }
 
-.search-suggestion-tile:hover .search-suggestion-year {
+.search-suggestion-tile:hover .search-suggestion-year,
+.search-suggestion-tile.active .search-suggestion-year {
     color: #575757;
 }
 

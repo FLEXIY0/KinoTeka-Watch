@@ -427,6 +427,7 @@ function renderSearchSuggestions() {
     const list = document.getElementById('searchSuggestionsList');
     if (!list || searchResults.length === 0) return;
 
+    window.currentSuggestionIndex = -1;
     list.innerHTML = '';
 
     searchResults.forEach((film, index) => {
@@ -1398,3 +1399,55 @@ function showHistoryContextMenu(x, y, tile) {
 }
 
 
+
+
+window.currentSuggestionIndex = -1;
+
+window.handleDropdownNavigation = function(e) {
+    const list = document.getElementById('searchSuggestionsList');
+    const wrapper = document.getElementById('searchSuggestionsWrapper');
+    if (!wrapper || wrapper.style.display === 'none' || !wrapper.classList.contains('visible')) {
+        return false;
+    }
+    
+    const items = list.querySelectorAll('.search-suggestion-tile');
+    if (items.length === 0) return false;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (window.currentSuggestionIndex < items.length - 1) {
+            window.currentSuggestionIndex++;
+        } else {
+            window.currentSuggestionIndex = 0;
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (window.currentSuggestionIndex > 0) {
+            window.currentSuggestionIndex--;
+        } else if (window.currentSuggestionIndex === -1) {
+            window.currentSuggestionIndex = items.length - 1;
+        } else {
+            window.currentSuggestionIndex = items.length - 1;
+        }
+    } else if (e.key === 'Enter') {
+        if (window.currentSuggestionIndex >= 0 && window.currentSuggestionIndex < items.length) {
+            e.preventDefault();
+            items[window.currentSuggestionIndex].click();
+            return true;
+        }
+        return false;
+    } else {
+        return false;
+    }
+
+    items.forEach((item, index) => {
+        if (index === window.currentSuggestionIndex) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    return true;
+};

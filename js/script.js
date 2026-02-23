@@ -574,7 +574,8 @@ const tipsTranslations = {
         'В меню KTW можно выбрать другой язык интерфейса',
         'Начни просто печатать, чтобы начать поиск',
         'Пользуйся выпадающим списком, чтобы найти точнее',
-        'Оставь отзыв или предложение в разделе Issues на GitHub'
+        'Оставь отзыв или предложение в разделе Issues на GitHub',
+        'Можно не использовать мышку: <span style="color: #ef9807;">переключайтесь в выпадающем списке при помощи стрелочек</span>'
     ],
     en: [
         'Try switching tabs if the player is unavailable',
@@ -779,9 +780,17 @@ function showNextTip() {
     tipText.classList.remove('visible');
 
     setTimeout(() => {
-        tipText.textContent = currentTips[currentTipIndex];
+        const lastIndex = currentTips.length - 1;
+        // С вероятностью 40% показываем подсказку про стрелочки (последнюю в массиве),
+        // иначе любую другую случайную
+        if (Math.random() < 0.4) {
+            currentTipIndex = lastIndex;
+        } else {
+            currentTipIndex = Math.floor(Math.random() * lastIndex);
+        }
+
+        tipText.innerHTML = currentTips[currentTipIndex];
         tipText.classList.add('visible');
-        currentTipIndex = (currentTipIndex + 1) % currentTips.length;
     }, 500); // Wait for fade out
 }
 
@@ -1083,6 +1092,10 @@ function handleKeyDown(e) {
         startIdleTimer();
 
         // Обрабатываем Enter для поиска
+        if (typeof window.handleDropdownNavigation === 'function' && window.handleDropdownNavigation(e)) {
+            return;
+        }
+
         if (e.key === 'Enter') {
             e.preventDefault();
             if (typeof handleSearch === 'function') {

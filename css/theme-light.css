@@ -276,3 +276,8 @@ body.light-theme #adWarningModal button:hover {
     background-color: #333333 !important;
     border-color: #333333 !important;
 }
+
+/* Подсказки в светлой теме */
+body.light-theme .ktw-tip-text {
+    color: rgba(0, 0, 0, 0.85) !important;
+}

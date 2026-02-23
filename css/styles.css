@@ -39,7 +39,7 @@ body {
     font-weight: 400;
     text-decoration: none;
     cursor: pointer;
-    z-index: 100;
+    z-index: 200;
     transition: transform 0.3s ease, color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     width: auto;
     margin: 0;
@@ -93,11 +93,11 @@ body {
 .logo-tooltip::before {
     content: '';
     position: absolute;
-    top: -15px;
+    top: -20px;
     left: 50%;
     transform: translateX(-50%);
-    width: 120px;
-    height: 15px;
+    width: 250px;
+    height: 20px;
     pointer-events: auto;
     background: transparent;
 }
@@ -281,6 +281,36 @@ body {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.7);
     z-index: 99;
+}
+
+/* Подсказки KTW */
+.ktw-tips-container {
+    position: absolute;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 600px;
+    max-width: 90%;
+    z-index: 100;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+.ktw-tip-text {
+    font-size: 13px;
+    color: #696868;
+    line-height: 1.4;
+    transition: opacity 0.5s ease, color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+}
+
+.ktw-tip-text.visible {
+    opacity: 1;
+}
+
+.ktw-tips-container.hidden {
+    display: none;
 }
 
 /* Основной блок поиска */
@@ -510,6 +540,45 @@ body {
 .footer-right {
     display: flex;
     align-items: center;
+    gap: 16px;
+    margin-right: -20px;
+}
+
+.beer-donate-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2d2d2d;
+    text-decoration: none;
+    transition: all 0.3s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #2d2d2d;
+    box-shadow: 0 0 6px rgba(45, 45, 45, 0.15);
+}
+
+.beer-donate-btn:hover {
+    color: #696868;
+    border-color: #696868;
+    transform: translateY(-2px);
+    box-shadow: 0 0 8px rgba(45, 45, 45, 0.2);
+}
+
+.beer-donate-btn:hover .beer-icon {
+    transform: rotate(-15deg);
+}
+
+.beer-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.beer-text {
+    font-size: 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    text-decoration: none;
 }
 
 .github-link {
@@ -546,6 +615,7 @@ body {
 
 .github-text {
     font-size: 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
     text-decoration: none;
 }
 
@@ -627,8 +697,27 @@ body {
 /* Скрываем футер и избранное при открытом плеере */
 body:has(#playerModal) .footer,
 body:has(#playerModal) .bottom-panels-wrapper,
-body:has(#playerModal) .logo-top {
+body:has(#playerModal) .logo-top,
+body:has(#playerModal) .donatty-widget {
     display: none !important;
+}
+
+/* Donatty виджет */
+.donatty-widget {
+    position: absolute;
+    bottom: 50px;
+    left: 40px;
+    width: 320px;
+    height: 80px;
+    overflow: visible;
+    border-radius: 4px;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+    z-index: 5;
+}
+
+.donatty-widget:hover {
+    opacity: 1;
 }
 
 /* Контекстное меню */

@@ -201,19 +201,22 @@
         flex-shrink: 0;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 6px 12px;
         font-size: 13px;
         white-space: nowrap;
     }
 
-    .github-icon {
+    .github-icon,
+    .beer-icon {
         width: 18px;
         height: 18px;
         flex-shrink: 0;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 13px;
     }
 
@@ -414,20 +417,23 @@
         flex-shrink: 0;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 5px 10px;
         font-size: 12px;
         gap: 5px;
         white-space: nowrap;
     }
 
-    .github-icon {
+    .github-icon,
+    .beer-icon {
         width: 16px;
         height: 16px;
         flex-shrink: 0;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 12px;
     }
 
@@ -573,22 +579,27 @@
 
     .footer-right {
         flex-shrink: 0;
+        gap: 8px;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 5px 10px;
         font-size: 11px;
         gap: 5px;
         white-space: nowrap;
     }
 
-    .github-icon {
+    .github-icon,
+    .beer-icon {
         width: 14px;
         height: 14px;
+        font-size: 11px;
         flex-shrink: 0;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 11px;
     }
 
@@ -712,13 +723,15 @@
         flex-shrink: 0;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 4px 8px;
         font-size: 10px;
         white-space: nowrap;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 10px;
     }
 }
@@ -1050,7 +1063,8 @@
         touch-action: manipulation;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         min-height: 44px;
         touch-action: manipulation;
     }
@@ -1061,7 +1075,8 @@
             opacity: 1;
         }
 
-        .github-link:hover {
+        .github-link:hover,
+        .beer-donate-btn:hover {
             transform: none;
         }
     }

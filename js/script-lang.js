@@ -21,21 +21,21 @@ const languageCodes = Object.keys(supportedLanguages);
 function initLanguage() {
     // Сначала проверяем сохраненный язык
     const savedLanguage = localStorage.getItem('ktw_selected_language');
-    
+
     if (savedLanguage && supportedLanguages[savedLanguage]) {
         currentLanguage = savedLanguage;
     } else {
         // Если нет сохраненного - используем автоопределение
         const userLanguage = navigator.language || navigator.userLanguage;
         const langCode = userLanguage.split('-')[0].toLowerCase();
-        
+
         if (supportedLanguages[langCode]) {
             currentLanguage = langCode;
         } else {
             currentLanguage = 'en'; // По умолчанию английский
         }
     }
-    
+
     // Обновляем UI
     updateLanguageUI();
     updateContentLanguage();
@@ -55,12 +55,12 @@ function updateContentLanguage() {
     if (typeof tooltipTranslations !== 'undefined' && typeof initTooltip === 'function') {
         initTooltip();
     }
-    
+
     // Обновляем фразы для печати
     if (typeof phrasesTranslations !== 'undefined') {
         phrases = phrasesTranslations[currentLanguage] || phrasesTranslations['en'];
     }
-    
+
     // Обновляем футер
     const copyrightElement = document.getElementById('copyrightText');
     if (copyrightElement && typeof tooltipTranslations !== 'undefined') {
@@ -69,10 +69,15 @@ function updateContentLanguage() {
             copyrightElement.textContent = translations.copyright;
         }
     }
-    
+
     // Перезагружаем статистику (тексты могут быть на разных языках)
     if (typeof loadVisitStats === 'function') {
         loadVisitStats();
+    }
+
+    // Обновляем подсказки
+    if (typeof updateTipsLanguage === 'function') {
+        updateTipsLanguage();
     }
 }
 
@@ -82,9 +87,9 @@ function initLanguageSelector() {
     const languageDropdown = document.getElementById('languageDropdown');
     const languageGrid = document.getElementById('languageGrid');
     const languageSelector = languageButton?.parentElement;
-    
+
     if (!languageButton || !languageDropdown || !languageGrid) return;
-    
+
     // Создаем опции языков
     languageCodes.forEach(code => {
         const option = document.createElement('button');
@@ -94,27 +99,27 @@ function initLanguageSelector() {
         }
         option.textContent = supportedLanguages[code];
         option.dataset.lang = code;
-        
+
         option.addEventListener('click', () => {
             selectLanguage(code);
         });
-        
+
         languageGrid.appendChild(option);
     });
-    
+
     // Открытие/закрытие выпадающего списка
     languageButton.addEventListener('click', (e) => {
         e.stopPropagation();
         languageSelector?.classList.toggle('active');
     });
-    
+
     // Закрытие при клике вне
     document.addEventListener('click', (e) => {
         if (!languageSelector?.contains(e.target)) {
             languageSelector?.classList.remove('active');
         }
     });
-    
+
     // Предотвращаем закрытие tooltip при клике на селектор
     languageSelector?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -124,15 +129,15 @@ function initLanguageSelector() {
 // Выбор языка
 function selectLanguage(langCode) {
     if (!supportedLanguages[langCode]) return;
-    
+
     currentLanguage = langCode;
-    
+
     // Сохраняем выбор
     localStorage.setItem('ktw_selected_language', langCode);
-    
+
     // Обновляем UI
     updateLanguageUI();
-    
+
     // Обновляем выбранную опцию
     document.querySelectorAll('.language-option').forEach(option => {
         if (option.dataset.lang === langCode) {
@@ -141,14 +146,14 @@ function selectLanguage(langCode) {
             option.classList.remove('selected');
         }
     });
-    
+
     // Закрываем выпадающий список
     const languageSelector = document.querySelector('.language-selector');
     languageSelector?.classList.remove('active');
-    
+
     // Обновляем контент
     updateContentLanguage();
-    
+
     // Если анимация печатания активна, перезапускаем с новой фразой
     if (typeof resetToAnimationMode === 'function' && !isEditingMode) {
         setTimeout(() => {

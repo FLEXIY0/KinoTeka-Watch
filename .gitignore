@@ -1,6 +1,7 @@
 # Конфигурационные файлы с секретами
 config.js
 kinopoisk-key.js
+js/donatty-widget.js
 *.local.js
 .env
 .env.local

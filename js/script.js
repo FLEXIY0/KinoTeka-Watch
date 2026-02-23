@@ -468,7 +468,7 @@ const tooltipTranslations = {
         accept: 'принято',
         copyright: '2025 все права защищены.',
         adWarningTitle: 'Важная информация',
-        adWarningText: 'Сторонние видеоплееры, используемые на сайте, могут содержать рекламу и баннеры.\n\nДля комфортного просмотра без рекламы рекомендуем:\n\n• Установить AdGuard или другой блокировщик рекламы\n• Использовать браузер с блокировкой рекламы для Android:',
+        adWarningText: 'Сторонние видеоплееры, используемые на сайте, могут содержать рекламу и баннеры.\n\nДля комфортного просмотра без рекламы рекомендуем:\n\n• Установить любой блокировщик рекламы\n• Использовать браузер с блокировкой рекламы для Android:',
         adWarningButton: 'Понятно'
     },
     en: {
@@ -476,7 +476,7 @@ const tooltipTranslations = {
         accept: 'accepted',
         copyright: '2025 all rights reserved.',
         adWarningTitle: 'Important Information',
-        adWarningText: 'Third-party video players used on the site may contain advertisements and banners.\n\nFor ad-free viewing, we recommend:\n\n• Install AdGuard or another ad blocker\n• Use an ad-blocking browser for Android:',
+        adWarningText: 'Third-party video players used on the site may contain advertisements and banners.\n\nFor ad-free viewing, we recommend:\n\n• Install an ad blocker\n• Use an ad-blocking browser for Android:',
         adWarningButton: 'OK'
     },
     de: {
@@ -484,7 +484,7 @@ const tooltipTranslations = {
         accept: 'akzeptiert',
         copyright: '2025 alle Rechte vorbehalten.',
         adWarningTitle: 'Wichtige Information',
-        adWarningText: 'Von Drittanbietern bereitgestellte Videoplayer können Werbung und Banner enthalten.\n\nFür werbefreies Ansehen empfehlen wir:\n\n• AdGuard oder einen anderen Werbeblocker installieren\n• Einen werbeblockierenden Browser für Android verwenden:',
+        adWarningText: 'Von Drittanbietern bereitgestellte Videoplayer können Werbung und Banner enthalten.\n\nFür werbefreies Ansehen empfehlen wir:\n\n• Einen Werbeblocker installieren\n• Einen werbeblockierenden Browser für Android verwenden:',
         adWarningButton: 'OK'
     },
     fr: {
@@ -492,7 +492,7 @@ const tooltipTranslations = {
         accept: 'accepté',
         copyright: '2025 tous droits réservés.',
         adWarningTitle: 'Information importante',
-        adWarningText: 'Les lecteurs vidéo tiers utilisés sur le site peuvent contenir des publicités et des bannières.\n\nPour une visualisation sans publicité, nous recommandons:\n\n• Installer AdGuard ou un autre bloqueur de publicités\n• Utiliser un navigateur avec blocage de publicités pour Android:',
+        adWarningText: 'Les lecteurs vidéo tiers utilisés sur le site peuvent contenir des publicités et des bannières.\n\nPour une visualisation sans publicité, nous recommandons:\n\n• Installer un bloqueur de publicités\n• Utiliser un navigateur avec blocage de publicités pour Android:',
         adWarningButton: 'OK'
     },
     es: {
@@ -500,7 +500,7 @@ const tooltipTranslations = {
         accept: 'aceptado',
         copyright: '2025 todos los derechos reservados.',
         adWarningTitle: 'Información importante',
-        adWarningText: 'Los reproductores de video de terceros utilizados en el sitio pueden contener anuncios y banners.\n\nPara una visualización sin anuncios, recomendamos:\n\n• Instalar AdGuard u otro bloqueador de anuncios\n• Usar un navegador con bloqueo de anuncios para Android:',
+        adWarningText: 'Los reproductores de video de terceros utilizados en el sitio pueden contener anuncios y banners.\n\nPara una visualización sin anuncios, recomendamos:\n\n• Instalar un bloqueador de anuncios\n• Usar un navegador con bloqueo de anuncios para Android:',
         adWarningButton: 'OK'
     },
     it: {
@@ -508,7 +508,7 @@ const tooltipTranslations = {
         accept: 'accettato',
         copyright: '2025 tutti i diritti riservati.',
         adWarningTitle: 'Informazione importante',
-        adWarningText: 'I lettori video di terze parti utilizzati sul sito possono contenere pubblicità e banner.\n\nPer una visione senza pubblicità, consigliamo:\n\n• Installare AdGuard o un altro bloccatore di pubblicità\n• Utilizzare un browser con blocco pubblicità per Android:',
+        adWarningText: 'I lettori video di terze parti utilizzati sul sito possono contenere pubblicità e banner.\n\nPer una visione senza pubblicità, consigliamo:\n\n• Installare un bloccatore di pubblicità\n• Utilizzare un browser con blocco pubblicità per Android:',
         adWarningButton: 'OK'
     },
     pt: {
@@ -516,7 +516,7 @@ const tooltipTranslations = {
         accept: 'aceito',
         copyright: '2025 todos os direitos reservados.',
         adWarningTitle: 'Informação importante',
-        adWarningText: 'Os reprodutores de vídeo de terceiros usados no site podem conter anúncios e banners.\n\nPara visualização sem anúncios, recomendamos:\n\n• Instalar AdGuard ou outro bloqueador de anúncios\n• Usar um navegador com bloqueio de anúncios para Android:',
+        adWarningText: 'Os reprodutores de vídeo de terceiros usados no site podem conter anúncios e banners.\n\nPara visualização sem anúncios, recomendamos:\n\n• Instalar um bloqueador de anúncios\n• Usar um navegador com bloqueio de anúncios para Android:',
         adWarningButton: 'OK'
     },
     pl: {
@@ -524,7 +524,7 @@ const tooltipTranslations = {
         accept: 'zaakceptowano',
         copyright: '2025 wszystkie prawa zastrzeżone.',
         adWarningTitle: 'Ważna informacja',
-        adWarningText: 'Odtwarzacze wideo stron trzecich używane na stronie mogą zawierać reklamy i banery.\n\nAby oglądać bez reklam, zalecamy:\n\n• Zainstalować AdGuard lub inny bloker reklam\n• Użyć przeglądarki z blokowaniem reklam na Androida:',
+        adWarningText: 'Odtwarzacze wideo stron trzecich używane na stronie mogą zawierać reklamy i banery.\n\nAby oglądać bez reklam, zalecamy:\n\n• Zainstalować bloker reklam\n• Użyć przeglądarki z blokowaniem reklam na Androida:',
         adWarningButton: 'OK'
     },
     uk: {
@@ -532,7 +532,7 @@ const tooltipTranslations = {
         accept: 'прийнято',
         copyright: '2025 всі права захищені.',
         adWarningTitle: 'Важлива інформація',
-        adWarningText: 'Сторонні відеоплеєри, що використовуються на сайті, можуть містити рекламу та банери.\n\nДля комфортного перегляду без реклами рекомендуємо:\n\n• Встановити AdGuard або інший блокувальник реклами\n• Використовувати браузер з блокуванням реклами для Android:',
+        adWarningText: 'Сторонні відеоплеєри, що використовуються на сайті, можуть містити рекламу та банери.\n\nДля комфортного перегляду без реклами рекомендуємо:\n\n• Встановити будь-який блокувальник реклами\n• Використовувати браузер з блокуванням реклами для Android:',
         adWarningButton: 'Зрозуміло'
     },
     ja: {
@@ -540,7 +540,7 @@ const tooltipTranslations = {
         accept: '受け入れました',
         copyright: '2025 全著作権所有。',
         adWarningTitle: '重要な情報',
-        adWarningText: 'サイトで使用されるサードパーティのビデオプレーヤーには、広告やバナーが含まれる場合があります。\n\n広告なしで視聴するために、以下を推奨します:\n\n• AdGuardまたは他の広告ブロッカーをインストール\n• Android用の広告ブロックブラウザを使用:',
+        adWarningText: 'サイトで使用されるサードパーティのビデオプレーヤーには、広告やバナーが含まれる場合があります。\n\n広告なしで視聴するために、以下を推奨します:\n\n• 広告ブロッカーをインストール\n• Android用の広告ブロックブラウザを使用:',
         adWarningButton: 'OK'
     },
     ko: {
@@ -548,7 +548,7 @@ const tooltipTranslations = {
         accept: '수락됨',
         copyright: '2025 모든 권리 보유.',
         adWarningTitle: '중요한 정보',
-        adWarningText: '사이트에서 사용되는 타사 비디오 플레이어에는 광고 및 배너가 포함될 수 있습니다.\n\n광고 없이 시청하려면 다음을 권장합니다:\n\n• AdGuard 또는 다른 광고 차단기 설치\n• Android용 광고 차단 브라우저 사용:',
+        adWarningText: '사이트에서 사용되는 타사 비디오 플레이어에는 광고 및 배너가 포함될 수 있습니다.\n\n광고 없이 시청하려면 다음을 권장합니다:\n\n• 광고 차단기 설치\n• Android용 광고 차단 브라우저 사용:',
         adWarningButton: '확인'
     },
     zh: {
@@ -556,16 +556,180 @@ const tooltipTranslations = {
         accept: '已接受',
         copyright: '2025 版权所有。',
         adWarningTitle: '重要信息',
-        adWarningText: '网站上使用的第三方视频播放器可能包含广告和横幅。\n\n为了无广告观看，我们建议:\n\n• 安装AdGuard或其他广告拦截器\n• 使用Android广告拦截浏览器:',
+        adWarningText: '网站上使用的第三方视频播放器可能包含广告和横幅。\n\n为了无广告观看，我们建议:\n\n• 安装广告拦截器\n• 使用Android广告拦截浏览器:',
         adWarningButton: '确定'
     }
 };
 
+// Переводы для подсказок
+const tipsTranslations = {
+    ru: [
+        'Попробуй переключать вкладки, если не доступен плеер',
+        'Если фильм не грузится, выбери другой плеер в списке',
+        'Автор никак не может найти работу, помоги',
+        'Введи название фильма или сериала, чтобы начать',
+        'KinoTeka-Watch не отвечает за рекламу в плеере. Думаю, вы знаете как её выключить ;)',
+        'Для поиска нажми на бегущую строку',
+        'Темную и светлую тему можно переключать в меню KTW',
+        'В меню KTW можно выбрать другой язык интерфейса',
+        'Начни просто печатать, чтобы начать поиск',
+        'Пользуйся выпадающим списком, чтобы найти точнее',
+        'Оставь отзыв или предложение в разделе Issues на GitHub'
+    ],
+    en: [
+        'Try switching tabs if the player is unavailable',
+        'If the movie does not load, choose another player in the list',
+        'The author still cannot find a job, please help',
+        'Enter the name of a movie or series to start',
+        'KinoTeka-Watch is not responsible for ads in the player. I think you know how to turn them off ;)',
+        'To search, click on the moving text',
+        'Dark and light themes can be switched in the KTW menu',
+        'You can choose another interface language in the KTW menu',
+        'Just start typing to begin the search',
+        'Use the dropdown list to find more accurately',
+        'Leave feedback or suggestions in the Issues section on GitHub'
+    ],
+    de: [
+        'Versuchen Sie, die Tabs zu wechseln, wenn der Player nicht verfügbar ist',
+        'Wenn der Film nicht lädt, wählen Sie einen anderen Player aus der Liste',
+        'Der Autor findet immer noch keinen Job, bitte helfen Sie',
+        'Geben Sie den Namen eines Films oder einer Serie ein, um zu beginnen',
+        'KinoTeka-Watch ist nicht für Werbung im Player verantwortlich. Ich denke, Sie wissen, wie man sie ausschaltet ;)',
+        'Zum Suchen klicken Sie auf den bewegten Text',
+        'Dunkle und helle Designs können im KTW-Menü umgeschaltet werden',
+        'Sie können eine andere Benutzeroberflächensprache im KTW-Menü auswählen',
+        'Fange einfach an zu tippen, um die Suche zu starten',
+        'Verwenden Sie die Dropdown-Liste, um genauer zu suchen',
+        'Hinterlassen Sie Feedback oder Vorschläge im Bereich Issues auf GitHub'
+    ],
+    fr: [
+        'Essayez de changer d\'onglet si le lecteur est indisponible',
+        'Si le film ne charge pas, choisissez un autre lecteur dans la liste',
+        'L\'auteur n\'arrive toujours pas à trouver de travail, au secours',
+        'Entrez le nom d\'un film ou d\'une série pour commencer',
+        'KinoTeka-Watch n\'est pas responsable des publicités dans le lecteur. Je pense que vous savez comment les désactiver ;)',
+        'Pour rechercher, cliquez sur le texte déroulant',
+        'Les thèmes sombre et clair peuvent être basculés dans le menu KTW',
+        'Vous pouvez choisir une autre langue d\'interface dans le menu KTW',
+        'Commencez simplement à taper pour commencer la recherche',
+        'Utilisez la liste déroulante pour trouver plus précisément',
+        'Laissez vos commentaires ou suggestions dans la section Issues sur GitHub'
+    ],
+    es: [
+        'Intente cambiar de pestaña si el reproductor no está disponible',
+        'Si la película no carga, elija otro reproductor en la lista',
+        'El autor aún no puede encontrar trabajo, por favor ayude',
+        'Ingrese el nombre de una película o serie para comenzar',
+        'KinoTeka-Watch no es responsable de los anuncios en el reproductor. Creo que sabes cómo desactivarlos ;)',
+        'Para buscar, haga clic en el texto en movimiento',
+        'Los temas oscuro y claro se pueden cambiar en el menú KTW',
+        'Puede elegir otro idioma de interfaz en el menú KTW',
+        'Simplemente comienza a escribir para iniciar la búsqueda',
+        'Usa la lista desplegable para encontrar con mayor precisión',
+        'Deja tus comentarios o sugerencias en la sección Issues en GitHub'
+    ],
+    it: [
+        'Prova a cambiare scheda se il player non è disponibile',
+        'Se il film non si carica, scegli un altro player nell\'elenco',
+        'L\'autore non riesce ancora a trovare lavoro, aiutatelo',
+        'Inserisci il nome di un film o di una serie per iniziare',
+        'KinoTeka-Watch non è responsabile per gli annunci nel player. Penso che tu sappia come disattivarli ;)',
+        'Per cercare, clicca sul testo in movimento',
+        'I temi scuro e chiaro possono essere cambiati nel menu KTW',
+        'Puoi scegliere un\'altra lingua per l\'interfaccia nel menu KTW',
+        'Inizia a digitare per avviare la ricerca',
+        'Usa l\'elenco a discesa per trovare in modo più preciso',
+        'Lascia un feedback o un suggerimento nella sezione Issues su GitHub'
+    ],
+    pt: [
+        'Tente alternar as abas se o player estiver indisponível',
+        'Se o filme não carregar, escolha outro player na lista',
+        'O autor ainda não consegue encontrar emprego, por favor ajude',
+        'Digite o nome de um filme ou série para começar',
+        'O KinoTeka-Watch não é responsável pelos anúncios no player. Acho que você sabe como desativá-los ;)',
+        'Para pesquisar, clique no texto em movimento',
+        'Os temas escuro e claro podem ser alterados no menu KTW',
+        'Você pode escolher outro idioma de interface no menu KTW',
+        'Basta começar a digitar para iniciar a pesquisa',
+        'Use a lista suspensa para encontrar com mais precisão',
+        'Deixe comentários ou sugestões na seção Issues no GitHub'
+    ],
+    pl: [
+        'Spróbuj przełączyć karty, jeśli odtwarzacz jest niedostępny',
+        'Jeśli film się nie ładuje, wybierz inny odtwarzacz na liście',
+        'Autor nadal nie może znaleźć pracy, prosimy o pomoc',
+        'Wpisz nazwę filmu lub serialu, aby rozpocząć',
+        'KinoTeka-Watch nie odpowiada za reklamy w odtwarzaczu. Myślę, że wiesz, jak je wyłączyć ;)',
+        'Aby wyszukać, kliknij przesuwający się tekst',
+        'Ciemny i jasny motyw można przełączać w menu KTW',
+        'W menu KTW można wybrać inny język interfejsu',
+        'Zacznij po prostu pisać, aby rozpocząć wyszukiwanie',
+        'Skorzystaj z listy rozwijanej, aby znaleźć dokładniej',
+        'Zostaw opinię lub sugestie w sekcji Issues na GitHubie'
+    ],
+    uk: [
+        'Спробуй перемикати вкладки, якщо не доступний плеєр',
+        'Якщо фільм не завантажується, вибери інший плеєр у списку',
+        'Автор ніяк не може знайти роботу, допоможи',
+        'Введи назву фільму або серіалу, щоб почати',
+        'KinoTeka-Watch не відповідає за рекламу в плеєрі. Думаю, ви знаєте як її вимкнути ;)',
+        'Для пошуку натисни на рухомий рядок',
+        'Темну та світлу тему можна перемикати в меню KTW',
+        'В меню KTW можна обрати іншу мову інтерфейсу',
+        'Почни просто друкувати, щоб почати пошук',
+        'Користуйся випадаючим списком, щоб знайти точніше',
+        'Залиш відгук або пропозицію в розділі Issues на GitHub'
+    ],
+    ja: [
+        'プレーヤーが利用できない場合は、タブを切り替えてみてください',
+        '映画が読み込まれない場合は、リスト内の別のプレーヤーを選択してください',
+        '作者はまだ仕事を見つけられていません、助けてください',
+        '開始するには、映画またはシリーズの名前を入力します',
+        'KinoTeka-Watchはプレーヤー内の広告について責任を負いません。オフにする方法はご存知だと思います ;)',
+        '検索するには、移動するテキストをクリックします',
+        'ダークテーマとライトテーマはKTWメニューで切り替えることができます',
+        'KTWメニューで別のインターフェース言語を選択できます',
+        '検索を始めるには、入力するだけです',
+        'ドロップダウンリストを使用して、より正確に検索します',
+        'GitHubのIssuesセクションにフィードバックや提案を残してください'
+    ],
+    ko: [
+        '플레이어를 사용할 수 없는 경우 탭을 전환해 보세요',
+        '영화가 로드되지 않으면 목록에서 다른 플레이어를 선택하세요',
+        '작가는 아직 일자리를 찾지 못했습니다. 도와주세요',
+        '시작하려면 영화 또는 시리즈 이름을 입력하세요',
+        'KinoTeka-Watch는 플레이어의 광고에 대해 책임을 지지 않습니다. 끄는 방법은 아실 거라 생각합니다 ;)',
+        '검색하려면 이동하는 텍스트를 클릭하세요',
+        '다크 및 라이트 테마는 KTW 메뉴에서 전환할 수 있습니다',
+        'KTW 메뉴에서 다른 인터페이스 언어를 선택할 수 있습니다',
+        '검색을 시작하려면 입력하기만 하면 됩니다',
+        '드롭다운 목록을 사용하여 더 정확하게 찾으세요',
+        'GitHub의 Issues 섹션에 피드백이나 제안을 남겨주세요'
+    ],
+    zh: [
+        '如果播放器不可用，请尝试切换选项卡',
+        '如果电影无法加载，请在列表中选择另一个播放器',
+        '作者仍然找不到工作，请帮忙',
+        '输入电影或剧集的名称开始',
+        'KinoTeka-Watch 不对播放器中的广告负责。我想你知道如何关闭它们 ;)',
+        '要搜索，请点击移动文本',
+        '深色和浅色主题可以在 KTW 菜单中切换',
+        '可以在 KTW 菜单中选择其他界面语言',
+        '只需开始输入即可开始搜索',
+        '使用下拉列表查找更准确',
+        '在GitHub上的Issues部分留下您的反馈或建议'
+    ]
+};
+
 // Получаем фразы для текущего языка
 let phrases = phrasesTranslations[currentLanguage] || phrasesTranslations['en'];
+let currentTips = tipsTranslations[currentLanguage] || tipsTranslations['en'];
 
 let currentPhraseIndex = 0;
 let currentCharIndex = 0;
+let currentTipIndex = 0;
+let tipsInterval = null;
+let tipsEnabled = localStorage.getItem('ktw_tips_enabled') !== 'false';
 let isTyping = false;
 let isDeleting = false;
 let searchTextElement = null;
@@ -574,6 +738,60 @@ let cursorElement = null;
 let idleTimer = null;
 let isEditingMode = false;
 let backgroundAnimationRunning = false;
+
+// Подсказки
+function initTips() {
+    const tipsContainer = document.getElementById('ktwTipsContainer');
+    const tipText = document.getElementById('ktwTipText');
+    const toggleBtn = document.getElementById('toggleTipsButton');
+
+    if (!tipsContainer || !tipText || !toggleBtn) return;
+
+    if (!tipsEnabled) {
+        tipsContainer.classList.add('hidden');
+        tipText.classList.remove('visible');
+    } else {
+        showNextTip();
+        tipsInterval = setInterval(showNextTip, 8000);
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        tipsEnabled = !tipsEnabled;
+        localStorage.setItem('ktw_tips_enabled', tipsEnabled);
+
+        if (tipsEnabled) {
+            tipsContainer.classList.remove('hidden');
+            showNextTip();
+            tipsInterval = setInterval(showNextTip, 8000);
+        } else {
+            tipsContainer.classList.add('hidden');
+            tipText.classList.remove('visible');
+            clearInterval(tipsInterval);
+        }
+    });
+}
+
+function showNextTip() {
+    if (!tipsEnabled) return;
+    const tipText = document.getElementById('ktwTipText');
+    if (!tipText) return;
+
+    tipText.classList.remove('visible');
+
+    setTimeout(() => {
+        tipText.textContent = currentTips[currentTipIndex];
+        tipText.classList.add('visible');
+        currentTipIndex = (currentTipIndex + 1) % currentTips.length;
+    }, 500); // Wait for fade out
+}
+
+function updateTipsLanguage() {
+    currentTips = tipsTranslations[currentLanguage] || tipsTranslations['en'];
+    currentTipIndex = 0;
+    if (tipsEnabled) {
+        showNextTip();
+    }
+}
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
@@ -585,37 +803,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const supportedLanguages = ['ru', 'en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'uk', 'ja', 'ko', 'zh'];
         currentLanguage = supportedLanguages.includes(langCode) ? langCode : 'en';
     }
-    
+
     searchTextElement = document.getElementById('searchText');
     searchTextBackgroundElement = document.getElementById('searchTextBackground');
     cursorElement = document.getElementById('cursor');
-    
+
     // Инициализация tooltip
     initTooltip();
-    
+
     // Инициализация меню KTW (первый запуск: принятие условий + определение языка)
     initLogoShake();
-    
+
     // Загрузка статистики GitHub
     loadGitHubStats();
-    
+
     // Загрузка статистики посещений
     loadVisitStats();
-    
+
     // Инициализация переключения темы
     initThemeToggle();
-    
+
+    // Инициализация подсказок
+    initTips();
+
     // Начинаем печатать первую фразу
     setTimeout(() => {
         typePhrase();
     }, 500);
-    
+
     // Обработчик клика на тексте
     searchTextElement.addEventListener('click', handleTextClick);
-    
+
     // Обработчик потери фокуса на редактируемом тексте
     searchTextElement.addEventListener('blur', handleTextBlur);
-    
+
     // Скрываем кастомный курсор при редактировании (браузер покажет свой)
     searchTextElement.addEventListener('focus', () => {
         if (searchTextElement.contentEditable === 'true') {
@@ -624,12 +845,12 @@ document.addEventListener('DOMContentLoaded', () => {
             startIdleTimer();
         }
     });
-    
+
     // Обработчик ввода текста - мгновенная реакция
     searchTextElement.addEventListener('input', handleInput, false);
     searchTextElement.addEventListener('keydown', handleKeyDown, false);
     searchTextElement.addEventListener('keyup', handleKeyUp, false);
-    
+
     // Обработчик нажатий клавиш глобально - если пользователь начинает печатать
     document.addEventListener('keydown', handleGlobalKeyDown);
 });
@@ -638,27 +859,27 @@ document.addEventListener('DOMContentLoaded', () => {
 function typePhrase() {
     // Не печатаем, если в режиме редактирования
     if (isEditingMode || isTyping || isDeleting) return;
-    
+
     const phrase = phrases[currentPhraseIndex];
     isTyping = true;
     backgroundAnimationRunning = true;
     cursorElement.classList.remove('hidden');
-    
+
     // Печатаем посимвольно
     function typeChar() {
         if (currentCharIndex < phrase.length) {
             const text = phrase.substring(0, currentCharIndex + 1);
-            
+
             // Обновляем основной текст только если не в режиме редактирования
             if (!isEditingMode) {
                 searchTextElement.textContent = text;
             }
-            
+
             // Всегда обновляем фоновый текст для продолжения анимации
             searchTextBackgroundElement.textContent = text;
-            
+
             currentCharIndex++;
-            
+
             // Случайная скорость для более естественного эффекта
             const speed = 80 + Math.random() * 40;
             setTimeout(typeChar, speed);
@@ -681,30 +902,30 @@ function typePhrase() {
             }
         }
     }
-    
+
     typeChar();
 }
 
 // Функция удаления текста
 function deletePhrase() {
     if (isTyping || isDeleting) return;
-    
+
     const phrase = phrases[currentPhraseIndex];
     isDeleting = true;
-    
+
     function deleteChar() {
         if (currentCharIndex > 0) {
             currentCharIndex--;
             const text = phrase.substring(0, currentCharIndex);
-            
+
             // Обновляем основной текст только если не в режиме редактирования
             if (!isEditingMode) {
                 searchTextElement.textContent = text;
             }
-            
+
             // Всегда обновляем фоновый текст для продолжения анимации
             searchTextBackgroundElement.textContent = text;
-            
+
             // Случайная скорость удаления (быстрее чем печатание)
             const speed = 30 + Math.random() * 30;
             setTimeout(deleteChar, speed);
@@ -729,7 +950,7 @@ function deletePhrase() {
             }, 800);
         }
     }
-    
+
     deleteChar();
 }
 
@@ -739,22 +960,22 @@ function handleTextClick() {
     if (isEditingMode || searchTextElement.contentEditable === 'true') {
         return;
     }
-    
+
     // Останавливаем анимацию и переходим в режим редактирования
     isEditingMode = true;
     isTyping = true;
     isDeleting = true;
-    
+
     // Очищаем таймер, если он был
     if (idleTimer) {
         clearTimeout(idleTimer);
         idleTimer = null;
     }
-    
+
     const currentText = searchTextElement.textContent;
     const textLength = currentText.length;
     currentCharIndex = textLength;
-    
+
     // Стираем текст полностью назад
     function eraseAllText() {
         if (currentCharIndex > 0) {
@@ -767,12 +988,12 @@ function handleTextClick() {
             searchTextElement.contentEditable = 'true';
             cursorElement.classList.add('hidden'); // Скрываем кастомный курсор, браузер покажет свой
             searchTextElement.focus();
-            
+
             // Запускаем таймер на 5 секунд
             startIdleTimer();
         }
     }
-    
+
     eraseAllText();
 }
 
@@ -782,7 +1003,7 @@ function startIdleTimer() {
     if (idleTimer) {
         clearTimeout(idleTimer);
     }
-    
+
     idleTimer = setTimeout(() => {
         // Проверяем, что поле пустое и мы все еще в режиме редактирования
         if (searchTextElement.contentEditable === 'true' && searchTextElement.textContent.trim() === '') {
@@ -804,12 +1025,12 @@ function resetToAnimationMode() {
     isDeleting = false;
     backgroundAnimationRunning = false;
     cursorElement.classList.remove('hidden');
-    
+
     if (idleTimer) {
         clearTimeout(idleTimer);
         idleTimer = null;
     }
-    
+
     setTimeout(() => {
         backgroundAnimationRunning = true;
         typePhrase();
@@ -822,16 +1043,16 @@ function handleInput(e) {
     if (window.isRenamingFilm) {
         return;
     }
-    
+
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер при каждом вводе
         startIdleTimer();
-        
+
         // Автоматический поиск для показа списка предложений (через 800ms после остановки ввода)
         if (window.autoSuggestTimer) {
             clearTimeout(window.autoSuggestTimer);
         }
-        
+
         const searchText = searchTextElement.textContent.trim();
         if (searchText.length >= 2) {
             window.autoSuggestTimer = setTimeout(() => {
@@ -856,11 +1077,11 @@ function handleKeyDown(e) {
     if (window.isRenamingFilm) {
         return;
     }
-    
+
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер при нажатии любой клавиши
         startIdleTimer();
-        
+
         // Обрабатываем Enter для поиска
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -877,32 +1098,32 @@ function handleGlobalKeyDown(e) {
     if (window.isRenamingFilm) {
         return;
     }
-    
+
     // Если уже в режиме редактирования, не обрабатываем
     if (searchTextElement.contentEditable === 'true') {
         return;
     }
-    
+
     // Проверяем, что это печатный символ (не служебные клавиши)
     const isPrintableKey = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
-    
+
     if (isPrintableKey && !isEditingMode) {
         // Переходим в режим редактирования, но продолжаем анимацию в фоне
         e.preventDefault();
-        
+
         // Включаем режим редактирования, но не останавливаем фоновую анимацию
         isEditingMode = true;
-        
+
         // Очищаем таймеры
         if (idleTimer) {
             clearTimeout(idleTimer);
             idleTimer = null;
         }
-        
+
         // Постепенно стираем текст пользователя (не фоновый)
         const currentText = searchTextElement.textContent;
         let eraseIndex = currentText.length;
-        
+
         // Постепенное стирание текста
         function gradualErase() {
             if (eraseIndex > 0) {
@@ -915,10 +1136,10 @@ function handleGlobalKeyDown(e) {
                 searchTextElement.contentEditable = 'true';
                 cursorElement.classList.add('hidden');
                 searchTextElement.focus();
-                
+
                 // Вставляем нажатую клавишу
                 searchTextElement.textContent = e.key;
-                
+
                 // Устанавливаем курсор в конец
                 setTimeout(() => {
                     const range = document.createRange();
@@ -928,12 +1149,12 @@ function handleGlobalKeyDown(e) {
                     sel.removeAllRanges();
                     sel.addRange(range);
                 }, 0);
-                
+
                 // Запускаем таймер
                 startIdleTimer();
             }
         }
-        
+
         gradualErase();
     }
 }
@@ -944,7 +1165,7 @@ function handleKeyUp(e) {
     if (window.isRenamingFilm) {
         return;
     }
-    
+
     if (searchTextElement.contentEditable === 'true') {
         // Сбрасываем таймер
         startIdleTimer();
@@ -955,13 +1176,13 @@ function handleKeyUp(e) {
 function handleTextBlur() {
     if (searchTextElement.contentEditable === 'true') {
         const userText = searchTextElement.textContent.trim();
-        
+
         // Очищаем таймер
         if (idleTimer) {
             clearTimeout(idleTimer);
             idleTimer = null;
         }
-        
+
         if (userText === '') {
             // Если поле пустое, возвращаем анимацию
             resetToAnimationMode();
@@ -977,7 +1198,7 @@ function handleTextBlur() {
 // Инициализация tooltip
 function initTooltip() {
     const translations = tooltipTranslations[currentLanguage] || tooltipTranslations['en'];
-    
+
     document.getElementById('disclaimerText').textContent = translations.disclaimer;
 }
 
@@ -1029,14 +1250,14 @@ function initLogoShake() {
         if (hoverTimeout) {
             clearTimeout(hoverTimeout);
         }
-        hoverTimeout = setTimeout(function() {
+        hoverTimeout = setTimeout(function () {
             if (!isHovering) {
                 logoTooltip.style.opacity = '0';
                 logoTooltip.style.visibility = 'hidden';
                 logoTooltip.style.transform = 'translateX(-50%) translateY(-10px)';
                 logoTooltip.style.pointerEvents = 'none';
             }
-        }, 100);
+        }, 300);
     }
 
     // Первый визит: показываем меню открытым с оверлеем и кнопкой принятия
@@ -1084,9 +1305,9 @@ function initLogoShake() {
         acceptButton.style.cssText = 'background: #2d2d2d; border: 1px solid #575757; color: #ffffff;' +
             'padding: 10px 30px; cursor: pointer; font-family: "Consolas", "Courier New", monospace;' +
             'font-size: 14px; transition: all 0.2s ease; width: 100%; margin-top: 16px;';
-        acceptButton.onmouseover = function() { this.style.background = '#575757'; this.style.borderColor = '#696868'; };
-        acceptButton.onmouseout = function() { this.style.background = '#2d2d2d'; this.style.borderColor = '#575757'; };
-        acceptButton.onclick = function() {
+        acceptButton.onmouseover = function () { this.style.background = '#575757'; this.style.borderColor = '#696868'; };
+        acceptButton.onmouseout = function () { this.style.background = '#2d2d2d'; this.style.borderColor = '#575757'; };
+        acceptButton.onclick = function () {
             localStorage.setItem('ktw_terms_accepted', 'true');
             localStorage.setItem('ktw_ad_warning_shown', 'true');
             localStorage.setItem('ktw_disclaimer_viewed', 'true');
@@ -1117,14 +1338,14 @@ function initLogoShake() {
         }
 
         // Показываем tooltip с задержкой
-        setTimeout(function() {
+        setTimeout(function () {
             logoTop.classList.remove('shake');
             showTooltip();
         }, 300);
     }
 
     // Обработчики hover для логотипа
-    logoTop.addEventListener('mouseenter', function() {
+    logoTop.addEventListener('mouseenter', function () {
         logoTop.classList.remove('shake');
         if (termsAccepted) {
             localStorage.setItem('ktw_disclaimer_viewed', 'true');
@@ -1132,18 +1353,18 @@ function initLogoShake() {
         showTooltip();
     });
 
-    logoTop.addEventListener('mouseleave', function() {
+    logoTop.addEventListener('mouseleave', function () {
         isHovering = false;
         hideTooltip();
     });
 
     // Обработчики hover для tooltip
-    logoTooltip.addEventListener('mouseenter', function() {
+    logoTooltip.addEventListener('mouseenter', function () {
         isHovering = true;
         showTooltip();
     });
 
-    logoTooltip.addEventListener('mouseleave', function() {
+    logoTooltip.addEventListener('mouseleave', function () {
         isHovering = false;
         hideTooltip();
     });
@@ -1153,7 +1374,7 @@ function initLogoShake() {
 async function loadGitHubStats() {
     let stars = 0;
     let forks = 0;
-    
+
     try {
         const response = await fetch('https://api.github.com/repos/FLEXIY0/KinoTeka-Watch');
         if (response.ok) {
@@ -1164,7 +1385,7 @@ async function loadGitHubStats() {
     } catch (error) {
         console.error('Error loading GitHub stats:', error);
     }
-    
+
     // Обновляем мини-статистику
     document.getElementById('miniStarsValue').textContent = formatNumber(stars);
     document.getElementById('miniForksValue').textContent = formatNumber(forks);
@@ -1179,17 +1400,17 @@ function loadVisitStats() {
     } else {
         visits = parseInt(visits);
     }
-    
+
     // Проверяем, не было ли уже посещения сегодня
     const lastVisit = localStorage.getItem('ktw_last_visit');
     const today = new Date().toDateString();
-    
+
     if (lastVisit !== today) {
         visits++;
         localStorage.setItem('ktw_visits', visits.toString());
         localStorage.setItem('ktw_last_visit', today);
     }
-    
+
     // Обновляем мини-статистику
     document.getElementById('miniVisitsValue').textContent = formatNumber(visits);
 }
@@ -1208,13 +1429,13 @@ function formatNumber(num) {
 function initThemeToggle() {
     const themeToggleButton = document.getElementById('themeToggleButton');
     if (!themeToggleButton) return;
-    
+
     // Загружаем сохраненную тему
     const savedTheme = localStorage.getItem('ktw_theme') || 'dark';
     if (savedTheme === 'light') {
         document.body.classList.add('light-theme');
     }
-    
+
     // Обработчик клика на кнопку
     themeToggleButton.addEventListener('click', (e) => {
         toggleTheme(e);
@@ -1225,7 +1446,7 @@ function initThemeToggle() {
 function toggleTheme(event) {
     const body = document.body;
     const isLight = body.classList.contains('light-theme');
-    
+
     // Получаем координаты клика
     let x, y;
     if (event && event.clientX !== undefined && event.clientY !== undefined) {
@@ -1236,17 +1457,17 @@ function toggleTheme(event) {
         x = window.innerWidth / 2;
         y = window.innerHeight / 2;
     }
-    
+
     // Создаем контейнер для маски
     const overlay = document.createElement('div');
     overlay.className = 'theme-transition-overlay';
-    
+
     // Вычисляем максимальный радиус для полного покрытия экрана
     const maxRadius = Math.sqrt(
         Math.pow(Math.max(x, window.innerWidth - x), 2) +
         Math.pow(Math.max(y, window.innerHeight - y), 2)
     );
-    
+
     // Переключаем тему сразу, чтобы элементы начали плавно менять цвета
     if (isLight) {
         body.classList.remove('light-theme');
@@ -1255,7 +1476,7 @@ function toggleTheme(event) {
         body.classList.add('light-theme');
         localStorage.setItem('ktw_theme', 'light');
     }
-    
+
     // Создаем тонкий градиентный эффект "волны" вместо сплошного круга
     overlay.style.cssText = `
         position: fixed;
@@ -1273,9 +1494,9 @@ function toggleTheme(event) {
         transition: clip-path 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         opacity: 1;
     `;
-    
+
     document.body.appendChild(overlay);
-    
+
     // Запускаем анимацию раскрытия
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -1286,7 +1507,7 @@ function toggleTheme(event) {
             }, 700);
         });
     });
-    
+
     // Удаляем overlay после завершения анимации
     setTimeout(() => {
         if (overlay.parentNode) {

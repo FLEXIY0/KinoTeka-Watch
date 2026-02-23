@@ -4,7 +4,7 @@ body.light-theme {
     background-color: #ffffff !important;
     color: #000000 !important;
     transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 body.light-theme .container {
@@ -94,7 +94,8 @@ body.light-theme .footer-left:hover {
     color: #2d2d2d !important;
 }
 
-body.light-theme .github-icon {
+body.light-theme .github-icon,
+body.light-theme .beer-icon {
     color: #696868;
 }
 
@@ -158,19 +159,22 @@ body.light-theme .footer-left:hover {
     color: #000000 !important;
 }
 
-body.light-theme .github-link {
+body.light-theme .github-link,
+body.light-theme .beer-donate-btn {
     color: #000000 !important;
     border-color: #d3d3d3;
     background-color: #ffffff !important;
 }
 
-body.light-theme .github-link:hover {
+body.light-theme .github-link:hover,
+body.light-theme .beer-donate-btn:hover {
     color: #000000 !important;
     border-color: #b3b3b3;
     background-color: #f5f5f5 !important;
 }
 
-body.light-theme .github-text {
+body.light-theme .github-text,
+body.light-theme .beer-text {
     color: #000000 !important;
 }
 
@@ -248,7 +252,7 @@ body.light-theme #adWarningModal {
     background-color: rgba(0, 0, 0, 0.7);
 }
 
-body.light-theme #adWarningModal > div {
+body.light-theme #adWarningModal>div {
     background-color: #ffffff !important;
     border: 1px solid #d3d3d3;
     color: #000000 !important;
@@ -272,4 +276,3 @@ body.light-theme #adWarningModal button:hover {
     background-color: #333333 !important;
     border-color: #333333 !important;
 }
-

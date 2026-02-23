@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:; connect-src 'self' https: http: https://kinopoiskapiunofficial.tech https://api.allorigins.win https://api.github.com https://www.google.com https://html.duckduckgo.com https://api.duckduckgo.com https://flcksbr.top http://flcksbr.top; frame-src 'self' https: http: https://flcksbr.top http://flcksbr.top; frame-ancestors 'self';">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://kinobox.tv https://fbphdplay.top; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://kinobox.tv https://fbphdplay.top; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:; connect-src 'self' https: http: https://kinopoiskapiunofficial.tech https://api.allorigins.win https://api.github.com https://www.google.com https://html.duckduckgo.com https://api.duckduckgo.com https://flcksbr.top http://flcksbr.top https://kinobox.tv https://fbphdplay.top; frame-src 'self' https: http: https://flcksbr.top http://flcksbr.top https://kinobox.tv https://fbphdplay.top https://widgets.donatty.com; frame-ancestors 'self';">
     <title>kino-teka-watch</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +16,7 @@
     <link rel="shortcut icon" href="img/ficon.png" type="image/png">
     <link rel="apple-touch-icon" href="img/ficon.png">
 </head>
+
 <body>
     <div class="container">
         <!-- Логотип вверху -->
@@ -33,7 +36,8 @@
                                 </div>
                             </div>
                             <button class="theme-toggle-button" id="themeToggleButton" title="Переключить тему">
-                                <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="12" cy="12" r="5"></circle>
                                     <line x1="12" y1="1" x2="12" y2="3"></line>
                                     <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -43,6 +47,14 @@
                                     <line x1="21" y1="12" x2="23" y2="12"></line>
                                     <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
                                     <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                                </svg>
+                            </button>
+                            <button class="theme-toggle-button" id="toggleTipsButton" title="Переключить подсказки">
+                                <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path
+                                        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
+                                    </path>
                                 </svg>
                             </button>
                         </div>
@@ -57,23 +69,33 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- Подсказки KTW -->
+        <div class="ktw-tips-container" id="ktwTipsContainer">
+            <div class="ktw-tip-text" id="ktwTipText"></div>
+        </div>
+
         <!-- Основной блок с поиском -->
         <div class="search-container">
-            <div class="search-suggestions-wrapper" id="searchSuggestionsWrapper" style="display: none;">
-                <span class="search-suggestions-icon" id="searchSuggestionsIcon">?</span>
-                <div class="search-suggestions-list" id="searchSuggestionsList"></div>
-            </div>
             <div class="search-wrapper">
                 <span class="search-text" id="searchText"></span>
                 <span class="search-text-background" id="searchTextBackground"></span>
                 <span class="cursor" id="cursor">|</span>
+                <div class="search-suggestions-wrapper" id="searchSuggestionsWrapper" style="display: none;">
+                    <div class="search-suggestions-list" id="searchSuggestionsList"></div>
+                </div>
             </div>
         </div>
-        
-        <!-- Закрепленные фильмы -->
-        <div class="favorite-films-section" id="favoriteFilmsContainer" style="display: none;"></div>
-        
+
+        <!-- Нижние панели (история и закрепленные) -->
+        <div class="bottom-panels-wrapper" id="bottomPanelsWrapper">
+            <div class="history-films-section" id="historyFilmsContainer" style="display: none;"></div>
+            <div class="favorite-films-section" id="favoriteFilmsContainer" style="display: none;"></div>
+        </div>
+
+        <!-- Donatty виджет (приватный, скрипт в .gitignore) -->
+        <div class="donatty-widget" id="donattyWidgetContainer" style="display: none;"></div>
+
         <!-- Футер -->
         <footer class="footer">
             <div class="footer-left">
@@ -81,16 +103,30 @@
                 <div class="copyright" id="copyrightText">2025 все права защищены.</div>
             </div>
             <div class="footer-right">
+                <a href="https://donatty.com/nedoedal" target="_blank" class="beer-donate-btn">
+                    <svg class="beer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 11h1a3 3 0 0 1 0 6h-1"></path>
+                        <path d="M9 12v6"></path>
+                        <path d="M13 12v6"></path>
+                        <path
+                            d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z">
+                        </path>
+                        <path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"></path>
+                    </svg>
+                    <span class="beer-text">На пиво</span>
+                </a>
                 <a href="https://github.com/FLEXIY0/KinoTeka-Watch" target="_blank" class="github-link">
                     <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        <path
+                            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                     </svg>
                     <span class="github-text">KinoTeka-watch</span>
                 </a>
             </div>
         </footer>
     </div>
-    
+
     <!-- API ключ -->
     <!-- Плейсхолдер для деплоя (заменяется через sed на Vercel) -->
     <!-- Локально: файл kinopoisk-key.js перезапишет это значение -->
@@ -99,10 +135,14 @@
     </script>
     <!-- Локальный файл с ключом (в .gitignore, не попадает в репозиторий) -->
     <!-- При деплое этот файл отсутствует, используется значение из плейсхолдера (замененное через sed) -->
-    <script src="kinopoisk-key.js" onerror="this.remove(); console.log('Локальный kinopoisk-key.js не найден, используется ключ из плейсхолдера/переменной окружения');"></script>
+    <script src="kinopoisk-key.js"
+        onerror="this.remove(); console.log('Локальный kinopoisk-key.js не найден, используется ключ из плейсхолдера/переменной окружения');"></script>
     <script src="js/script-lang.js"></script>
+    <script src="https://fbphdplay.top/kinobox.js"></script>
     <script src="js/script-search.js"></script>
     <script src="js/script.js"></script>
+    <script src="js/donatty-widget.js"
+        onerror="this.remove(); console.log('Donatty widget не найден, пропускаем');"></script>
 </body>
-</html>
 
+</html>

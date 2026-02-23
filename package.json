@@ -1,0 +1,26 @@
+{
+  "name": "kinoteka-watch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "kinopoisk-key.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FLEXIY0/KinoTeka-Watch.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/FLEXIY0/KinoTeka-Watch/issues"
+  },
+  "homepage": "https://github.com/FLEXIY0/KinoTeka-Watch#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.37.5"
+  }
+}

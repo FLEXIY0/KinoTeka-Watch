@@ -20,6 +20,7 @@
    ПЛАНШЕТЫ И БОЛЬШИЕ МОБИЛЬНЫЕ (768px и меньше)
    ============================================ */
 @media (max-width: 768px) {
+
     /* Контейнер */
     .container {
         padding: 25px 20px 100px 20px;
@@ -116,55 +117,32 @@
     .cursor {
         font-size: 26px;
     }
-    
-    /* Список предложений */
+
+    /* Список предложений — над инпутом, чтобы клавиатура не закрывала */
     .search-suggestions-wrapper {
-        bottom: calc(100% + 12px) !important;
         top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        bottom: calc(100% + 8px) !important;
     }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
+
     .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
         min-width: calc(100vw - 40px) !important;
         max-width: calc(100vw - 40px) !important;
-        padding: 4px 0 !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
     }
-    
+
     .search-suggestion-tile {
         padding: 8px 14px !important;
     }
-    
+
     .search-suggestion-name {
         font-size: 12px !important;
     }
-    
+
     .search-suggestion-year {
         font-size: 10px !important;
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 75px;
         left: 50%;
         transform: translateX(-50%);
@@ -223,19 +201,22 @@
         flex-shrink: 0;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 6px 12px;
         font-size: 13px;
         white-space: nowrap;
     }
 
-    .github-icon {
+    .github-icon,
+    .beer-icon {
         width: 18px;
         height: 18px;
         flex-shrink: 0;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 13px;
     }
 
@@ -255,6 +236,7 @@
    СРЕДНИЕ ТЕЛЕФОНЫ (480px и меньше)
    ============================================ */
 @media (max-width: 480px) {
+
     /* Контейнер */
     .container {
         padding: 20px 15px 90px 15px;
@@ -353,56 +335,33 @@
     .cursor {
         font-size: 20px;
     }
-    
-    /* Список предложений */
+
+    /* Список предложений — над инпутом */
     .search-suggestions-wrapper {
-        bottom: calc(100% + 12px) !important;
         top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        bottom: calc(100% + 8px) !important;
     }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
+
     .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
         min-width: calc(100vw - 30px) !important;
         max-width: calc(100vw - 30px) !important;
-        padding: 4px 0 !important;
         max-height: 300px !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
     }
-    
+
     .search-suggestion-tile {
         padding: 8px 12px !important;
     }
-    
+
     .search-suggestion-name {
         font-size: 12px !important;
     }
-    
+
     .search-suggestion-year {
         font-size: 10px !important;
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 65px;
         padding: 0 15px;
         gap: 8px;
@@ -458,20 +417,23 @@
         flex-shrink: 0;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 5px 10px;
         font-size: 12px;
         gap: 5px;
         white-space: nowrap;
     }
 
-    .github-icon {
+    .github-icon,
+    .beer-icon {
         width: 16px;
         height: 16px;
         flex-shrink: 0;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 12px;
     }
 
@@ -491,6 +453,7 @@
    МАЛЕНЬКИЕ ТЕЛЕФОНЫ (360px и меньше)
    ============================================ */
 @media (max-width: 360px) {
+
     /* Контейнер */
     .container {
         padding: 15px 12px 80px 12px;
@@ -553,40 +516,6 @@
     .search-container {
         margin-top: 50px;
     }
-    
-    /* Список предложений */
-    .search-suggestions-wrapper {
-        bottom: calc(100% + 10px) !important;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
-    .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-    }
 
     .search-text {
         font-size: 18px;
@@ -601,7 +530,7 @@
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 60px;
         padding: 0 12px;
         gap: 6px;
@@ -650,22 +579,27 @@
 
     .footer-right {
         flex-shrink: 0;
+        gap: 8px;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 5px 10px;
         font-size: 11px;
         gap: 5px;
         white-space: nowrap;
     }
 
-    .github-icon {
+    .github-icon,
+    .beer-icon {
         width: 14px;
         height: 14px;
+        font-size: 11px;
         flex-shrink: 0;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 11px;
     }
 
@@ -685,6 +619,7 @@
    ОЧЕНЬ МАЛЕНЬКИЕ ЭКРАНЫ (320px и меньше)
    ============================================ */
 @media (max-width: 320px) {
+
     /* Контейнер */
     .container {
         padding: 12px 10px 70px 10px;
@@ -741,7 +676,7 @@
     }
 
     /* Закрепленные фильмы */
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 55px;
         padding: 0 10px;
         gap: 5px;
@@ -788,13 +723,15 @@
         flex-shrink: 0;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         padding: 4px 8px;
         font-size: 10px;
         white-space: nowrap;
     }
 
-    .github-text {
+    .github-text,
+    .beer-text {
         font-size: 10px;
     }
 }
@@ -821,40 +758,6 @@
     .search-container {
         margin-top: 40px;
     }
-    
-    /* Список предложений */
-    .search-suggestions-wrapper {
-        bottom: calc(100% + 10px) !important;
-        top: auto !important;
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        z-index: 1000 !important;
-        width: auto !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        margin: 0 auto !important;
-        display: flex !important;
-    }
-    
-    .search-suggestions-list {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-    
-    .search-suggestions-icon {
-        width: 28px !important;
-        height: 28px !important;
-        font-size: 22px !important;
-        color: #696868 !important;
-    }
 
     .search-text {
         font-size: 22px;
@@ -875,16 +778,141 @@
         align-items: flex-end;
     }
 
-    .favorite-films-section {
-        bottom: 50px;
-        max-height: 90px;
+    /* Боковая панель избранного для ландшафтной ориентации */
+    .bottom-panels-wrapper {
+        position: fixed;
+        bottom: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        left: auto;
+        right: 16px;
+        max-height: calc(100vh - 80px);
+        max-width: 180px;
         overflow-y: auto;
         overflow-x: hidden;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 0;
+        padding: 6px 0;
+        justify-content: flex-start;
+        align-items: stretch;
+        z-index: 10;
+        background-color: rgba(0, 0, 0, 0.6);
+        border: 1px solid #2d2d2d;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar {
+        width: 3px;
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb {
+        background: #575757;
+        border-radius: 2px;
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #696868;
+    }
+
+    .favorite-film-tile {
+        padding: 8px 14px;
+        border-bottom: 1px solid #1a1a1a;
+    }
+
+    .favorite-film-tile:last-child {
+        border-bottom: none;
+    }
+
+    .favorite-film-tile:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .favorite-film-name {
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+        text-align: right;
     }
 
     .tooltip-content {
         max-height: 60vh;
         overflow-y: auto;
+    }
+}
+
+/* ============================================
+   БОКОВАЯ ПАНЕЛЬ ИЗБРАННОГО ДЛЯ ПЛАНШЕТОВ В ЛАНДШАФТЕ
+   ============================================ */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+    .bottom-panels-wrapper {
+        position: fixed;
+        bottom: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        left: auto;
+        right: 24px;
+        max-height: calc(100vh - 100px);
+        max-width: 220px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 0;
+        padding: 8px 0;
+        justify-content: flex-start;
+        align-items: stretch;
+        z-index: 10;
+        background-color: rgba(0, 0, 0, 0.6);
+        border: 1px solid #2d2d2d;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb {
+        background: #575757;
+        border-radius: 2px;
+    }
+
+    .bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #696868;
+    }
+
+    .favorite-film-tile {
+        padding: 10px 16px;
+        border-bottom: 1px solid #1a1a1a;
+    }
+
+    .favorite-film-tile:last-child {
+        border-bottom: none;
+    }
+
+    .favorite-film-tile:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .favorite-film-name {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 190px;
+        text-align: right;
     }
 }
 
@@ -896,7 +924,7 @@
         padding-bottom: 130px;
     }
 
-    .favorite-films-section {
+    .bottom-panels-wrapper {
         bottom: 80px;
         max-height: 200px;
     }
@@ -910,20 +938,21 @@
    АДАПТАЦИЯ МОДАЛЬНЫХ ОКОН И КНОПОК ПЛЕЕРА
    ============================================ */
 @media (max-width: 768px) {
+
     /* Модальное окно предупреждения о рекламе */
-    #adWarningModal > div {
+    #adWarningModal>div {
         padding: 30px 25px !important;
         max-width: 85% !important;
     }
-    
+
     #adWarningModal h2 {
         font-size: 22px !important;
     }
-    
+
     #adWarningModal div[style*="line-height"] {
         font-size: 13px !important;
     }
-    
+
     /* Кнопки в плеере */
     #playerModal button {
         width: 32px !important;
@@ -934,10 +963,11 @@
     }
 
     /* Контейнер кнопок */
-    #playerModal > div:first-child {
+    #playerModal>div:first-child {
         top: 15px !important;
         right: 15px !important;
         gap: 8px !important;
+        z-index: 10001 !important;
     }
 
     /* Модальное окно ошибки */
@@ -969,10 +999,11 @@
         right: 10px !important;
     }
 
-    #playerModal > div:first-child {
+    #playerModal>div:first-child {
         top: 10px !important;
         right: 10px !important;
         gap: 6px !important;
+        z-index: 10001 !important;
     }
 
     #playerModal .error-content {
@@ -986,23 +1017,23 @@
     #playerModal p {
         font-size: 13px !important;
     }
-    
+
     /* Модальное окно предупреждения о рекламе */
-    #adWarningModal > div {
+    #adWarningModal>div {
         padding: 25px 20px !important;
         max-width: 90% !important;
     }
-    
+
     #adWarningModal h2 {
         font-size: 20px !important;
         margin-bottom: 15px !important;
     }
-    
+
     #adWarningModal div[style*="line-height"] {
         font-size: 13px !important;
         line-height: 1.6 !important;
     }
-    
+
     #adWarningModal button {
         padding: 10px 30px !important;
         font-size: 14px !important;
@@ -1013,6 +1044,7 @@
    УЛУЧШЕНИЯ ДЛЯ TOUCH-ИНТЕРФЕЙСОВ
    ============================================ */
 @media (max-width: 768px) {
+
     /* Увеличиваем область клика для touch */
     .logo-top {
         padding: 8px;
@@ -1031,7 +1063,8 @@
         touch-action: manipulation;
     }
 
-    .github-link {
+    .github-link,
+    .beer-donate-btn {
         min-height: 44px;
         touch-action: manipulation;
     }
@@ -1042,7 +1075,8 @@
             opacity: 1;
         }
 
-        .github-link:hover {
+        .github-link:hover,
+        .beer-donate-btn:hover {
             transform: none;
         }
     }
@@ -1052,6 +1086,7 @@
    ПРЕДОТВРАЩЕНИЕ ZOOM ПРИ ДВОЙНОМ КАСАНИИ
    ============================================ */
 @media (max-width: 768px) {
+
     input,
     textarea,
     select {
@@ -1083,7 +1118,7 @@
             text-align: center !important;
         }
 
-        .favorite-films-section {
+        .bottom-panels-wrapper {
             bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px));
         }
     }

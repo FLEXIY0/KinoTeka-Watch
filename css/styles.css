@@ -14,7 +14,7 @@ body {
     justify-content: center;
     overflow: hidden;
     transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .container {
@@ -39,7 +39,7 @@ body {
     font-weight: 400;
     text-decoration: none;
     cursor: pointer;
-    z-index: 100;
+    z-index: 200;
     transition: transform 0.3s ease, color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     width: auto;
     margin: 0;
@@ -55,13 +55,24 @@ body {
 }
 
 @keyframes logoShake {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateX(-50%) rotate(0deg);
     }
-    10%, 30%, 50%, 70%, 90% {
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
         transform: translateX(-50%) rotate(-3deg);
     }
-    20%, 40%, 60%, 80% {
+
+    20%,
+    40%,
+    60%,
+    80% {
         transform: translateX(-50%) rotate(3deg);
     }
 }
@@ -82,11 +93,11 @@ body {
 .logo-tooltip::before {
     content: '';
     position: absolute;
-    top: -15px;
+    top: -20px;
     left: 50%;
     transform: translateX(-50%);
-    width: 120px;
-    height: 15px;
+    width: 250px;
+    height: 20px;
     pointer-events: auto;
     background: transparent;
 }
@@ -103,8 +114,8 @@ body {
     white-space: normal;
     position: relative;
     transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .language-selector {
@@ -120,8 +131,8 @@ body {
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
 }
 
@@ -210,7 +221,7 @@ body {
     padding: 6px;
     cursor: pointer;
     transition: all 0.2s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
     display: flex;
     align-items: center;
@@ -261,6 +272,47 @@ body {
     font-size: 11px;
 }
 
+/* Оверлей для принятия условий при первом визите */
+#disclaimerOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 99;
+}
+
+/* Подсказки KTW */
+.ktw-tips-container {
+    position: absolute;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 600px;
+    max-width: 90%;
+    z-index: 100;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+.ktw-tip-text {
+    font-size: 13px;
+    color: #696868;
+    line-height: 1.4;
+    transition: opacity 0.5s ease, color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+}
+
+.ktw-tip-text.visible {
+    opacity: 1;
+}
+
+.ktw-tips-container.hidden {
+    display: none;
+}
+
 /* Основной блок поиска */
 .search-container {
     flex: 1;
@@ -280,6 +332,7 @@ body {
     margin-bottom: 20px;
     line-height: 1;
     white-space: nowrap;
+    z-index: 100;
 }
 
 .search-text-background {
@@ -313,6 +366,11 @@ body {
     line-height: 1;
 }
 
+/* Скрываем кастомный курсор, когда активно редактирование для предотвращения двойного курсора */
+.search-text[contenteditable="true"]~.cursor {
+    display: none !important;
+}
+
 .search-text.fade-out {
     opacity: 0;
 }
@@ -333,10 +391,14 @@ body {
 }
 
 @keyframes blink {
-    0%, 49% {
+
+    0%,
+    49% {
         opacity: 1;
     }
-    50%, 100% {
+
+    50%,
+    100% {
         opacity: 0;
     }
 }
@@ -345,22 +407,17 @@ body {
     display: none;
 }
 
-/* Список предложений фильмов */
+/* Список предложений фильмов (выпадающий список под инпутом) */
 .search-suggestions-wrapper {
     position: absolute;
-    bottom: calc(100% + 15px); /* Над input'ом с небольшим отступом */
+    top: calc(100% + 8px);
     left: 50%;
-    right: auto;
     transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 100;
+    z-index: 1000;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
-    width: auto;
-    max-width: 100%;
+    white-space: normal;
 }
 
 .search-suggestions-wrapper.visible {
@@ -368,35 +425,7 @@ body {
     visibility: visible;
 }
 
-.search-suggestions-icon {
-    font-size: 20px;
-    color: #575757;
-    cursor: pointer;
-    transition: color 0.2s ease;
-    font-family: 'Consolas', 'Courier New', monospace;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 0;
-    background-color: transparent;
-    font-weight: normal;
-    opacity: 1;
-}
-
-.search-suggestions-icon:hover {
-    color: #575757;
-    opacity: 0.9;
-}
-
 .search-suggestions-list {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
     background-color: #000000;
     border: 1px solid #2d2d2d;
     padding: 4px 0;
@@ -406,13 +435,8 @@ body {
     max-width: 400px;
     max-height: 300px;
     overflow-y: auto;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-    margin: 0;
-    width: auto;
 }
 
 .search-suggestions-list::-webkit-scrollbar {
@@ -450,7 +474,8 @@ body {
     border-bottom: none;
 }
 
-.search-suggestion-tile:hover {
+.search-suggestion-tile:hover,
+.search-suggestion-tile.active {
     background-color: #1a1a1a;
 }
 
@@ -464,7 +489,8 @@ body {
     flex: 1;
 }
 
-.search-suggestion-tile:hover .search-suggestion-name {
+.search-suggestion-tile:hover .search-suggestion-name,
+.search-suggestion-tile.active .search-suggestion-name {
     color: #ffffff;
 }
 
@@ -475,13 +501,14 @@ body {
     flex-shrink: 0;
 }
 
-.search-suggestion-tile:hover .search-suggestion-year {
+.search-suggestion-tile:hover .search-suggestion-year,
+.search-suggestion-tile.active .search-suggestion-year {
     color: #575757;
 }
 
 /* Футер */
 .footer {
-    position: fixed;
+    position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
@@ -516,6 +543,45 @@ body {
 .footer-right {
     display: flex;
     align-items: center;
+    gap: 16px;
+    margin-right: -20px;
+}
+
+.beer-donate-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2d2d2d;
+    text-decoration: none;
+    transition: all 0.3s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #2d2d2d;
+    box-shadow: 0 0 6px rgba(45, 45, 45, 0.15);
+}
+
+.beer-donate-btn:hover {
+    color: #696868;
+    border-color: #696868;
+    transform: translateY(-2px);
+    box-shadow: 0 0 8px rgba(45, 45, 45, 0.2);
+}
+
+.beer-donate-btn:hover .beer-icon {
+    transform: rotate(-15deg);
+}
+
+.beer-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.beer-text {
+    font-size: 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    text-decoration: none;
 }
 
 .github-link {
@@ -525,7 +591,7 @@ body {
     color: #2d2d2d;
     text-decoration: none;
     transition: all 0.3s ease, background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     padding: 8px 16px;
     border-radius: 20px;
     border: 1px solid #2d2d2d;
@@ -552,17 +618,28 @@ body {
 
 .github-text {
     font-size: 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
     text-decoration: none;
 }
 
 
 /* Секция закрепленных фильмов */
-.favorite-films-section {
-    position: fixed;
+/* Обертка для нижних панелей (история и закрепленные) */
+.bottom-panels-wrapper {
+    position: absolute;
     bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.favorite-films-section,
+.history-films-section {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -570,8 +647,34 @@ body {
     gap: 20px;
     padding: 0 40px;
     max-width: 90%;
+    max-height: 120px;
+    overflow-y: auto;
 }
 
+/* Скроллбары работают для обеих секций */
+.favorite-films-section::-webkit-scrollbar,
+.history-films-section::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.favorite-films-section::-webkit-scrollbar-track,
+.history-films-section::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.favorite-films-section::-webkit-scrollbar-thumb,
+.history-films-section::-webkit-scrollbar-thumb {
+    background: #575757;
+    border-radius: 3px;
+}
+
+.favorite-films-section::-webkit-scrollbar-thumb:hover,
+.history-films-section::-webkit-scrollbar-thumb:hover {
+    background: #696868;
+}
+
+.history-film-tile,
 .favorite-film-tile {
     background: transparent;
     border: none;
@@ -580,6 +683,7 @@ body {
     padding: 8px 16px;
 }
 
+.history-film-tile:hover,
 .favorite-film-tile:hover {
     opacity: 0.7;
 }
@@ -593,6 +697,100 @@ body {
     transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Tab-навигация: обводка-комета */
+.favorite-film-tile.tab-focused {
+    position: relative;
+    border-radius: 4px;
+    outline: none;
+}
+
+.favorite-film-tile.tab-focused::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 5px;
+    padding: 1px;
+    background: conic-gradient(from var(--comet-angle, 0deg),
+            transparent 0%,
+            transparent 60%,
+            rgba(239, 152, 7, 0.3) 75%,
+            #ef9807 90%,
+            rgba(239, 152, 7, 0.3) 95%,
+            transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: comet-run 0.6s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes comet-run {
+    0% {
+        --comet-angle: 0deg;
+        opacity: 1;
+    }
+
+    100% {
+        --comet-angle: 360deg;
+        opacity: 1;
+    }
+}
+
+/* После анимации — статичная рамка */
+.favorite-film-tile.tab-focused::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 5px;
+    border: 1px solid #ef9807;
+    opacity: 0;
+    animation: border-appear 0.1s 0.55s ease forwards;
+    pointer-events: none;
+}
+
+@keyframes border-appear {
+    to {
+        opacity: 1;
+    }
+}
+
+@property --comet-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+.favorite-film-tile.tab-focused .favorite-film-name {
+    color: #ef9807;
+}
+
+/* Скрываем футер и избранное при открытом плеере */
+body:has(#playerModal) .footer,
+body:has(#playerModal) .bottom-panels-wrapper,
+body:has(#playerModal) .logo-top,
+body:has(#playerModal) .donatty-widget {
+    display: none !important;
+}
+
+/* Donatty виджет */
+.donatty-widget {
+    position: absolute;
+    bottom: 50px;
+    left: 40px;
+    width: 320px;
+    height: 80px;
+    overflow: visible;
+    border-radius: 4px;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+    z-index: 5;
+}
+
+.donatty-widget:hover {
+    opacity: 1;
+}
+
 /* Контекстное меню */
 #contextMenu {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -603,21 +801,20 @@ body {
 }
 
 /* Скроллбар для секции закрепленных фильмов */
-.favorite-films-section::-webkit-scrollbar {
+.bottom-panels-wrapper::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
-.favorite-films-section::-webkit-scrollbar-track {
+.bottom-panels-wrapper::-webkit-scrollbar-track {
     background: #1a1a1a;
 }
 
-.favorite-films-section::-webkit-scrollbar-thumb {
+.bottom-panels-wrapper::-webkit-scrollbar-thumb {
     background: #575757;
     border-radius: 3px;
 }
 
-.favorite-films-section::-webkit-scrollbar-thumb:hover {
+.bottom-panels-wrapper::-webkit-scrollbar-thumb:hover {
     background: #696868;
 }
-

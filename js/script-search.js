@@ -29,9 +29,9 @@ function handleSearch() {
         clearTimeout(window.autoSuggestTimer);
         window.autoSuggestTimer = null;
     }
-    
+
     const searchText = searchTextElement.textContent.trim();
-    
+
     // Если есть сохраненные результаты, открываем первый (самый релевантный)
     if (searchResults.length > 0) {
         const firstFilm = searchResults[0].fullData || searchResults[0];
@@ -40,30 +40,30 @@ function handleSearch() {
         searchResults = [];
         return;
     }
-    
+
     // Если результатов нет, выполняем поиск
     // Скрываем предыдущие предложения
     hideSearchSuggestions();
     searchResults = [];
-    
+
     // Проверяем, что есть текст для поиска
     if (searchText.length < 2) {
         showSearchError(searchText, 'Запрос слишком короткий. Введите хотя бы 2 символа.');
         return;
     }
-    
+
     // Убираем слово "кинопоиск" из запроса, если пользователь его случайно ввел
     let query = searchText;
     const kinopoiskKeywords = ['кинопоиск', 'kinopoisk'];
     kinopoiskKeywords.forEach(keyword => {
         query = query.replace(new RegExp(keyword, 'gi'), '').trim();
     });
-    
+
     if (!query) {
         showSearchError(searchText, 'Не удалось извлечь запрос из введенного текста.');
         return;
     }
-    
+
     // Выполняем поиск и сразу открываем первый результат
     searchKinopoiskAndOpen(query);
 }
@@ -73,25 +73,25 @@ function handleSearch() {
 window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggestions(query) {
     // Очищаем предыдущие результаты
     searchResults = [];
-    
+
     // Убираем слово "кинопоиск" из запроса, если пользователь его случайно ввел
     let cleanQuery = query;
     const kinopoiskKeywords = ['кинопоиск', 'kinopoisk'];
     kinopoiskKeywords.forEach(keyword => {
         cleanQuery = cleanQuery.replace(new RegExp(keyword, 'gi'), '').trim();
     });
-    
+
     if (!cleanQuery || cleanQuery.length < 2) {
         hideSearchSuggestions();
         return;
     }
-    
+
     try {
         console.log('🔍 Поиск предложений через API:', cleanQuery);
-        
+
         // Формируем URL для поиска
         const searchUrl = `${KINOPOISK_API_BASE}?keyword=${encodeURIComponent(cleanQuery)}`;
-        
+
         // Выполняем запрос к API
         const response = await fetch(searchUrl, {
             method: 'GET',
@@ -100,21 +100,21 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('📡 Ответ API для предложений:', data);
-        
+
         // Проверяем, есть ли результаты
         if (!data.films || data.films.length === 0) {
             hideSearchSuggestions();
             searchResults = [];
             return;
         }
-        
+
         // Сохраняем все результаты (максимум 10)
         searchResults = data.films.slice(0, 10).map(film => ({
             id: film.filmId,
@@ -128,14 +128,14 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
             posterUrlPreview: film.posterUrlPreview,
             fullData: film
         }));
-        
+
         // Показываем список предложений
         if (searchResults.length > 0) {
             showSearchSuggestions();
         } else {
             hideSearchSuggestions();
         }
-        
+
     } catch (error) {
         console.error('❌ Ошибка при поиске предложений:', error);
         hideSearchSuggestions();
@@ -147,10 +147,10 @@ window.searchKinopoiskForSuggestions = async function searchKinopoiskForSuggesti
 async function searchKinopoiskAndOpen(query) {
     try {
         console.log('🔍 Поиск и открытие через API:', query);
-        
+
         // Формируем URL для поиска
         const searchUrl = `${KINOPOISK_API_BASE}?keyword=${encodeURIComponent(query)}`;
-        
+
         // Выполняем запрос к API
         const response = await fetch(searchUrl, {
             method: 'GET',
@@ -159,30 +159,30 @@ async function searchKinopoiskAndOpen(query) {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('📡 Ответ API:', data);
-        
+
         // Проверяем, есть ли результаты
         if (!data.films || data.films.length === 0) {
             hideSearchSuggestions();
             showSearchError(query, `Не удалось найти фильм "${query}". Попробуйте другое название или проверьте написание.`);
             return;
         }
-        
+
         // Открываем первый результат (самый релевантный)
         const firstFilm = data.films[0];
         openFilmFromSearch(firstFilm.filmId, firstFilm);
         hideSearchSuggestions();
-        
+
     } catch (error) {
         console.error('❌ Ошибка при поиске:', error);
         let errorMessage = `Произошла ошибка при поиске.`;
-        
+
         if (error.message.includes('429')) {
             errorMessage += ' Превышен лимит запросов к API. Попробуйте позже.';
         } else if (error.message.includes('401') || error.message.includes('403')) {
@@ -190,7 +190,7 @@ async function searchKinopoiskAndOpen(query) {
         } else {
             errorMessage += ` ${error.message}`;
         }
-        
+
         showSearchError(query, errorMessage);
     }
 }
@@ -199,10 +199,10 @@ async function searchKinopoiskAndOpen(query) {
 async function searchKinopoisk(query) {
     try {
         console.log('🔍 Начинаем поиск через API:', query);
-        
+
         // Формируем URL для поиска
         const searchUrl = `${KINOPOISK_API_BASE}?keyword=${encodeURIComponent(query)}`;
-        
+
         // Выполняем запрос к API
         const response = await fetch(searchUrl, {
             method: 'GET',
@@ -211,21 +211,21 @@ async function searchKinopoisk(query) {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('📡 Ответ API:', data);
-        
+
         // Проверяем, есть ли результаты
         if (!data.films || data.films.length === 0) {
             hideSearchSuggestions();
             showSearchError(query, `Не удалось найти фильм "${query}". Попробуйте другое название или проверьте написание.`);
             return;
         }
-        
+
         // Сохраняем все результаты (максимум 10)
         searchResults = data.films.slice(0, 10).map(film => ({
             id: film.filmId,
@@ -239,7 +239,7 @@ async function searchKinopoisk(query) {
             posterUrlPreview: film.posterUrlPreview,
             fullData: film
         }));
-        
+
         // Показываем список предложений, но не открываем первый результат автоматически
         // Пользователь может выбрать вариант или нажать Enter для открытия первого
         if (data.films.length > 1) {
@@ -250,11 +250,11 @@ async function searchKinopoisk(query) {
         } else {
             hideSearchSuggestions();
         }
-        
+
     } catch (error) {
         console.error('❌ Ошибка при поиске:', error);
         let errorMessage = `Произошла ошибка при поиске.`;
-        
+
         if (error.message.includes('429')) {
             errorMessage += ' Превышен лимит запросов к API. Попробуйте позже.';
         } else if (error.message.includes('401') || error.message.includes('403')) {
@@ -262,7 +262,7 @@ async function searchKinopoisk(query) {
         } else {
             errorMessage += ` ${error.message}`;
         }
-        
+
         showSearchError(query, errorMessage);
     }
 }
@@ -270,7 +270,7 @@ async function searchKinopoisk(query) {
 // Извлечение URL из Google редиректа
 function extractUrlFromGoogleRedirect(googleUrl) {
     if (!googleUrl) return null;
-    
+
     // Если это уже прямой URL на kinopoisk.ru
     if (googleUrl.includes('kinopoisk.ru') && !googleUrl.includes('google.com')) {
         try {
@@ -284,7 +284,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
             }
         }
     }
-    
+
     try {
         // Google редирект имеет формат: /url?sa=t&source=web&rct=j&url=REAL_URL&...
         let urlObj;
@@ -293,9 +293,9 @@ function extractUrlFromGoogleRedirect(googleUrl) {
         } else {
             urlObj = new URL(googleUrl, 'https://www.google.com');
         }
-        
+
         const realUrl = urlObj.searchParams.get('url');
-        
+
         if (realUrl && realUrl.includes('kinopoisk.ru')) {
             try {
                 const decodedUrl = decodeURIComponent(realUrl);
@@ -317,7 +317,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
             /url%3D([^&"']+kinopoisk\.ru[^&"']*)/i,
             /(https?:\/\/[^&"']*kinopoisk\.ru[^&"']*)/i
         ];
-        
+
         for (const pattern of patterns) {
             const match = googleUrl.match(pattern);
             if (match && match[1]) {
@@ -329,7 +329,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
                     } catch (e2) {
                         // Оставляем как есть
                     }
-                    
+
                     if (decodedUrl.includes('kinopoisk.ru')) {
                         const url = new URL(decodedUrl);
                         url.search = '';
@@ -345,7 +345,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
             }
         }
     }
-    
+
     return null;
 }
 
@@ -353,7 +353,7 @@ function extractUrlFromGoogleRedirect(googleUrl) {
 // Открытие фильма из результатов поиска
 function openFilmFromSearch(filmId, filmData = null) {
     let film;
-    
+
     if (filmData) {
         // Если переданы данные из API напрямую
         film = {
@@ -374,66 +374,51 @@ function openFilmFromSearch(filmId, filmData = null) {
             return;
         }
     }
-    
+
     const filmName = film.nameRu || film.nameEn || film.nameOriginal || film.name;
     const filmPoster = film.posterUrl || film.posterUrlPreview || film.poster || '';
-    
-    // Формируем URL для страницы фильма на Кинопоиске
-    let kinopoiskUrl = `https://www.kinopoisk.ru/film/${filmId}/`;
-    
-    // Преобразуем URL: заменяем домен на flcksbr.top
-    const convertedUrl = kinopoiskUrl.replace(/https?:\/\/(www\.)?kinopoisk\.ru/g, 'https://flcksbr.top');
-    console.log('🎬 Открываем плеер:', convertedUrl);
-    
+
     // Сохраняем информацию о текущем фильме для возможного закрепления
     currentFilmInfo = {
         id: filmId,
         name: filmName,
-        url: convertedUrl,
+        url: `https://www.kinopoisk.ru/film/${filmId}/`,
         poster: filmPoster
     };
-    
+
     // Скрываем список предложений
     hideSearchSuggestions();
-    
+
     // Открываем в отдельном окне/iframe на том же сайте
-    openPlayerWindow(convertedUrl, filmId, filmName, filmPoster);
+    openPlayerWindow(null, filmId, filmName, filmPoster);
 }
 
-// Показ списка предложений фильмов
+// Показ списка предложений фильмов (выпадающий список под инпутом)
 function showSearchSuggestions() {
-    const wrapper = document.getElementById('searchSuggestionsWrapper');
+    var wrapper = document.getElementById('searchSuggestionsWrapper');
     if (!wrapper) return;
-    
-    wrapper.style.display = 'flex';
+
+    wrapper.style.display = 'block';
     renderSearchSuggestions();
-    
+
     // Применяем fade-in анимацию
-    setTimeout(() => {
+    setTimeout(function () {
         wrapper.classList.add('visible');
     }, 10);
 }
 
 // Скрытие списка предложений
 function hideSearchSuggestions() {
-    const wrapper = document.getElementById('searchSuggestionsWrapper');
-    const list = document.getElementById('searchSuggestionsList');
-    
+    var wrapper = document.getElementById('searchSuggestionsWrapper');
+
     if (wrapper) {
-        // Убираем класс для fade-out анимации
         wrapper.classList.remove('visible');
-        
-        // После завершения анимации скрываем элемент
-        setTimeout(() => {
+
+        setTimeout(function () {
             if (wrapper && !wrapper.classList.contains('visible')) {
                 wrapper.style.display = 'none';
             }
-        }, 300); // Длительность анимации из CSS
-    }
-    
-    if (list) {
-        list.style.opacity = '0';
-        list.style.visibility = 'hidden';
+        }, 300);
     }
 }
 
@@ -441,17 +426,18 @@ function hideSearchSuggestions() {
 function renderSearchSuggestions() {
     const list = document.getElementById('searchSuggestionsList');
     if (!list || searchResults.length === 0) return;
-    
+
+    window.currentSuggestionIndex = -1;
     list.innerHTML = '';
-    
+
     searchResults.forEach((film, index) => {
         const tile = document.createElement('div');
         tile.className = 'search-suggestion-tile';
         tile.dataset.filmId = film.id;
-        
+
         const name = document.createElement('div');
         name.className = 'search-suggestion-name';
-        
+
         // Формируем название с английской версией в скобках, если она отличается
         let displayName = film.name;
         if (film.nameRu && film.nameEn && film.nameRu !== film.nameEn) {
@@ -464,88 +450,36 @@ function renderSearchSuggestions() {
             // Если есть английское и оригинальное название
             displayName = film.nameEn + ' (' + film.nameOriginal + ')';
         }
-        
+
         name.textContent = displayName;
-        
+
         tile.appendChild(name);
-        
+
         if (film.year) {
             const year = document.createElement('div');
             year.className = 'search-suggestion-year';
             year.textContent = film.year;
             tile.appendChild(year);
         }
-        
+
         tile.addEventListener('click', (e) => {
             e.stopPropagation();
             openFilmFromSearch(film.id);
         });
-        
+
         list.appendChild(tile);
     });
 }
 
 // Инициализация обработчиков для списка предложений
 function initSearchSuggestions() {
-    const wrapper = document.getElementById('searchSuggestionsWrapper');
-    const icon = document.getElementById('searchSuggestionsIcon');
-    const list = document.getElementById('searchSuggestionsList');
-    
-    if (!wrapper || !icon || !list) return;
-    
-    let hoverTimeout = null;
-    let isHovering = false;
-    
-    // Показываем список при наведении на иконку
-    icon.addEventListener('mouseenter', function() {
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-            hoverTimeout = null;
-        }
-        isHovering = true;
-        if (searchResults.length > 0) {
-            list.style.opacity = '1';
-            list.style.visibility = 'visible';
-        }
-    });
-    
-    // Скрываем список при уходе с иконки или списка
-    const hideList = function() {
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-        }
-        hoverTimeout = setTimeout(() => {
-            if (!isHovering) {
-                list.style.opacity = '0';
-                list.style.visibility = 'hidden';
-            }
-        }, 100);
-    };
-    
-    icon.addEventListener('mouseleave', function() {
-        isHovering = false;
-        hideList();
-    });
-    
-    list.addEventListener('mouseenter', function() {
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-            hoverTimeout = null;
-        }
-        isHovering = true;
-    });
-    
-    list.addEventListener('mouseleave', function() {
-        isHovering = false;
-        hideList();
-    });
-    
+    var wrapper = document.getElementById('searchSuggestionsWrapper');
+    if (!wrapper) return;
+
     // Скрываем список при клике вне его
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (!wrapper.contains(e.target)) {
-            isHovering = false;
-            list.style.opacity = '0';
-            list.style.visibility = 'hidden';
+            hideSearchSuggestions();
         }
     });
 }
@@ -557,48 +491,63 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
     if (existingModal) {
         document.body.removeChild(existingModal);
     }
-    
-    // Создаем модальное окно с iframe
+
+    // Гарантируем наличие URL (строим из filmId если не передан)
+    if (!url && filmId) {
+        url = `https://www.kinopoisk.ru/film/${filmId}/`;
+    }
+
+    // Запоминаем текущий фильм в sessionStorage для восстановления после F5
+    if (filmId) {
+        sessionStorage.setItem('ktw_last_film', JSON.stringify({
+            id: filmId,
+            name: filmName,
+            url: url,
+            poster: filmPoster
+        }));
+
+        // Добавляем в локальную историю
+        addToHistory(filmId, filmName || 'Неизвестный фильм', url, filmPoster || '');
+    }
+
+    // Создаем модальное окно...
     const modal = document.createElement('div');
     modal.id = 'playerModal';
     modal.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.95);
+        right: 0;
+        bottom: 0;
+        background-color: #000;
         z-index: 10000;
         display: flex;
-        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     `;
-    
+
     // Контейнер для кнопок
     const buttonsContainer = document.createElement('div');
     buttonsContainer.style.cssText = `
         position: absolute;
-        top: 20px;
-        right: 20px;
+        top: 2%;
+        right: 2%;
         display: flex;
-        gap: 10px;
+        gap: 16px;
         z-index: 10001;
     `;
-    
-    // Проверяем, закреплен ли фильм при открытии плеера
-    let isFavorite = false;
+
+    // Кнопка закрепления (звездочка), если есть filmId
     if (filmId) {
-        // Преобразуем filmId для сравнения
+        let isFavorite = false;
         const checkId = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
-        
-        // Проверяем в localStorage
         const favorites = getFavoriteFilms();
         const existingFilm = favorites.find(f => {
             const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
             return fId === checkId;
         });
-        
+
         if (existingFilm) {
-            // Фильм уже закреплен, используем данные из localStorage
             isFavorite = true;
             currentFilmInfo = {
                 id: existingFilm.id,
@@ -606,32 +555,68 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
                 url: existingFilm.url,
                 poster: existingFilm.poster
             };
-        } else {
-            // Фильм не закреплен, но убеждаемся, что currentFilmInfo заполнен
-            if (!currentFilmInfo || !currentFilmInfo.name) {
-                currentFilmInfo = {
-                    id: checkId,
-                    name: filmName || 'Неизвестный фильм',
-                    url: url,
-                    poster: filmPoster || ''
-                };
-            }
-            isFavorite = false;
+        } else if (!currentFilmInfo || !currentFilmInfo.name) {
+            currentFilmInfo = {
+                id: filmId,
+                name: filmName || 'Неизвестный фильм',
+                url: url,
+                poster: filmPoster || ''
+            };
         }
+
+        const favoriteButton = document.createElement('button');
+        favoriteButton.innerHTML = isFavorite ? '★' : '☆';
+        favoriteButton.title = isFavorite ? 'Открепить фильм' : 'Закрепить фильм';
+        favoriteButton.style.cssText = `
+            background: transparent;
+            border: none;
+            color: ${isFavorite ? '#ffd700' : '#ffffff'};
+            cursor: pointer;
+            font-size: 20px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            transition: opacity 0.2s ease;
+            padding: 0;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        favoriteButton.onmouseover = function () {
+            this.style.opacity = '0.7';
+        };
+
+        favoriteButton.onmouseout = function () {
+            this.style.opacity = '1';
+        };
+
+        favoriteButton.onclick = function (e) {
+            e.stopPropagation();
+            if (filmId && currentFilmInfo) {
+                const filmUrl = currentFilmInfo.url || url || `https://www.kinopoisk.ru/film/${filmId}/`;
+                toggleFavorite(filmId, currentFilmInfo.name, filmUrl, currentFilmInfo.poster);
+                const newIsFavorite = isFilmFavorite(filmId);
+                favoriteButton.innerHTML = newIsFavorite ? '★' : '☆';
+                favoriteButton.style.color = newIsFavorite ? '#ffd700' : '#ffffff';
+                favoriteButton.title = newIsFavorite ? 'Открепить фильм' : 'Закрепить фильм';
+            }
+        };
+
+        buttonsContainer.appendChild(favoriteButton);
     }
-    
-    // Кнопка закрепления (звездочка)
-    const favoriteButton = document.createElement('button');
-    favoriteButton.innerHTML = isFavorite ? '★' : '☆';
-    favoriteButton.title = isFavorite ? 'Открепить фильм' : 'Закрепить фильм';
-    favoriteButton.style.cssText = `
+
+    // Кнопка фокуса плеера (Play)
+    const playButton = document.createElement('button');
+    playButton.innerHTML = '▶';
+    playButton.title = 'Фокус на плеер (управление клавиатурой)';
+    playButton.style.cssText = `
         background: transparent;
         border: none;
-        color: ${isFavorite ? '#ffd700' : '#ffffff'};
+        color: #ffffff;
         cursor: pointer;
-        font-size: 20px;
-        font-family: 'Consolas', 'Courier New', monospace;
-        transition: opacity 0.2s ease;
+        font-size: 22px;
+        transition: opacity 0.2s ease, color 0.2s ease;
         padding: 0;
         width: 36px;
         height: 36px;
@@ -639,26 +624,22 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         align-items: center;
         justify-content: center;
     `;
-    
-    favoriteButton.onmouseover = function() {
-        this.style.opacity = '0.7';
-    };
-    
-    favoriteButton.onmouseout = function() {
-        this.style.opacity = '1';
-    };
-    
-    favoriteButton.onclick = function(e) {
+    playButton.onmouseover = function () { this.style.opacity = '0.7'; };
+    playButton.onmouseout = function () { this.style.opacity = '1'; };
+    playButton.onclick = function (e) {
         e.stopPropagation();
-        if (filmId && currentFilmInfo) {
-            toggleFavorite(filmId, currentFilmInfo.name, url, currentFilmInfo.poster);
-            const newIsFavorite = isFilmFavorite(filmId);
-            favoriteButton.innerHTML = newIsFavorite ? '★' : '☆';
-            favoriteButton.style.color = newIsFavorite ? '#ffd700' : '#ffffff';
-            favoriteButton.title = newIsFavorite ? 'Открепить фильм' : 'Закрепить фильм';
+        const iframe = document.querySelector('.kinobox_player iframe');
+        if (iframe) {
+            iframe.focus();
+
+            // Визуальный отклик (мигание оранжевым)
+            const originalColor = this.style.color;
+            this.style.color = '#ef9807';
+            setTimeout(() => this.style.color = originalColor, 300);
         }
     };
-    
+    buttonsContainer.appendChild(playButton);
+
     // Кнопка закрытия
     const closeButton = document.createElement('button');
     closeButton.textContent = '✕';
@@ -667,8 +648,7 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         border: none;
         color: #ffffff;
         cursor: pointer;
-        font-size: 20px;
-        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 24px;
         transition: opacity 0.2s ease;
         padding: 0;
         width: 36px;
@@ -676,124 +656,249 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         display: flex;
         align-items: center;
         justify-content: center;
+        line-height: 1;
+        font-family: Arial, sans-serif;
     `;
-    
-    closeButton.onmouseover = function() {
+
+    closeButton.onmouseover = function () {
         this.style.opacity = '0.7';
     };
-    
-    closeButton.onmouseout = function() {
+
+    closeButton.onmouseout = function () {
         this.style.opacity = '1';
     };
-    
-    closeButton.onclick = function() {
+
+    closeButton.onclick = function () {
+        sessionStorage.removeItem('ktw_last_film');
         closeModalAndRestoreSearch();
     };
-    
-    buttonsContainer.appendChild(favoriteButton);
-    buttonsContainer.appendChild(closeButton);
-    
-    // Iframe с плеером
-    const iframe = document.createElement('iframe');
-    
-    // Пробуем сначала HTTPS, если не загрузится - пробуем HTTP
-    iframe.src = url;
-    iframe.style.cssText = `
-        width: 100%;
-        height: 100%;
+
+    // Кнопка обновления плеера
+    const refreshButton = document.createElement('button');
+    refreshButton.innerHTML = '↻';
+    refreshButton.title = 'Обновить плеер';
+    refreshButton.style.cssText = `
+        background: transparent;
         border: none;
-        flex: 1;
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 24px;
+        transition: opacity 0.2s ease, transform 0.3s ease;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        font-family: Arial, sans-serif;
     `;
-    iframe.setAttribute('allowfullscreen', 'true');
-    iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-    iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
-    
-    // Обработка ошибок загрузки - пробуем HTTP версию
-    iframe.onerror = function() {
-        console.warn('⚠️ HTTPS не загрузился, пробуем HTTP...');
-        const httpUrl = url.replace(/^https:/, 'http:');
-        if (httpUrl !== url) {
-            iframe.src = httpUrl;
+
+    refreshButton.onmouseover = function () {
+        this.style.opacity = '0.7';
+    };
+
+    refreshButton.onmouseout = function () {
+        this.style.opacity = '1';
+    };
+
+    refreshButton.onclick = function (e) {
+        e.stopPropagation();
+        // Анимация вращения при клике
+        this.style.transform = 'rotate(360deg)';
+        setTimeout(() => this.style.transform = 'rotate(0deg)', 300);
+
+        // Очищаем и перезапускаем плеер
+        if (typeof kinobox !== 'undefined') {
+            const playerDiv = document.querySelector('.kinobox_player');
+            if (playerDiv) {
+                playerDiv.innerHTML = '';
+                kinobox(playerDiv, {
+                    search: { kinopoisk: filmId }
+                });
+            }
         }
     };
-    
-    // Если iframe не загружается через некоторое время, пробуем HTTP
-    const loadTimeout = setTimeout(() => {
-        try {
-            // Пробуем получить доступ к содержимому iframe
-            if (iframe.contentWindow === null || iframe.contentDocument === null) {
-                console.warn('⚠️ Iframe не загрузился, пробуем HTTP...');
-                const httpUrl = url.replace(/^https:/, 'http:');
-                if (httpUrl !== url) {
-                    iframe.src = httpUrl;
+
+    buttonsContainer.appendChild(refreshButton);
+    buttonsContainer.appendChild(closeButton);
+
+    // Контейнер плеера (должен иметь класс kinobox_player)
+    const playerContainer = document.createElement('div');
+    playerContainer.className = 'kinobox_player';
+    playerContainer.style.cssText = `
+        width: 100vw;
+        height: 100vh;
+        max-width: 177.78vh; /* 16/9 aspect-ratio horizontal cap */
+        max-height: 56.25vw; /* 16/9 aspect-ratio vertical cap */
+        margin: auto;
+        background: #000;
+    `;
+
+    modal.appendChild(buttonsContainer);
+    modal.appendChild(playerContainer);
+
+    // ВАЖНО: Сначала добавляем всё в DOM!
+    document.body.appendChild(modal);
+
+    // Инициализируем плеер (используя рабочую версию библиотеки kinobox)
+    if (typeof kinobox !== 'undefined') {
+        kinobox(playerContainer, {
+            search: { kinopoisk: filmId }
+        });
+
+        // Запоминание последнего выбранного плеера для фильма
+        const savedPlayerKey = 'ktw_last_player_' + filmId;
+        let playerRestored = false;
+
+        // Следим за появлением элементов меню (kinobox рендерит их асинхронно)
+        const playerObserver = new MutationObserver(() => {
+            const items = Array.from(playerContainer.querySelectorAll('li')).filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            });
+            if (items.length === 0) return;
+
+            // Навешиваем обработчик клика для сохранения выбора
+            items.forEach((item, index) => {
+                if (!item._ktwClickBound) {
+                    item._ktwClickBound = true;
+                    item.addEventListener('click', () => {
+                        try {
+                            localStorage.setItem(savedPlayerKey, index.toString());
+                        } catch (e) { }
+                    });
+                }
+            });
+
+            // Восстанавливаем последний выбранный плеер (один раз)
+            if (!playerRestored) {
+                playerRestored = true;
+                const savedIndex = localStorage.getItem(savedPlayerKey);
+                if (savedIndex !== null) {
+                    const idx = parseInt(savedIndex, 10);
+                    if (idx >= 0 && idx < items.length) {
+                        // Небольшая задержка чтобы kinobox успел инициализироваться
+                        setTimeout(() => {
+                            items[idx].click();
+                        }, 300);
+                    }
                 }
             }
-        } catch (e) {
-            // Cross-origin ошибка - это нормально, но пробуем HTTP
-            console.warn('⚠️ Cross-origin ошибка, пробуем HTTP...');
-            const httpUrl = url.replace(/^https:/, 'http:');
-            if (httpUrl !== url) {
-                iframe.src = httpUrl;
-            }
+        });
+
+        playerObserver.observe(playerContainer, { childList: true, subtree: true });
+
+        // Отключаем observer через 10 секунд (чтобы не висел бесконечно)
+        setTimeout(() => playerObserver.disconnect(), 10000);
+    } else {
+        console.error('Kinobox JS не загружен!');
+    }
+
+    // Обработка клавиш в плеере: Escape для закрытия, ArrowUp/ArrowDown для навигации
+    let playerTabSelected = false; // true после первого Enter (плеер выбран)
+
+    const playerKeyHandler = (e) => {
+        if (!document.body.contains(modal)) {
+            document.removeEventListener('keydown', playerKeyHandler);
+            return;
         }
-    }, 3000);
-    
-    iframe.onload = function() {
-        clearTimeout(loadTimeout);
-        console.log('✅ Iframe загружен успешно');
-        
-        // Попытка отправки скрипта очистки через postMessage
-        // ВАЖНО: Это может не сработать из-за ограничений безопасности браузера.
-        // Рекомендуется использовать userscript для Tampermonkey (см. adblock-userscript.js)
-        try {
-            const adblockScript = `
-                (function() {
-                    function removeAds() {
-                        const selectors = [
-                            '[class*="ad"]', '[id*="ad"]',
-                            '[class*="banner"]', '[id*="banner"]',
-                            '[class*="ads"]', '[id*="ads"]',
-                            'iframe[src*="ad"]', 'iframe[src*="doubleclick"]',
-                            '[class*="sidebar"]:not([class*="player"])'
-                        ];
-                        selectors.forEach(sel => {
-                            try {
-                                document.querySelectorAll(sel).forEach(el => {
-                                    if (!el.closest('[class*="player"]') && !el.closest('[id*="player"]')) {
-                                        el.remove();
-                                    }
-                                });
-                            } catch(e) {}
-                        });
-                    }
-                    removeAds();
-                    setInterval(removeAds, 2000);
-                    new MutationObserver(removeAds).observe(document.body, {childList: true, subtree: true});
-                })();
-            `;
-            // Попытка отправить скрипт (может не сработать из-за CORS)
-            iframe.contentWindow?.postMessage({type: 'injectScript', script: adblockScript}, '*');
-        } catch (e) {
-            console.log('⚠️ Автоматическая очистка рекламы недоступна (нормально для кросс-доменных iframe)');
-            console.log('💡 Используйте userscript для Tampermonkey (см. файл adblock-userscript.js)');
-        }
-    };
-    
-    modal.appendChild(buttonsContainer);
-    modal.appendChild(iframe);
-    document.body.appendChild(modal);
-    
-    // Закрытие по Escape
-    const escapeHandler = (e) => {
+
         if (e.key === 'Escape') {
-            if (document.body.contains(modal)) {
-                closeModalAndRestoreSearch();
-                document.removeEventListener('keydown', escapeHandler);
+            sessionStorage.removeItem('ktw_last_film');
+            closeModalAndRestoreSearch();
+            document.removeEventListener('keydown', playerKeyHandler);
+            return;
+        }
+
+        // Навигация по плееру из меню Kinobox (если элементы находятся в DOM сайта)
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
+            const playerDiv = document.querySelector('.kinobox_player');
+            if (!playerDiv) return;
+
+            // Ищем все элементы меню Kinobox. Обычно это li или div с классом navItem
+            const itemsNodeList = playerDiv.querySelectorAll('.nav-item, .navItem, [class*="nav-item"], [class*="navItem"], li');
+            const menuItems = Array.from(itemsNodeList).filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).display !== 'none';
+            });
+
+            // Enter — выбор плеера или запуск
+            if (e.key === 'Enter') {
+                // Если плеер уже выбран (первый Enter был), фокусируем iframe
+                if (playerTabSelected) {
+                    e.preventDefault();
+                    const iframe = playerDiv.querySelector('iframe');
+                    if (iframe) {
+                        // Добавляем autoplay=1 к src iframe, чтобы плеер запустился
+                        let src = iframe.src || iframe.getAttribute('src');
+                        if (src && !src.includes('autoplay=1')) {
+                            const separator = src.includes('?') ? '&' : '?';
+                            iframe.src = src + separator + 'autoplay=1';
+                        }
+
+                        // Фокусируем iframe после перезагрузки
+                        setTimeout(() => iframe.focus(), 500);
+
+                        // Визуальный отклик кнопки Play
+                        const playBtn = modal.querySelector('button[title*="Фокус"]');
+                        if (playBtn) {
+                            playBtn.style.color = '#ef9807';
+                            playBtn.innerHTML = '⏸';
+                            setTimeout(() => {
+                                playBtn.style.color = '#ffffff';
+                                playBtn.innerHTML = '▶';
+                            }, 800);
+                        }
+                    }
+                    return;
+                }
+
+                // Первый Enter — выбираем плеер
+                if (menuItems.length > 0) {
+                    let ci = menuItems.findIndex(el => el.style.outlineStyle === 'solid');
+                    if (ci >= 0 && ci < menuItems.length) {
+                        e.preventDefault();
+                        menuItems[ci].click();
+                        menuItems.forEach(el => el.style.outline = '');
+                        playerTabSelected = true;
+                    }
+                }
+                return;
+            }
+
+            // Стрелки — навигация
+            if (menuItems.length === 0) return;
+
+            // При переключении стрелками сбрасываем статус «плеер выбран»
+            playerTabSelected = false;
+
+            let currentIndex = menuItems.findIndex(el =>
+                el.classList.contains('active') ||
+                el.style.outlineStyle === 'solid'
+            );
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                currentIndex = currentIndex < menuItems.length - 1 ? (currentIndex === -1 ? 0 : currentIndex + 1) : 0;
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                currentIndex = currentIndex > 0 ? currentIndex - 1 : menuItems.length - 1;
+            }
+
+            // Убираем фокус со всех
+            menuItems.forEach(el => el.style.outline = '');
+
+            // Применяем выделение
+            if (currentIndex >= 0 && currentIndex < menuItems.length) {
+                const selected = menuItems[currentIndex];
+                selected.style.outline = '2px solid #ef9807';
+                selected.style.outlineOffset = '-2px';
+                selected.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
             }
         }
     };
-    document.addEventListener('keydown', escapeHandler);
+    document.addEventListener('keydown', playerKeyHandler);
 }
 
 // Закрытие модального окна и восстановление состояния поиска
@@ -802,7 +907,7 @@ function closeModalAndRestoreSearch() {
     if (modal) {
         document.body.removeChild(modal);
     }
-    
+
     // Восстанавливаем состояние поля поиска
     const searchTextElement = document.getElementById('searchText');
     if (searchTextElement && typeof resetToAnimationMode === 'function') {
@@ -827,7 +932,7 @@ function showSearchError(query, customMessage = null) {
     if (existingModal) {
         document.body.removeChild(existingModal);
     }
-    
+
     const modal = document.createElement('div');
     modal.id = 'playerModal';
     modal.style.cssText = `
@@ -842,7 +947,7 @@ function showSearchError(query, customMessage = null) {
         align-items: center;
         justify-content: center;
     `;
-    
+
     const errorContent = document.createElement('div');
     errorContent.style.cssText = `
         background: #1a1a1a;
@@ -853,7 +958,7 @@ function showSearchError(query, customMessage = null) {
         color: #ffffff;
         font-family: 'Consolas', 'Courier New', monospace;
     `;
-    
+
     const errorTitle = document.createElement('h2');
     errorTitle.textContent = 'Поиск не удался';
     errorTitle.style.cssText = `
@@ -861,7 +966,7 @@ function showSearchError(query, customMessage = null) {
         color: #ffffff;
         font-size: 24px;
     `;
-    
+
     const errorText = document.createElement('p');
     errorText.textContent = customMessage || `Не удалось найти "${query}" на Кинопоиске. Попробуйте изменить запрос или проверить интернет-соединение.`;
     errorText.style.cssText = `
@@ -869,7 +974,7 @@ function showSearchError(query, customMessage = null) {
         color: #cccccc;
         line-height: 1.6;
     `;
-    
+
     const closeButton = document.createElement('button');
     closeButton.textContent = 'Закрыть';
     closeButton.style.cssText = `
@@ -882,27 +987,27 @@ function showSearchError(query, customMessage = null) {
         font-size: 16px;
         transition: all 0.2s ease;
     `;
-    
-    closeButton.onmouseover = function() {
+
+    closeButton.onmouseover = function () {
         this.style.background = '#575757';
         this.style.borderColor = '#696868';
     };
-    
-    closeButton.onmouseout = function() {
+
+    closeButton.onmouseout = function () {
         this.style.background = '#2d2d2d';
         this.style.borderColor = '#575757';
     };
-    
-    closeButton.onclick = function() {
+
+    closeButton.onclick = function () {
         closeModalAndRestoreSearch();
     };
-    
+
     errorContent.appendChild(errorTitle);
     errorContent.appendChild(errorText);
     errorContent.appendChild(closeButton);
     modal.appendChild(errorContent);
     document.body.appendChild(modal);
-    
+
     // Закрытие по Escape
     const escapeHandler = (e) => {
         if (e.key === 'Escape') {
@@ -948,13 +1053,13 @@ function toggleFavorite(filmId, filmName, filmUrl, filmPoster) {
     // Преобразуем filmId для корректного сравнения
     const id = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
     let favorites = getFavoriteFilms();
-    
+
     // Ищем существующий фильм с правильным сравнением типов
     const existingIndex = favorites.findIndex(f => {
         const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
         return fId === id;
     });
-    
+
     if (existingIndex >= 0) {
         // Открепляем
         favorites.splice(existingIndex, 1);
@@ -969,7 +1074,7 @@ function toggleFavorite(filmId, filmName, filmUrl, filmPoster) {
         });
         console.log('Фильм закреплен, ID:', id);
     }
-    
+
     saveFavoriteFilms(favorites);
     renderFavoriteFilms();
 }
@@ -991,22 +1096,25 @@ function removeFavorite(filmId) {
 function renderFavoriteFilms() {
     const container = document.getElementById('favoriteFilmsContainer');
     if (!container) return;
-    
+
     const favorites = getFavoriteFilms();
-    
+
     if (favorites.length === 0) {
         container.innerHTML = '';
         container.style.display = 'none';
         return;
     }
-    
+
     container.style.display = 'flex';
-    container.innerHTML = favorites.map(film => `
-        <div class="favorite-film-tile" data-film-id="${String(film.id)}" data-film-url="${film.url.replace(/"/g, '&quot;')}">
+    container.innerHTML = favorites.map(film => {
+        const safeUrl = (film.url || `https://www.kinopoisk.ru/film/${film.id}/`).replace(/"/g, '&quot;');
+        return `
+        <div class="favorite-film-tile" data-film-id="${String(film.id)}" data-film-url="${safeUrl}">
             <div class="favorite-film-name">${film.name}</div>
         </div>
-    `).join('');
-    
+    `;
+    }).join('');
+
     // Добавляем обработчики событий
     container.querySelectorAll('.favorite-film-tile').forEach(tile => {
         // ЛКМ - открытие
@@ -1016,7 +1124,7 @@ function renderFavoriteFilms() {
                 openFavoriteFilm(url);
             }
         });
-        
+
         // ПКМ - контекстное меню
         tile.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -1032,10 +1140,10 @@ function showContextMenu(x, y, tile) {
     if (existingMenu) {
         existingMenu.remove();
     }
-    
+
     const filmId = tile.dataset.filmId;
     const filmName = tile.querySelector('.favorite-film-name').textContent;
-    
+
     const menu = document.createElement('div');
     menu.id = 'contextMenu';
     menu.style.cssText = `
@@ -1050,7 +1158,7 @@ function showContextMenu(x, y, tile) {
         font-family: 'Consolas', 'Courier New', monospace;
         font-size: 13px;
     `;
-    
+
     // Опция: Открепить
     const unfavoriteOption = document.createElement('div');
     unfavoriteOption.className = 'context-menu-item';
@@ -1061,13 +1169,13 @@ function showContextMenu(x, y, tile) {
         cursor: pointer;
         transition: background 0.2s ease;
     `;
-    unfavoriteOption.onmouseover = function() {
+    unfavoriteOption.onmouseover = function () {
         this.style.background = '#575757';
     };
-    unfavoriteOption.onmouseout = function() {
+    unfavoriteOption.onmouseout = function () {
         this.style.background = 'transparent';
     };
-    unfavoriteOption.onclick = function(e) {
+    unfavoriteOption.onclick = function (e) {
         e.preventDefault();
         e.stopPropagation();
         console.log('Открепление фильма, ID из dataset:', filmId);
@@ -1076,10 +1184,10 @@ function showContextMenu(x, y, tile) {
         }
         menu.remove();
     };
-    
+
     menu.appendChild(unfavoriteOption);
     document.body.appendChild(menu);
-    
+
     // Закрытие меню при клике вне его
     const closeMenu = (e) => {
         // Не закрываем меню, если клик был по пункту меню
@@ -1090,12 +1198,12 @@ function showContextMenu(x, y, tile) {
         document.removeEventListener('click', closeMenu);
         document.removeEventListener('contextmenu', closeMenu);
     };
-    
+
     // Закрытие при клике ЛКМ
     setTimeout(() => {
         document.addEventListener('click', closeMenu, true);
     }, 100);
-    
+
     // Закрытие при клике ПКМ
     setTimeout(() => {
         document.addEventListener('contextmenu', closeMenu, true);
@@ -1103,23 +1211,32 @@ function showContextMenu(x, y, tile) {
 }
 
 function openFavoriteFilm(url) {
+    // Убираем Tab-фокус с закреплённых фильмов
+    document.querySelectorAll('.favorite-film-tile.tab-focused').forEach(t => t.classList.remove('tab-focused'));
+
     // Извлекаем ID из URL
     const match = url.match(/\/film\/(\d+)/);
     const filmId = match ? match[1] : null;
-    
+
     // Пробуем получить информацию о фильме из закрепленных
     const favorites = getFavoriteFilms();
-    const film = favorites.find(f => f.id == filmId);
-    
+    let film = favorites.find(f => f.id == filmId);
+
+    // Если не нашли в избранном — ищем в истории
+    if (!film) {
+        const history = getHistoryFilms();
+        film = history.find(f => f.id == filmId);
+    }
+
     if (film) {
         currentFilmInfo = {
             id: film.id,
             name: film.name,
-            url: film.url,
+            url: film.url || url,
             poster: film.poster
         };
     }
-    
+
     openPlayerWindow(url, filmId, film?.name || '', film?.poster || '');
 }
 
@@ -1131,10 +1248,381 @@ window.openFavoriteFilm = openFavoriteFilm;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(renderFavoriteFilms, 500);
+        setTimeout(renderHistoryFilms, 500);
         initSearchSuggestions();
+        checkAndRestoreLastSession();
     });
 } else {
     setTimeout(renderFavoriteFilms, 500);
+    setTimeout(renderHistoryFilms, 500);
     initSearchSuggestions();
+    checkAndRestoreLastSession();
 }
 
+function checkAndRestoreLastSession() {
+    try {
+        const lastFilmData = sessionStorage.getItem('ktw_last_film');
+        if (lastFilmData) {
+            const parsed = JSON.parse(lastFilmData);
+            if (parsed && parsed.id) {
+                // Ждём, пока инициализируются все визуальные штуки, затем открываем плеер
+                setTimeout(() => {
+                    openPlayerWindow(null, parsed.id, parsed.name, parsed.poster);
+                }, 600);
+            }
+        }
+    } catch (e) {
+        console.error('Ошибка при восстановлении последней сессии фильма:', e);
+    }
+}
+
+// ==========================================
+// ИСТОРИЯ ПРОСМОТРОВ
+// ==========================================
+
+function getHistoryFilms() {
+    try {
+        const historyData = localStorage.getItem('ktw_history_films');
+        if (historyData) {
+            let parsed = JSON.parse(historyData);
+            if (!Array.isArray(parsed)) parsed = [];
+            return parsed;
+        }
+    } catch (e) {
+        console.error('Ошибка при чтении истории из localStorage:', e);
+    }
+    return [];
+}
+
+function saveHistoryFilms(films) {
+    try {
+        localStorage.setItem('ktw_history_films', JSON.stringify(films));
+    } catch (e) {
+        console.error('Ошибка при сохранении истории:', e);
+    }
+}
+
+function addToHistory(filmId, name, url, poster) {
+    if (!filmId) return;
+
+    let history = getHistoryFilms();
+    const checkId = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
+
+    // Удаляем этот фильм из истории, если он там уже есть (чтобы обновить время и перенести наверх)
+    history = history.filter(f => {
+        const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
+        return fId !== checkId;
+    });
+
+    // Добавляем в начало списка
+    history.unshift({
+        id: checkId,
+        name: name,
+        url: url,
+        poster: poster,
+        timestamp: Date.now()
+    });
+
+    // Храним последние 50 фильмов (для полной истории)
+    if (history.length > 50) {
+        history = history.slice(0, 50);
+    }
+
+    saveHistoryFilms(history);
+    renderHistoryFilms();
+}
+
+function removeHistory(filmId) {
+    const id = typeof filmId === 'string' ? parseInt(filmId, 10) : filmId;
+    let history = getHistoryFilms();
+    history = history.filter(f => {
+        const fId = typeof f.id === 'string' ? parseInt(f.id, 10) : f.id;
+        return fId !== id;
+    });
+    saveHistoryFilms(history);
+    renderHistoryFilms();
+}
+
+// Экспортируем ф-цию для возможности использования через HTML onclick и т.д.
+window.removeHistory = removeHistory;
+
+function renderHistoryFilms() {
+    const container = document.getElementById('historyFilmsContainer');
+    if (!container) return;
+
+    const history = getHistoryFilms();
+
+    if (history.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'center';
+    container.style.gap = '15px';
+
+    // Отображаем только последний открытый на главной
+    const lastFilm = history[0];
+
+    container.innerHTML = `
+        <div class="history-film-tile" data-film-id="${String(lastFilm.id)}" data-film-url="${lastFilm.url ? lastFilm.url.replace(/"/g, '&quot;') : ''}" title="Последний просмотренный">
+            <div class="favorite-film-name" style="color: #696868;">${lastFilm.name}</div>
+        </div>
+        <button id="openHistoryBtn" style="background: transparent; border: 1px solid #1a1a1a; border-radius: 4px; color: #575757; font-size: 11px; font-family: inherit; cursor: pointer; transition: all 0.2s ease; padding: 4px 8px;">история</button>
+    `;
+
+    // Добавляем обработчики событий
+    const tile = container.querySelector('.history-film-tile');
+    if (tile) {
+        tile.addEventListener('click', (e) => {
+            if (e.button === 0 || !e.button) { // ЛКМ
+                const url = tile.dataset.filmUrl;
+                if (url) openFavoriteFilm(url);
+            }
+        });
+
+        // ПКМ - контекстное меню
+        tile.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // Возвращаем старое контекстное меню для tile внизу экрана
+            showHistoryContextMenu(e.clientX, e.clientY, tile);
+        });
+    }
+
+    // Обработчик для кнопки полной истории
+    const btn = container.querySelector('#openHistoryBtn');
+    if (btn) {
+        btn.onmouseover = () => {
+            btn.style.color = '#959595';
+            btn.style.borderColor = '#2d2d2d';
+        };
+        btn.onmouseout = () => {
+            btn.style.color = '#575757';
+            btn.style.borderColor = '#1a1a1a';
+        };
+        btn.onclick = showFullHistoryModal;
+    }
+}
+
+// Отдельный список всех просмотренных
+function showFullHistoryModal() {
+    let modal = document.getElementById('fullHistoryModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fullHistoryModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 20000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const history = getHistoryFilms();
+
+    // Минималистичный рендер списка
+    let listHtml = history.map((film, index) => `
+        <div class="full-history-item" data-id="${film.id}" data-url="${film.url || ''}" style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #1a1a1a; cursor: pointer; transition: background 0.2s ease;">
+            <span style="color: #959595; font-size: 13px; font-family: 'Consolas', 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 15px;">${film.name}</span>
+            <span class="history-item-remove" style="color: #575757; font-size: 13px; cursor: pointer;">✕</span>
+        </div>
+    `).join('');
+
+    if (history.length === 0) {
+        listHtml = '<div style="color: #575757; font-size: 13px; text-align: center; padding: 20px;">История пуста</div>';
+    }
+
+    modal.innerHTML = `
+        <div style="background: #000; border: 1px solid #2d2d2d; border-radius: 4px; padding: 24px; min-width: 300px; max-width: 500px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <span style="color: #d3d3d3; font-size: 15px; font-family: 'Consolas', 'Courier New', monospace;">История просмотров</span>
+                <button id="closeFullHistoryBtn" style="background: transparent; border: none; color: #575757; cursor: pointer; font-size: 16px; transition: color 0.2s ease;">✕</button>
+            </div>
+            <div style="overflow-y: auto; flex: 1; display: flex; flex-direction: column;" class="full-history-list">
+                ${listHtml}
+            </div>
+            ${history.length > 0 ? `<button id="clearHistoryBtn" style="margin-top: 20px; background: transparent; border: 1px solid #1a1a1a; border-radius: 4px; color: #575757; padding: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s ease; font-family: 'Consolas', 'Courier New', monospace;">Очистить всё</button>` : ''}
+        </div>
+    `;
+
+    // Стилизация скролла
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .full-history-list::-webkit-scrollbar { width: 4px; }
+        .full-history-list::-webkit-scrollbar-track { background: transparent; }
+        .full-history-list::-webkit-scrollbar-thumb { background: #2d2d2d; border-radius: 2px; }
+        .full-history-item:hover { background: #111; }
+        .full-history-item:hover span:first-child { color: #fff !important; }
+        .history-item-remove:hover { color: #fff !important; }
+        #closeFullHistoryBtn:hover { color: #fff !important; }
+        #clearHistoryBtn:hover { border-color: #2d2d2d !important; color: #959595 !important; }
+    `;
+    modal.appendChild(style);
+
+    // События
+    modal.querySelector('#closeFullHistoryBtn').onclick = () => {
+        modal.style.display = 'none';
+        renderHistoryFilms(); // Обновить основной экран на случай изменений
+    };
+
+    // Закрытие по клику вне окна
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+            renderHistoryFilms();
+        }
+    };
+
+    if (history.length > 0) {
+        modal.querySelector('#clearHistoryBtn').onclick = () => {
+            saveHistoryFilms([]);
+            renderHistoryFilms();
+            modal.style.display = 'none';
+        };
+
+        const removeBtns = modal.querySelectorAll('.history-item-remove');
+        removeBtns.forEach((btn, index) => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                removeHistory(history[index].id);
+                showFullHistoryModal(); // Обновляем модалку
+            };
+        });
+
+        const items = modal.querySelectorAll('.full-history-item');
+        items.forEach((item, index) => {
+            item.onclick = () => {
+                const url = history[index].url;
+                if (url) {
+                    modal.style.display = 'none';
+                    openFavoriteFilm(url);
+                }
+            };
+        });
+    }
+
+    modal.style.display = 'flex';
+}
+
+function showHistoryContextMenu(x, y, tile) {
+    const existingMenu = document.getElementById('contextMenu');
+    if (existingMenu) existingMenu.remove();
+
+    const filmId = tile.dataset.filmId;
+
+    const menu = document.createElement('div');
+    menu.id = 'contextMenu';
+    menu.style.cssText = `
+        position: fixed;
+        left: ${x}px;
+        top: ${y}px;
+        background: #1a1a1a;
+        border: 1px solid #575757;
+        padding: 8px 0;
+        z-index: 10002;
+        min-width: 150px;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 13px;
+    `;
+
+    // Опция: Удалить из истории
+    const removeOption = document.createElement('div');
+    removeOption.className = 'context-menu-item';
+    removeOption.textContent = 'Удалить из истории';
+    removeOption.style.cssText = `
+        padding: 8px 16px;
+        color: #ffffff;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    `;
+    removeOption.onmouseover = function () {
+        this.style.background = '#575757';
+    };
+    removeOption.onmouseout = function () {
+        this.style.background = 'transparent';
+    };
+    removeOption.onclick = function () {
+        removeHistory(filmId);
+        menu.remove();
+    };
+
+    menu.appendChild(removeOption);
+    document.body.appendChild(menu);
+
+    // Удаление меню
+    const closeMenu = function (e) {
+        if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener('click', closeMenu);
+            document.removeEventListener('contextmenu', closeMenu, true);
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+        document.addEventListener('contextmenu', closeMenu, true);
+    }, 100);
+}
+
+
+
+
+window.currentSuggestionIndex = -1;
+
+window.handleDropdownNavigation = function (e) {
+    const list = document.getElementById('searchSuggestionsList');
+    const wrapper = document.getElementById('searchSuggestionsWrapper');
+    if (!wrapper || wrapper.style.display === 'none' || !wrapper.classList.contains('visible')) {
+        return false;
+    }
+
+    const items = list.querySelectorAll('.search-suggestion-tile');
+    if (items.length === 0) return false;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (window.currentSuggestionIndex < items.length - 1) {
+            window.currentSuggestionIndex++;
+        } else {
+            window.currentSuggestionIndex = 0;
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (window.currentSuggestionIndex > 0) {
+            window.currentSuggestionIndex--;
+        } else if (window.currentSuggestionIndex === -1) {
+            window.currentSuggestionIndex = items.length - 1;
+        } else {
+            window.currentSuggestionIndex = items.length - 1;
+        }
+    } else if (e.key === 'Enter') {
+        if (window.currentSuggestionIndex >= 0 && window.currentSuggestionIndex < items.length) {
+            e.preventDefault();
+            items[window.currentSuggestionIndex].click();
+            return true;
+        }
+        return false;
+    } else {
+        return false;
+    }
+
+    items.forEach((item, index) => {
+        if (index === window.currentSuggestionIndex) {
+            item.classList.add('active');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    return true;
+};

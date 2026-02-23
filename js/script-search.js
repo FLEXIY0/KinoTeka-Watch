@@ -606,6 +606,40 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         buttonsContainer.appendChild(favoriteButton);
     }
 
+    // Кнопка фокуса плеера (Play)
+    const playButton = document.createElement('button');
+    playButton.innerHTML = '▶';
+    playButton.title = 'Фокус на плеер (управление клавиатурой)';
+    playButton.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 22px;
+        transition: opacity 0.2s ease, color 0.2s ease;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    playButton.onmouseover = function () { this.style.opacity = '0.7'; };
+    playButton.onmouseout = function () { this.style.opacity = '1'; };
+    playButton.onclick = function (e) {
+        e.stopPropagation();
+        const iframe = document.querySelector('.kinobox_player iframe');
+        if (iframe) {
+            iframe.focus();
+
+            // Визуальный отклик (мигание оранжевым)
+            const originalColor = this.style.color;
+            this.style.color = '#ef9807';
+            setTimeout(() => this.style.color = originalColor, 300);
+        }
+    };
+    buttonsContainer.appendChild(playButton);
+
     // Кнопка закрытия
     const closeButton = document.createElement('button');
     closeButton.textContent = '✕';
@@ -712,21 +746,159 @@ function openPlayerWindow(url, filmId, filmName, filmPoster) {
         kinobox(playerContainer, {
             search: { kinopoisk: filmId }
         });
+
+        // Запоминание последнего выбранного плеера для фильма
+        const savedPlayerKey = 'ktw_last_player_' + filmId;
+        let playerRestored = false;
+
+        // Следим за появлением элементов меню (kinobox рендерит их асинхронно)
+        const playerObserver = new MutationObserver(() => {
+            const items = Array.from(playerContainer.querySelectorAll('li')).filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            });
+            if (items.length === 0) return;
+
+            // Навешиваем обработчик клика для сохранения выбора
+            items.forEach((item, index) => {
+                if (!item._ktwClickBound) {
+                    item._ktwClickBound = true;
+                    item.addEventListener('click', () => {
+                        try {
+                            localStorage.setItem(savedPlayerKey, index.toString());
+                        } catch (e) { }
+                    });
+                }
+            });
+
+            // Восстанавливаем последний выбранный плеер (один раз)
+            if (!playerRestored) {
+                playerRestored = true;
+                const savedIndex = localStorage.getItem(savedPlayerKey);
+                if (savedIndex !== null) {
+                    const idx = parseInt(savedIndex, 10);
+                    if (idx >= 0 && idx < items.length) {
+                        // Небольшая задержка чтобы kinobox успел инициализироваться
+                        setTimeout(() => {
+                            items[idx].click();
+                        }, 300);
+                    }
+                }
+            }
+        });
+
+        playerObserver.observe(playerContainer, { childList: true, subtree: true });
+
+        // Отключаем observer через 10 секунд (чтобы не висел бесконечно)
+        setTimeout(() => playerObserver.disconnect(), 10000);
     } else {
         console.error('Kinobox JS не загружен!');
     }
 
-    // Закрытие по Escape
-    const escapeHandler = (e) => {
+    // Обработка клавиш в плеере: Escape для закрытия, ArrowUp/ArrowDown для навигации
+    let playerTabSelected = false; // true после первого Enter (плеер выбран)
+
+    const playerKeyHandler = (e) => {
+        if (!document.body.contains(modal)) {
+            document.removeEventListener('keydown', playerKeyHandler);
+            return;
+        }
+
         if (e.key === 'Escape') {
-            if (document.body.contains(modal)) {
-                sessionStorage.removeItem('ktw_last_film');
-                closeModalAndRestoreSearch();
-                document.removeEventListener('keydown', escapeHandler);
+            sessionStorage.removeItem('ktw_last_film');
+            closeModalAndRestoreSearch();
+            document.removeEventListener('keydown', playerKeyHandler);
+            return;
+        }
+
+        // Навигация по плееру из меню Kinobox (если элементы находятся в DOM сайта)
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
+            const playerDiv = document.querySelector('.kinobox_player');
+            if (!playerDiv) return;
+
+            // Ищем все элементы меню Kinobox. Обычно это li или div с классом navItem
+            const itemsNodeList = playerDiv.querySelectorAll('.nav-item, .navItem, [class*="nav-item"], [class*="navItem"], li');
+            const menuItems = Array.from(itemsNodeList).filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).display !== 'none';
+            });
+
+            // Enter — выбор плеера или запуск
+            if (e.key === 'Enter') {
+                // Если плеер уже выбран (первый Enter был), фокусируем iframe
+                if (playerTabSelected) {
+                    e.preventDefault();
+                    const iframe = playerDiv.querySelector('iframe');
+                    if (iframe) {
+                        // Добавляем autoplay=1 к src iframe, чтобы плеер запустился
+                        let src = iframe.src || iframe.getAttribute('src');
+                        if (src && !src.includes('autoplay=1')) {
+                            const separator = src.includes('?') ? '&' : '?';
+                            iframe.src = src + separator + 'autoplay=1';
+                        }
+
+                        // Фокусируем iframe после перезагрузки
+                        setTimeout(() => iframe.focus(), 500);
+
+                        // Визуальный отклик кнопки Play
+                        const playBtn = modal.querySelector('button[title*="Фокус"]');
+                        if (playBtn) {
+                            playBtn.style.color = '#ef9807';
+                            playBtn.innerHTML = '⏸';
+                            setTimeout(() => {
+                                playBtn.style.color = '#ffffff';
+                                playBtn.innerHTML = '▶';
+                            }, 800);
+                        }
+                    }
+                    return;
+                }
+
+                // Первый Enter — выбираем плеер
+                if (menuItems.length > 0) {
+                    let ci = menuItems.findIndex(el => el.style.outlineStyle === 'solid');
+                    if (ci >= 0 && ci < menuItems.length) {
+                        e.preventDefault();
+                        menuItems[ci].click();
+                        menuItems.forEach(el => el.style.outline = '');
+                        playerTabSelected = true;
+                    }
+                }
+                return;
+            }
+
+            // Стрелки — навигация
+            if (menuItems.length === 0) return;
+
+            // При переключении стрелками сбрасываем статус «плеер выбран»
+            playerTabSelected = false;
+
+            let currentIndex = menuItems.findIndex(el =>
+                el.classList.contains('active') ||
+                el.style.outlineStyle === 'solid'
+            );
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                currentIndex = currentIndex < menuItems.length - 1 ? (currentIndex === -1 ? 0 : currentIndex + 1) : 0;
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                currentIndex = currentIndex > 0 ? currentIndex - 1 : menuItems.length - 1;
+            }
+
+            // Убираем фокус со всех
+            menuItems.forEach(el => el.style.outline = '');
+
+            // Применяем выделение
+            if (currentIndex >= 0 && currentIndex < menuItems.length) {
+                const selected = menuItems[currentIndex];
+                selected.style.outline = '2px solid #ef9807';
+                selected.style.outlineOffset = '-2px';
+                selected.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
             }
         }
     };
-    document.addEventListener('keydown', escapeHandler);
+    document.addEventListener('keydown', playerKeyHandler);
 }
 
 // Закрытие модального окна и восстановление состояния поиска
@@ -1039,6 +1211,9 @@ function showContextMenu(x, y, tile) {
 }
 
 function openFavoriteFilm(url) {
+    // Убираем Tab-фокус с закреплённых фильмов
+    document.querySelectorAll('.favorite-film-tile.tab-focused').forEach(t => t.classList.remove('tab-focused'));
+
     // Извлекаем ID из URL
     const match = url.match(/\/film\/(\d+)/);
     const filmId = match ? match[1] : null;
@@ -1403,13 +1578,13 @@ function showHistoryContextMenu(x, y, tile) {
 
 window.currentSuggestionIndex = -1;
 
-window.handleDropdownNavigation = function(e) {
+window.handleDropdownNavigation = function (e) {
     const list = document.getElementById('searchSuggestionsList');
     const wrapper = document.getElementById('searchSuggestionsWrapper');
     if (!wrapper || wrapper.style.display === 'none' || !wrapper.classList.contains('visible')) {
         return false;
     }
-    
+
     const items = list.querySelectorAll('.search-suggestion-tile');
     if (items.length === 0) return false;
 

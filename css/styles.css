@@ -697,6 +697,74 @@ body {
     transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Tab-навигация: обводка-комета */
+.favorite-film-tile.tab-focused {
+    position: relative;
+    border-radius: 4px;
+    outline: none;
+}
+
+.favorite-film-tile.tab-focused::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 5px;
+    padding: 1px;
+    background: conic-gradient(from var(--comet-angle, 0deg),
+            transparent 0%,
+            transparent 60%,
+            rgba(239, 152, 7, 0.3) 75%,
+            #ef9807 90%,
+            rgba(239, 152, 7, 0.3) 95%,
+            transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: comet-run 0.6s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes comet-run {
+    0% {
+        --comet-angle: 0deg;
+        opacity: 1;
+    }
+
+    100% {
+        --comet-angle: 360deg;
+        opacity: 1;
+    }
+}
+
+/* После анимации — статичная рамка */
+.favorite-film-tile.tab-focused::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 5px;
+    border: 1px solid #ef9807;
+    opacity: 0;
+    animation: border-appear 0.1s 0.55s ease forwards;
+    pointer-events: none;
+}
+
+@keyframes border-appear {
+    to {
+        opacity: 1;
+    }
+}
+
+@property --comet-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+.favorite-film-tile.tab-focused .favorite-film-name {
+    color: #ef9807;
+}
+
 /* Скрываем футер и избранное при открытом плеере */
 body:has(#playerModal) .footer,
 body:has(#playerModal) .bottom-panels-wrapper,

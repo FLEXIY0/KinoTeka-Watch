@@ -575,7 +575,8 @@ const tipsTranslations = {
         'Начни просто печатать, чтобы начать поиск',
         'Пользуйся выпадающим списком, чтобы найти точнее',
         'Оставь отзыв или предложение в разделе Issues на GitHub',
-        'Можно не использовать мышку: <span style="color: #ef9807;">переключайтесь в выпадающем списке при помощи стрелочек</span>'
+        'Можно не использовать мышку: <span style="color: #ef9807;">переключайтесь в выпадающем списке при помощи стрелочек</span>',
+        'Нажми <span style="color: #ef9807;">Tab</span> для переключения между закреплёнными фильмами'
     ],
     en: [
         'Try switching tabs if the player is unavailable',
@@ -588,7 +589,8 @@ const tipsTranslations = {
         'You can choose another interface language in the KTW menu',
         'Just start typing to begin the search',
         'Use the dropdown list to find more accurately',
-        'Leave feedback or suggestions in the Issues section on GitHub'
+        'Leave feedback or suggestions in the Issues section on GitHub',
+        'Press <span style="color: #ef9807;">Tab</span> to switch between pinned films'
     ],
     de: [
         'Versuchen Sie, die Tabs zu wechseln, wenn der Player nicht verfügbar ist',
@@ -601,7 +603,8 @@ const tipsTranslations = {
         'Sie können eine andere Benutzeroberflächensprache im KTW-Menü auswählen',
         'Fange einfach an zu tippen, um die Suche zu starten',
         'Verwenden Sie die Dropdown-Liste, um genauer zu suchen',
-        'Hinterlassen Sie Feedback oder Vorschläge im Bereich Issues auf GitHub'
+        'Hinterlassen Sie Feedback oder Vorschläge im Bereich Issues auf GitHub',
+        'Drücken Sie <span style="color: #ef9807;">Tab</span>, um zwischen gespeicherten Filmen zu wechseln'
     ],
     fr: [
         'Essayez de changer d\'onglet si le lecteur est indisponible',
@@ -614,7 +617,8 @@ const tipsTranslations = {
         'Vous pouvez choisir une autre langue d\'interface dans le menu KTW',
         'Commencez simplement à taper pour commencer la recherche',
         'Utilisez la liste déroulante pour trouver plus précisément',
-        'Laissez vos commentaires ou suggestions dans la section Issues sur GitHub'
+        'Laissez vos commentaires ou suggestions dans la section Issues sur GitHub',
+        'Appuyez sur <span style="color: #ef9807;">Tab</span> pour basculer entre les films épinglés'
     ],
     es: [
         'Intente cambiar de pestaña si el reproductor no está disponible',
@@ -627,7 +631,8 @@ const tipsTranslations = {
         'Puede elegir otro idioma de interfaz en el menú KTW',
         'Simplemente comienza a escribir para iniciar la búsqueda',
         'Usa la lista desplegable para encontrar con mayor precisión',
-        'Deja tus comentarios o sugerencias en la sección Issues en GitHub'
+        'Deja tus comentarios o sugerencias en la sección Issues en GitHub',
+        'Presiona <span style="color: #ef9807;">Tab</span> para alternar entre películas fijadas'
     ],
     it: [
         'Prova a cambiare scheda se il player non è disponibile',
@@ -640,7 +645,8 @@ const tipsTranslations = {
         'Puoi scegliere un\'altra lingua per l\'interfaccia nel menu KTW',
         'Inizia a digitare per avviare la ricerca',
         'Usa l\'elenco a discesa per trovare in modo più preciso',
-        'Lascia un feedback o un suggerimento nella sezione Issues su GitHub'
+        'Lascia un feedback o un suggerimento nella sezione Issues su GitHub',
+        'Premi <span style="color: #ef9807;">Tab</span> per passare tra i film appuntati'
     ],
     pt: [
         'Tente alternar as abas se o player estiver indisponível',
@@ -653,7 +659,8 @@ const tipsTranslations = {
         'Você pode escolher outro idioma de interface no menu KTW',
         'Basta começar a digitar para iniciar a pesquisa',
         'Use a lista suspensa para encontrar com mais precisão',
-        'Deixe comentários ou sugestões na seção Issues no GitHub'
+        'Deixe comentários ou sugestões na seção Issues no GitHub',
+        'Pressione <span style="color: #ef9807;">Tab</span> para alternar entre filmes fixados'
     ],
     pl: [
         'Spróbuj przełączyć karty, jeśli odtwarzacz jest niedostępny',
@@ -666,7 +673,8 @@ const tipsTranslations = {
         'W menu KTW można wybrać inny język interfejsu',
         'Zacznij po prostu pisać, aby rozpocząć wyszukiwanie',
         'Skorzystaj z listy rozwijanej, aby znaleźć dokładniej',
-        'Zostaw opinię lub sugestie w sekcji Issues na GitHubie'
+        'Zostaw opinię lub sugestie w sekcji Issues na GitHubie',
+        'Naciśnij <span style="color: #ef9807;">Tab</span>, aby przełączać się między przypiętymi filmami'
     ],
     uk: [
         'Спробуй перемикати вкладки, якщо не доступний плеєр',
@@ -679,7 +687,8 @@ const tipsTranslations = {
         'В меню KTW можна обрати іншу мову інтерфейсу',
         'Почни просто друкувати, щоб почати пошук',
         'Користуйся випадаючим списком, щоб знайти точніше',
-        'Залиш відгук або пропозицію в розділі Issues на GitHub'
+        'Залиш відгук або пропозицію в розділі Issues на GitHub',
+        'Натисни <span style="color: #ef9807;">Tab</span> для переключення між закріпленими фільмами'
     ],
     ja: [
         'プレーヤーが利用できない場合は、タブを切り替えてみてください',
@@ -692,7 +701,8 @@ const tipsTranslations = {
         'KTWメニューで別のインターフェース言語を選択できます',
         '検索を始めるには、入力するだけです',
         'ドロップダウンリストを使用して、より正確に検索します',
-        'GitHubのIssuesセクションにフィードバックや提案を残してください'
+        'GitHubのIssuesセクションにフィードバックや提案を残してください',
+        '<span style="color: #ef9807;">Tab</span>を押して固定された映画を切り替えます'
     ],
     ko: [
         '플레이어를 사용할 수 없는 경우 탭을 전환해 보세요',
@@ -705,7 +715,8 @@ const tipsTranslations = {
         'KTW 메뉴에서 다른 인터페이스 언어를 선택할 수 있습니다',
         '검색을 시작하려면 입력하기만 하면 됩니다',
         '드롭다운 목록을 사용하여 더 정확하게 찾으세요',
-        'GitHub의 Issues 섹션에 피드백이나 제안을 남겨주세요'
+        'GitHub의 Issues 섹션에 피드백이나 제안을 남겨주세요',
+        '<span style="color: #ef9807;">Tab</span>을 눌러 고정된 영화 사이를 전환하세요'
     ],
     zh: [
         '如果播放器不可用，请尝试切换选项卡',
@@ -718,7 +729,8 @@ const tipsTranslations = {
         '可以在 KTW 菜单中选择其他界面语言',
         '只需开始输入即可开始搜索',
         '使用下拉列表查找更准确',
-        '在GitHub上的Issues部分留下您的反馈或建议'
+        '在GitHub上的Issues部分留下您的反馈或建议',
+        '按<span style="color: #ef9807;">Tab</span>在固定的电影之间切换'
     ]
 };
 
@@ -780,13 +792,15 @@ function showNextTip() {
     tipText.classList.remove('visible');
 
     setTimeout(() => {
-        const lastIndex = currentTips.length - 1;
-        // С вероятностью 40% показываем подсказку про стрелочки (последнюю в массиве),
-        // иначе любую другую случайную
-        if (Math.random() < 0.4) {
-            currentTipIndex = lastIndex;
+        const len = currentTips.length;
+        const roll = Math.random();
+        // 25% — Tab подсказка (последняя), 25% — стрелочки (предпоследняя), 50% — остальные
+        if (roll < 0.25) {
+            currentTipIndex = len - 1;
+        } else if (roll < 0.5) {
+            currentTipIndex = len - 2;
         } else {
-            currentTipIndex = Math.floor(Math.random() * lastIndex);
+            currentTipIndex = Math.floor(Math.random() * (len - 2));
         }
 
         tipText.innerHTML = currentTips[currentTipIndex];
@@ -1110,6 +1124,57 @@ function handleGlobalKeyDown(e) {
     // Игнорируем, если идет переименование фильма
     if (window.isRenamingFilm) {
         return;
+    }
+
+    // Игнорируем, если открыт модальный плеер (там свой обработчик клавиш)
+    if (document.getElementById('playerModal')) {
+        return;
+    }
+
+    // Tab — навигация по закрепленным фильмам
+    if (e.key === 'Tab') {
+        const container = document.getElementById('favoriteFilmsContainer');
+        if (container && container.offsetHeight > 0 && container.offsetParent !== null) {
+            const tiles = Array.from(container.querySelectorAll('.favorite-film-tile'));
+            if (tiles.length > 0) {
+                e.preventDefault();
+
+                let currentIndex = tiles.findIndex(t => t.classList.contains('tab-focused'));
+
+                if (e.shiftKey) {
+                    // Shift+Tab — назад
+                    currentIndex = currentIndex > 0 ? currentIndex - 1 : tiles.length - 1;
+                } else {
+                    // Tab — вперед
+                    if (currentIndex === -1) {
+                        currentIndex = 0;
+                    } else {
+                        currentIndex = currentIndex < tiles.length - 1 ? currentIndex + 1 : 0;
+                    }
+                }
+
+                // Убираем фокус со всех
+                tiles.forEach(t => t.classList.remove('tab-focused'));
+
+                // Перезапуск анимации: reflow перед добавлением класса
+                void tiles[currentIndex].offsetWidth;
+
+                // Выделяем текущий
+                tiles[currentIndex].classList.add('tab-focused');
+                tiles[currentIndex].scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+                return;
+            }
+        }
+    }
+
+    // Enter — открыть выбранный Tab-ом фильм
+    if (e.key === 'Enter' && searchTextElement.contentEditable !== 'true') {
+        const focused = document.querySelector('.favorite-film-tile.tab-focused');
+        if (focused) {
+            e.preventDefault();
+            focused.click();
+            return;
+        }
     }
 
     // Если уже в режиме редактирования, не обрабатываем

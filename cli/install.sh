@@ -331,6 +331,8 @@ check_node() {
     ok "npm $(npm -v)"
 }
 
+SOURCES_CLONED=0
+
 fetch_sources() {
     # Скрипт запустили внутри уже склонированного репозитория
     if [ -f "./cli/ktw.js" ] && [ -d "./.git" ]; then
@@ -340,11 +342,16 @@ fetch_sources() {
     fi
 
     if [ -d "$INSTALL_DIR/.git" ]; then
-        spin_run "обновляю $INSTALL_DIR" \
-            git -C "$INSTALL_DIR" fetch origin "$REPO_BRANCH" || true
-        git -C "$INSTALL_DIR" checkout --quiet "$REPO_BRANCH" 2>/dev/null || true
-        git -C "$INSTALL_DIR" reset --hard --quiet "origin/$REPO_BRANCH" 2>/dev/null || true
-        ok "обновлено"
+        if spin_run "обновляю $INSTALL_DIR" git -C "$INSTALL_DIR" fetch origin "$REPO_BRANCH" \
+            && git -C "$INSTALL_DIR" checkout --quiet "$REPO_BRANCH" 2>/dev/null \
+            && git -C "$INSTALL_DIR" reset --hard --quiet "origin/$REPO_BRANCH" 2>/dev/null; then
+            ok "обновлено до $(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null)"
+        else
+            # Раньше здесь было безусловное «обновлено», и сломанное дерево
+            # обнаруживалось только при первом запуске
+            warn "обновить не вышло — работаю с тем, что уже лежит в $INSTALL_DIR"
+        fi
+
         return 0
     fi
 
@@ -352,6 +359,7 @@ fetch_sources() {
     spin_run "качаю исходники в $INSTALL_DIR" \
         git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" \
         || die "не смог склонировать $REPO_URL"
+    SOURCES_CLONED=1
     ok "скачано"
 }
 
@@ -486,6 +494,37 @@ link_binary() {
     esac
 }
 
+# Проверка, что клиент реально стартует. Ловит неполное дерево (недокачанный
+# или битый клон) сразу, а не при первом запуске непонятной ошибкой Node.
+verify_install() {
+    _out=$(node "$INSTALL_DIR/cli/ktw.js" --help 2>&1) && {
+        ok "клиент запускается"
+        return 0
+    }
+
+    bad "клиент не стартует"
+
+    # Полезное — в начале вывода Node, стек внизу не нужен
+    { printf '%s\n' "$_out" | grep -m1 -A3 '^Error' || printf '%s\n' "$_out" | head -n 4; } \
+        | while IFS= read -r _line; do
+            dim "  $_line"
+        done
+
+    say ""
+
+    # Предлагать снести каталог можно только если мы сами его и склонировали:
+    # при запуске из готового клона это был бы рабочий каталог пользователя
+    if [ "$SOURCES_CLONED" = "1" ]; then
+        dim "чаще всего помогает переустановка с нуля:"
+        dim "  rm -rf $INSTALL_DIR && запусти этот скрипт заново"
+    else
+        dim "проверь, что дерево исходников полное:"
+        dim "  git -C $INSTALL_DIR status && git -C $INSTALL_DIR pull"
+    fi
+
+    die "установка неполная"
+}
+
 setup_key() {
     if [ -n "${KINOPOISK_API_KEY:-}" ]; then
         ok "ключ взят из KINOPOISK_API_KEY"
@@ -538,6 +577,7 @@ install_deps
 
 step "Команда ktw"
 link_binary
+verify_install
 
 step "Ключ API"
 setup_key

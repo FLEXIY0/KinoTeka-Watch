@@ -26,7 +26,8 @@ var HELP = [
     '  ktw <ссылка на кинопоиск> открыть фильм по ссылке',
     '',
     ui.color.bold('Опции:'),
-    '  -p, --player <тип>   взять плеер по имени (alloha, collaps, kodik, …)',
+    '  -p, --player <тип>   взять плеер по имени (alloha, collaps, turbo, …)',
+    '  -t, --translation <имя>  взять озвучку по части названия',
     '  -s, --season <n>     номер сезона',
     '  -e, --episode <n>    номер серии',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
@@ -59,6 +60,7 @@ function parseArgs(argv) {
     var options = {
         query: [],
         player: null,
+        translation: null,
         season: null,
         episode: null,
         iframe: false,
@@ -83,6 +85,7 @@ function parseArgs(argv) {
 
         if (arg === '-h' || arg === '--help') options.help = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
+        else if (arg === '-t' || arg === '--translation') options.translation = argv[++i];
         else if (arg === '-s' || arg === '--season') options.season = argv[++i];
         else if (arg === '-e' || arg === '--episode') options.episode = argv[++i];
         else if (arg === '--iframe') options.iframe = true;
@@ -170,12 +173,42 @@ async function pickPlayer(film, options) {
     var items = players.map(function (player) {
         return {
             label: player.source,
-            hint: player.translation + ' · ' + player.quality
+            hint: player.translations.length + ' озв. · ' + player.quality
         };
     });
 
     var index = await ui.select('Плееры для «' + film.title + '»:', items);
     return index < 0 ? null : players[index];
+}
+
+// Выбор озвучки в построчном режиме: по --translation или первая доступная
+async function pickTranslation(player, options) {
+    var variants = player.translations || [];
+    if (variants.length === 0) return null;
+
+    if (options.translation) {
+        var wanted = options.translation.toLowerCase();
+        var match = variants.filter(function (item) {
+            return item.name.toLowerCase().indexOf(wanted) >= 0;
+        })[0];
+
+        if (!match) {
+            ui.error('Озвучка «' + options.translation + '» не найдена. Есть: ' +
+                variants.map(function (item) { return item.name; }).join(', '));
+            return undefined;
+        }
+
+        return match;
+    }
+
+    if (variants.length === 1 || !process.stdin.isTTY) return variants[0];
+
+    var items = variants.map(function (item) {
+        return { label: item.name, hint: item.quality };
+    });
+
+    var index = await ui.select('Озвучки ' + player.source + ':', items);
+    return index < 0 ? undefined : variants[index];
 }
 
 // Построчный режим для скриптов и терминалов без интерактива
@@ -189,14 +222,21 @@ async function runPlain(options) {
     var player = await pickPlayer(film, options);
     if (!player) return 1;
 
-    var iframeUrl = api.withEpisode(player.iframeUrl, options.season, options.episode);
+    var translation = await pickTranslation(player, options);
+    if (translation === undefined) return 1;
+
+    var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
+    var iframeUrl = api.withEpisode(source, options.season, options.episode);
 
     // Режим --iframe: поток не ищем, отдаём ссылку на плеер как есть
     if (options.iframe) {
         if (options.json) {
-            process.stdout.write(JSON.stringify({ film: film, player: player, iframeUrl: iframeUrl }, null, 2) + '\n');
+            process.stdout.write(JSON.stringify({
+                film: film, player: player, translation: translation, iframeUrl: iframeUrl
+            }, null, 2) + '\n');
         } else {
-            ui.info(ui.color.green('▸ ') + player.source + ' · ' + player.translation);
+            ui.info(ui.color.green('▸ ') + player.source +
+                (translation ? ' · ' + translation.name : ''));
             process.stdout.write(iframeUrl + '\n');
         }
         return 0;
@@ -227,13 +267,15 @@ async function runPlain(options) {
         process.stdout.write(JSON.stringify({
             film: film,
             player: player,
+            translation: translation,
             stream: found,
             command: mpv.buildCommand(found, title, options.mpvArgs)
         }, null, 2) + '\n');
         return 0;
     }
 
-    ui.info(ui.color.green('▸ ') + title + ' · ' + player.source + ' · ' + player.quality);
+    ui.info(ui.color.green('▸ ') + title + ' · ' + player.source +
+        (translation ? ' · ' + translation.name : '') + ' · ' + player.quality);
 
     if (options.noMpv) {
         process.stdout.write(found.url + '\n');

@@ -251,8 +251,9 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
 }
 
 // Извлечение потока и передача его в mpv
-async function playStream(film, player, season, episode, options) {
-    var iframeUrl = api.withEpisode(player.iframeUrl, season, episode);
+async function playStream(film, player, translation, season, episode, options) {
+    var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
+    var iframeUrl = api.withEpisode(source, season, episode);
     var label = film.title + (season ? ' · S' + season + 'E' + episode : '');
     var found;
 
@@ -264,7 +265,8 @@ async function playStream(film, player, season, episode, options) {
             '  ' + style.accent(frame || '') + ' ' + style.bold('Достаю поток'),
             '',
             '  ' + style.muted(ansi.truncate(label, size.width - 6)),
-            '  ' + style.muted('плеер ' + player.source + ' · ' + player.quality),
+            '  ' + style.muted(ansi.truncate('плеер ' + player.source +
+                (translation ? ' · ' + translation.name : '') + ' · ' + player.quality, size.width - 6)),
             ''
         ], size.width, footer(['это занимает несколько секунд']));
     }
@@ -324,6 +326,8 @@ async function run(options) {
     var season = options.season ? Number(options.season) : null;
     var episode = options.episode ? Number(options.episode) : null;
     var players = [];
+    var player = null;
+    var autoUsed = false;
     var screen = 'search';
 
     // Фильм передали id или ссылкой — поиск не нужен
@@ -444,10 +448,11 @@ async function run(options) {
                     continue;
                 }
 
-                // --player выбирает балансер без участия пользователя
+                // --player выбирает балансер без участия пользователя,
+                // но только в первый раз — иначе после просмотра начнётся круг
                 var chosen = null;
 
-                if (options.player) {
+                if (options.player && !autoUsed) {
                     var wanted = options.player.toLowerCase();
                     chosen = players.filter(function (item) {
                         return item.source.toLowerCase().indexOf(wanted) === 0;
@@ -478,14 +483,49 @@ async function run(options) {
                     chosen = players[playerIndex];
                 }
 
-                await playStream(film, chosen, season, episode, options);
+                player = chosen;
+                screen = 'translations';
+                continue;
+            }
 
-                // После просмотра возвращаемся к серии или к списку плееров
-                if (options.player) {
-                    screen = seasons.length > 0 ? 'episodes' : 'search';
-                    if (screen === 'search') players = [];
+            // Озвучки спрашиваем, только если есть из чего выбирать
+            if (screen === 'translations') {
+                var variants = player.translations || [];
+                var translation = null;
+
+                if (options.translation && !autoUsed) {
+                    var wantedTranslation = options.translation.toLowerCase();
+                    translation = variants.filter(function (item) {
+                        return item.name.toLowerCase().indexOf(wantedTranslation) >= 0;
+                    })[0] || null;
                 }
 
+                if (!translation && variants.length === 1) {
+                    translation = variants[0];
+                }
+
+                if (!translation && variants.length > 1) {
+                    var translationItems = variants.map(function (item) {
+                        return { label: item.name, hint: item.quality };
+                    });
+
+                    var translationIndex = await pickerScreen(film, posterLines,
+                        'Озвучка · ' + player.source, translationItems,
+                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], 0);
+
+                    if (translationIndex === 'back') {
+                        screen = 'players';
+                        continue;
+                    }
+
+                    translation = variants[translationIndex];
+                }
+
+                await playStream(film, player, translation, season, episode, options);
+                autoUsed = true;
+
+                // После просмотра логичнее всего вернуться к выбору серии
+                screen = seasons.length > 0 ? 'episodes' : 'players';
                 continue;
             }
 

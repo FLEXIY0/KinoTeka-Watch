@@ -212,44 +212,75 @@ fetch_sources() {
     ok "скачано"
 }
 
+# Записать значение в config.json, не потеряв остальные поля
+write_config() {
+    mkdir -p "$CONFIG_DIR"
+    node -e '
+        var fs = require("fs"), file = process.argv[1], key = process.argv[2], value = process.argv[3];
+        var config = {};
+        try { config = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {}
+        config[key] = value;
+        fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+    ' "$CONFIG_DIR/config.json" "$1" "$2"
+}
+
+# Скачанный puppeteer'ом браузер реально лежит на диске?
+# Проверять код возврата npm недостаточно: если пакет уже стоял или
+# CDN недоступен, установка проходит успешно, а браузера нет.
+browser_ready() {
+    node -e '
+        try {
+            var fs = require("fs");
+            var file = require("puppeteer").executablePath();
+            process.exit(file && fs.existsSync(file) ? 0 : 1);
+        } catch (e) {
+            process.exit(1);
+        }
+    ' 2>/dev/null
+}
+
+find_system_chromium() {
+    for _candidate in chromium chromium-browser google-chrome google-chrome-stable brave-browser; do
+        if has "$_candidate"; then
+            command -v "$_candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 install_deps() {
     cd "$INSTALL_DIR"
 
     printf '  %s…%s ставлю puppeteer (тянет свой Chromium, это долго)\n' "$C_DIM" "$C_RESET"
+    npm install --omit=dev --no-audit --no-fund --loglevel=error >/dev/null 2>&1 \
+        || warn "npm install ругался — проверю, что получилось"
 
-    if npm install --omit=dev --no-audit --no-fund --loglevel=error >/dev/null 2>&1; then
+    [ -d "$INSTALL_DIR/node_modules/puppeteer" ] || die "puppeteer не установился, без него не извлечь поток"
+
+    if browser_ready; then
         ok "зависимости на месте"
         return 0
     fi
 
-    warn "Chromium не скачался — пробую обойтись системным"
+    warn "Chromium не скачался — пробую докачать"
+    npx --yes puppeteer browsers install chrome >/dev/null 2>&1 || true
 
-    if ! has chromium && ! has chromium-browser && ! has google-chrome; then
-        install_pkg chromium || true
+    if browser_ready; then
+        ok "Chromium докачан"
+        return 0
     fi
 
-    _chromium=""
-    for _candidate in chromium chromium-browser google-chrome; do
-        if has "$_candidate"; then
-            _chromium=$(command -v "$_candidate")
-            break
-        fi
-    done
+    warn "не вышло — ищу системный Chromium"
+    _chromium=$(find_system_chromium) || {
+        install_pkg chromium || true
+        _chromium=$(find_system_chromium) || _chromium=""
+    }
 
     [ -n "$_chromium" ] || die "нет ни своего, ни системного Chromium — извлекать поток будет нечем"
 
-    PUPPETEER_SKIP_DOWNLOAD=1 npm install --omit=dev --no-audit --no-fund --loglevel=error >/dev/null 2>&1 \
-        || die "npm install не прошёл"
-
-    mkdir -p "$CONFIG_DIR"
-    node -e '
-        var fs = require("fs"), path = process.argv[1], chromium = process.argv[2];
-        var config = {};
-        try { config = JSON.parse(fs.readFileSync(path, "utf8")); } catch (e) {}
-        config.chromiumPath = chromium;
-        fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n");
-    ' "$CONFIG_DIR/config.json" "$_chromium"
-
+    write_config chromiumPath "$_chromium"
     ok "использую системный Chromium: $_chromium"
 }
 
@@ -319,15 +350,7 @@ setup_key() {
         return 0
     fi
 
-    mkdir -p "$CONFIG_DIR"
-    node -e '
-        var fs = require("fs"), path = process.argv[1], key = process.argv[2];
-        var config = {};
-        try { config = JSON.parse(fs.readFileSync(path, "utf8")); } catch (e) {}
-        config.kinopoiskApiKey = key;
-        fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
-    ' "$CONFIG_DIR/config.json" "$_key"
-
+    write_config kinopoiskApiKey "$_key"
     ok "ключ сохранён в $CONFIG_DIR/config.json"
 }
 

@@ -7,7 +7,13 @@
 
 var KINOPOISK_SEARCH = 'https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword';
 var KINOPOISK_FILMS = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
-var KINOBOX_PLAYERS = 'https://api.kinobox.tv/api/players';
+// Зеркала списка плееров. Первым идёт то, которое использует сам сайт:
+// api.kinobox.tv отвечает не отовсюду, а fbphdplay.top отдаёт тот же JSON.
+// Своё зеркало можно подставить через KTW_KINOBOX_API.
+var KINOBOX_MIRRORS = [
+    'https://fbphdplay.top/api/players',
+    'https://api.kinobox.tv/api/players'
+];
 
 // Браузерный UA — балансеры отдают поток только «настоящим» клиентам
 var USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -111,28 +117,74 @@ async function getSeasons(kinopoiskId, apiKey) {
     });
 }
 
-// Список доступных плееров (балансеров) для фильма
-async function getPlayers(kinopoiskId) {
-    var url = KINOBOX_PLAYERS + '?kinopoisk=' + encodeURIComponent(kinopoiskId);
-    var data = await fetchJson(url, { 'Referer': 'https://kinobox.tv/', 'Origin': 'https://kinobox.tv' });
-
-    if (data && data.error) {
-        throw new Error(data.error.title || 'Kinobox вернул ошибку');
-    }
-
-    var list = data && data.data ? data.data : [];
-
+// Разбор ответа Kinobox. У каждого балансера свой набор озвучек,
+// и у части из них — отдельная ссылка на iframe под каждую озвучку.
+function normalizePlayers(list) {
     return list
         .filter(function (item) { return item && item.iframeUrl; })
         .map(function (item) {
-            var translation = item.translations && item.translations[0] ? item.translations[0] : {};
+            var seen = {};
+            var translations = (item.translations || [])
+                .filter(function (translation) { return translation && translation.name; })
+                .map(function (translation) {
+                    return {
+                        name: translation.name,
+                        quality: translation.quality || '',
+                        iframeUrl: normalizeUrl(translation.iframeUrl || item.iframeUrl)
+                    };
+                })
+                .filter(function (translation) {
+                    var key = translation.name + '|' + translation.iframeUrl;
+                    if (seen[key]) return false;
+                    seen[key] = true;
+                    return true;
+                });
+
+            var quality = translations.map(function (translation) { return translation.quality; })
+                .filter(Boolean)[0] || '-';
+
             return {
                 source: item.type || 'unknown',
-                translation: translation.name || 'Не указано',
-                quality: translation.quality || '-',
+                translation: translations.length > 0 ? translations[0].name : 'Не указано',
+                quality: quality,
+                translations: translations,
                 iframeUrl: normalizeUrl(item.iframeUrl)
             };
         });
+}
+
+// Список доступных плееров (балансеров) для фильма.
+// Зеркала перебираются по очереди: первое ответившее и выигрывает.
+async function getPlayers(kinopoiskId) {
+    var mirrors = process.env.KTW_KINOBOX_API
+        ? [process.env.KTW_KINOBOX_API].concat(KINOBOX_MIRRORS)
+        : KINOBOX_MIRRORS.slice();
+
+    var lastError = null;
+
+    for (var i = 0; i < mirrors.length; i++) {
+        var url = mirrors[i] + '?kinopoisk=' + encodeURIComponent(kinopoiskId);
+
+        try {
+            var data = await fetchJson(url, {
+                'Referer': 'https://kinobox.tv/',
+                'Origin': 'https://kinobox.tv'
+            });
+
+            if (data && data.error) {
+                throw new Error(data.error.title || 'Kinobox вернул ошибку');
+            }
+
+            var players = normalizePlayers(data && data.data ? data.data : []);
+            if (players.length > 0) return players;
+
+            lastError = new Error('пустой список плееров');
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    throw new Error('Плееры не получены: ' + (lastError ? lastError.message : 'нет ответа'));
 }
 
 // id Кинопоиска из аргумента: число или ссылка вида kinopoisk.ru/film/301/

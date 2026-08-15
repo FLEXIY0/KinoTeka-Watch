@@ -112,7 +112,7 @@ function select(title, items) {
             }
         }
 
-        readline.emitKeypressEvents(process.stdin);
+        readline.emitKeypressEvents(process.stdin, { escapeCodeTimeout: 60 });
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.on('keypress', onKey);

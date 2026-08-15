@@ -1,28 +1,29 @@
 #!/usr/bin/env node
 'use strict';
 
-// ktw — CLI для KinoTeka Watch.
+// ktw — терминальный клиент KinoTeka Watch.
 // Повторяет цепочку сайта: поиск на Кинопоиске -> список плееров Kinobox ->
 // извлечение прямого потока -> воспроизведение в mpv.
-
-var fs = require('fs');
-var path = require('path');
-var os = require('os');
+//
+// По умолчанию запускается полноэкранный интерфейс (lib/app.js).
+// Флаги --json/--no-mpv/--iframe и запуск без терминала уводят в простой
+// построчный режим, пригодный для скриптов и пайпов.
 
 var api = require('./lib/api');
 var ui = require('./lib/ui');
 var stream = require('./lib/stream');
 var mpv = require('./lib/mpv');
+var config = require('./lib/config');
 
 var HELP = [
     '',
     ui.color.bold('ktw') + ' — смотреть фильмы из KinoTeka Watch в mpv',
     '',
     ui.color.bold('Использование:'),
-    '  ktw <запрос>              поиск и выбор фильма',
+    '  ktw                       полноэкранный интерфейс',
+    '  ktw <запрос>              сразу с этим запросом в поле поиска',
     '  ktw <id кинопоиска>       открыть фильм по id',
     '  ktw <ссылка на кинопоиск> открыть фильм по ссылке',
-    '  ktw                       спросить запрос интерактивно',
     '',
     ui.color.bold('Опции:'),
     '  -p, --player <тип>   взять плеер по имени (alloha, collaps, kodik, …)',
@@ -31,19 +32,25 @@ var HELP = [
     '      --iframe         не искать поток, просто показать ссылку на плеер',
     '      --no-mpv         найти поток, но не запускать mpv',
     '      --json           вывести результат в JSON (для скриптов)',
+    '      --plain          построчный режим без полноэкранного интерфейса',
     '      --headful        показать окно браузера (отладка извлечения)',
     '      --timeout <мс>   сколько ждать поток, по умолчанию 40000',
     '      --key <ключ>     ключ API Кинопоиска',
     '  -h, --help           эта справка',
+    '',
+    ui.color.bold('Управление в интерфейсе:'),
+    '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+C — выход',
     '',
     ui.color.bold('Ключ API:'),
     '  Берётся из --key, переменной KINOPOISK_API_KEY, файла kinopoisk-key.js',
     '  в корне проекта или из ~/.config/ktw/config.json.',
     '',
     ui.color.bold('Примеры:'),
+    '  ktw',
     '  ktw матрица',
     '  ktw "во все тяжкие" -s 1 -e 3',
     '  ktw 301 --player alloha --no-mpv',
+    '  ktw матрица -- --fs --sub-file=ru.srt',
     ''
 ].join('\n');
 
@@ -57,6 +64,7 @@ function parseArgs(argv) {
         iframe: false,
         noMpv: false,
         json: false,
+        plain: false,
         headful: false,
         timeout: 40000,
         key: null,
@@ -80,6 +88,7 @@ function parseArgs(argv) {
         else if (arg === '--iframe') options.iframe = true;
         else if (arg === '--no-mpv') options.noMpv = true;
         else if (arg === '--json') options.json = true;
+        else if (arg === '--plain') options.plain = true;
         else if (arg === '--headful') options.headful = true;
         else if (arg === '--timeout') options.timeout = parseInt(argv[++i], 10) || 40000;
         else if (arg === '--key') options.key = argv[++i];
@@ -91,41 +100,9 @@ function parseArgs(argv) {
     return options;
 }
 
-// Поиск ключа API: аргумент -> окружение -> локальный kinopoisk-key.js -> конфиг
-function resolveApiKey(explicitKey) {
-    if (explicitKey) return explicitKey;
-    if (process.env.KINOPOISK_API_KEY) return process.env.KINOPOISK_API_KEY;
-
-    var localKeyFile = path.join(__dirname, '..', 'kinopoisk-key.js');
-    if (fs.existsSync(localKeyFile)) {
-        var match = fs.readFileSync(localKeyFile, 'utf8').match(/KINOPOISK_API_KEY\s*=\s*['"]([^'"]+)['"]/);
-        if (match) return match[1];
-    }
-
-    var configFile = path.join(os.homedir(), '.config', 'ktw', 'config.json');
-    if (fs.existsSync(configFile)) {
-        try {
-            var config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-            if (config.kinopoiskApiKey) return config.kinopoiskApiKey;
-        } catch (err) {
-            ui.error('Не удалось прочитать ' + configFile + ': ' + err.message);
-        }
-    }
-
-    return null;
-}
-
-// id Кинопоиска из аргумента: число или ссылка вида kinopoisk.ru/film/301/
-function extractFilmId(query) {
-    if (/^\d+$/.test(query)) return query;
-
-    var match = query.match(/kinopoisk\.[a-z]+\/(?:film|series)\/(\d+)/i);
-    return match ? match[1] : null;
-}
-
-// Выбор фильма: по id напрямую или через поиск со списком
+// Выбор фильма в построчном режиме: по id напрямую или через поиск
 async function pickFilm(options, apiKey) {
-    var directId = extractFilmId(options.query);
+    var directId = api.parseFilmId(options.query);
     if (directId) {
         return { id: directId, title: 'Кинопоиск #' + directId, year: '' };
     }
@@ -159,7 +136,7 @@ async function pickFilm(options, apiKey) {
     return index < 0 ? null : films[index];
 }
 
-// Выбор плеера: по --player или через список
+// Выбор плеера в построчном режиме
 async function pickPlayer(film, options) {
     var playersSpinner = ui.spinner('Загружаю плееры');
     var players;
@@ -201,8 +178,10 @@ async function pickPlayer(film, options) {
     return index < 0 ? null : players[index];
 }
 
-async function run(options) {
-    var apiKey = resolveApiKey(options.key);
+// Построчный режим для скриптов и терминалов без интерактива
+async function runPlain(options) {
+    var apiKey = config.resolveApiKey(options.key);
+    config.applyChromiumPath();
 
     var film = await pickFilm(options, apiKey);
     if (!film) return 1;
@@ -272,6 +251,12 @@ async function run(options) {
     }
 }
 
+// Полноэкранный интерфейс имеет смысл только в живом терминале
+function wantsTui(options) {
+    if (options.plain || options.json || options.iframe || options.noMpv) return false;
+    return process.stdin.isTTY && process.stdout.isTTY;
+}
+
 async function main() {
     var options = parseArgs(process.argv.slice(2));
 
@@ -281,7 +266,11 @@ async function main() {
     }
 
     try {
-        return await run(options);
+        if (wantsTui(options)) {
+            return await require('./lib/app').run(options);
+        }
+
+        return await runPlain(options);
     } catch (err) {
         ui.error(err.message);
         return 1;

@@ -349,6 +349,9 @@ async function playStream(film, player, translation, season, episode, options, s
     var label = film.title + (season ? ' · S' + season + 'E' + episode : '');
     var found;
 
+    // Что происходит прямо сейчас: «жму play», «пропустил рекламный ролик»…
+    var progress = '';
+
     function render(frame) {
         var size = metrics();
 
@@ -359,14 +362,17 @@ async function playStream(film, player, translation, season, episode, options, s
             '  ' + style.muted(ansi.truncate(label, size.width - 6)),
             '  ' + style.muted(ansi.truncate('плеер ' + player.source +
                 (translation ? ' · ' + translation.name : '') + ' · ' + player.quality, size.width - 6)),
+            '',
+            '  ' + style.muted(ansi.truncate(progress, size.width - 6)),
             ''
-        ], size.width, footer(['это занимает несколько секунд']));
+        ], size.width, footer(['реклама пропускается автоматически']));
     }
 
     try {
         found = await tui.withSpinner(stream.resolveStream(iframeUrl, {
             timeout: options.timeout,
-            headful: options.headful
+            headful: options.headful,
+            onProgress: function (message) { progress = message; }
         }), render);
     } catch (err) {
         await messageScreen('Не вышло', [err.message], 'любая клавиша — назад');
@@ -381,6 +387,17 @@ async function playStream(film, player, translation, season, episode, options, s
             'или запусти с --headful, чтобы увидеть, на чём всё встало.'
         ], 'любая клавиша — к списку плееров');
         return false;
+    }
+
+    // Контента не дождались — отдаём что поймали, но предупреждаем
+    if (found.suspicious) {
+        await messageScreen('Похоже, это реклама', [
+            'За ' + Math.round(options.timeout / 1000) + ' с плеер ' + player.source +
+            ' так и не отдал сам фильм — поймался только рекламный ролик.',
+            '',
+            'Надёжнее выбрать другой балансер: Esc вернёт к списку.',
+            'Если хочется всё же попробовать — можно продолжить.'
+        ], 'любая клавиша — продолжить');
     }
 
     // Сначала тянем мастер-плейлист под спиннером, потом уже спрашиваем

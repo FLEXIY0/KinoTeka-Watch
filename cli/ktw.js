@@ -261,7 +261,8 @@ async function runPlain(options) {
     try {
         found = await stream.resolveStream(iframeUrl, {
             timeout: options.timeout,
-            headful: options.headful
+            headful: options.headful,
+            onProgress: function (message) { streamSpinner.update(message); }
         });
     } finally {
         streamSpinner.stop();
@@ -272,6 +273,11 @@ async function runPlain(options) {
         ui.info(ui.color.dim('  Попробуй другой плеер, --timeout побольше или --headful для отладки.'));
         ui.info(ui.color.dim('  Ссылка на плеер: ' + iframeUrl));
         return 1;
+    }
+
+    if (found.suspicious) {
+        ui.error('Поймался только рекламный ролик — сам фильм плеер ' + player.source + ' не отдал.');
+        ui.info(ui.color.dim('  Попробуй другой балансер: --player collaps'));
     }
 
     // Мастер-плейлист содержит несколько дорожек — даём выбрать нужную

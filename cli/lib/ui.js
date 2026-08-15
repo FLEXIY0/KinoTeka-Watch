@@ -125,7 +125,14 @@ function select(title, items) {
 function spinner(text) {
     if (!process.stderr.isTTY) {
         info(color.dim(text + '…'));
-        return { stop: function () { } };
+
+        // Без терминала анимации нет, но интерфейс должен совпадать
+        return {
+            update: function (nextText) {
+                if (nextText) info(color.dim('  ' + nextText));
+            },
+            stop: function () { }
+        };
     }
 
     var frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -136,6 +143,10 @@ function spinner(text) {
     }, 80);
 
     return {
+        // Текст можно менять на ходу: «жму play», «пропустил рекламу»…
+        update: function (nextText) {
+            if (nextText) text = nextText;
+        },
         stop: function (finalText) {
             clearInterval(timer);
             write('\r\x1b[2K');

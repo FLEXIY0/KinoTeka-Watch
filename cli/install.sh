@@ -432,6 +432,11 @@ install_deps() {
     ok "использую системный Chromium: $_chromium"
 }
 
+# Заполняется, если команду не получится вызвать по имени.
+# Тогда финальный блок объясняет, что делать, вместо бодрого «Запускай: ktw».
+PATH_PROBLEM=0
+PATH_RC=""
+
 link_binary() {
     mkdir -p "$BIN_DIR"
     chmod +x "$INSTALL_DIR/cli/ktw.js"
@@ -446,27 +451,37 @@ link_binary() {
 
     warn "$BIN_DIR не в PATH"
 
-    _rc="$HOME/.profile"
+    PATH_RC="$HOME/.profile"
     case "${SHELL:-}" in
-        *zsh)  _rc="$HOME/.zshrc" ;;
-        *bash) _rc="$HOME/.bashrc" ;;
+        *zsh)  PATH_RC="$HOME/.zshrc" ;;
+        *bash) PATH_RC="$HOME/.bashrc" ;;
     esac
 
-    # Без терминала молча править чужой конфиг нельзя
-    if ! has_tty; then
-        dim "добавь в $_rc: export PATH=\"\$PATH:$BIN_DIR\""
+    # В Debian-совместимых (Devuan, Loc OS, Ubuntu) ~/.profile добавляет
+    # ~/.local/bin сам, но только если каталог существовал на момент входа.
+    # Мы его создали только что, поэтому в текущей сессии его там нет.
+    if [ "$BIN_DIR" = "$HOME/.local/bin" ] && grep -q '\.local/bin' "$HOME/.profile" 2>/dev/null; then
+        PATH_PROBLEM=1
+        dim "в ~/.profile каталог уже прописан — не хватает только перелогина"
         return 0
     fi
 
-    _answer=$(ask "дописать PATH в $_rc? [Y/n]")
+    # Без терминала молча править чужой конфиг нельзя
+    if ! has_tty; then
+        PATH_PROBLEM=1
+        return 0
+    fi
+
+    _answer=$(ask "дописать PATH в $PATH_RC? [Y/n]")
 
     case "$_answer" in
         [Nn]*)
-            dim "тогда добавь сам: export PATH=\"\$PATH:$BIN_DIR\""
+            PATH_PROBLEM=1
             ;;
         *)
-            printf '\n# добавлено установщиком ktw\nexport PATH="$PATH:%s"\n' "$BIN_DIR" >> "$_rc"
-            ok "PATH дописан в $_rc — перелогинься или выполни: . $_rc"
+            printf '\n# добавлено установщиком ktw\nexport PATH="$PATH:%s"\n' "$BIN_DIR" >> "$PATH_RC"
+            ok "PATH дописан в $PATH_RC"
+            PATH_PROBLEM=1
             ;;
     esac
 }
@@ -528,6 +543,21 @@ step "Ключ API"
 setup_key
 
 say ""
-printf '  %sГотово.%s Запускай: %sktw%s\n' "$C_OK$C_BOLD" "$C_RESET" "$C_BOLD" "$C_RESET"
-dim "справка — ktw --help, обновление — запусти этот скрипт ещё раз"
+
+if [ "$PATH_PROBLEM" = "0" ]; then
+    printf '  %sГотово.%s Запускай: %sktw%s\n' "$C_OK$C_BOLD" "$C_RESET" "$C_BOLD" "$C_RESET"
+    dim "справка — ktw --help, обновление — запусти этот скрипт ещё раз"
+    say ""
+    exit 0
+fi
+
+# Команда установлена, но по имени пока не вызовется — объясняем ровно это,
+# иначе выглядит так, будто установка не сработала
+printf '  %sГотово, но в этой сессии команда ktw ещё не видна.%s\n' "$C_WARN$C_BOLD" "$C_RESET"
+say ""
+dim "прямо сейчас — выполни:"
+printf '    %sexport PATH="$PATH:%s"%s\n' "$C_BOLD" "$BIN_DIR" "$C_RESET"
+say ""
+dim "навсегда — перелогинься, или добавь ту же строку в $PATH_RC"
+dim "проверить не дожидаясь: $BIN_DIR/ktw --help"
 say ""

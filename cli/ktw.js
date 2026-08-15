@@ -28,6 +28,7 @@ var HELP = [
     ui.color.bold('Опции:'),
     '  -p, --player <тип>   взять плеер по имени (alloha, collaps, turbo, …)',
     '  -t, --translation <имя>  взять озвучку по части названия',
+    '  -q, --quality <n>    качество: 1080, 720, max, min',
     '  -s, --season <n>     номер сезона',
     '  -e, --episode <n>    номер серии',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
@@ -64,6 +65,7 @@ function parseArgs(argv) {
         query: [],
         player: null,
         translation: null,
+        quality: null,
         season: null,
         episode: null,
         iframe: false,
@@ -89,6 +91,7 @@ function parseArgs(argv) {
         if (arg === '-h' || arg === '--help') options.help = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
         else if (arg === '-t' || arg === '--translation') options.translation = argv[++i];
+        else if (arg === '-q' || arg === '--quality') options.quality = argv[++i];
         else if (arg === '-s' || arg === '--season') options.season = argv[++i];
         else if (arg === '-e' || arg === '--episode') options.episode = argv[++i];
         else if (arg === '--iframe') options.iframe = true;
@@ -271,7 +274,32 @@ async function runPlain(options) {
         return 1;
     }
 
-    var title = film.title + (film.year ? ' (' + film.year + ')' : '');
+    // Мастер-плейлист содержит несколько дорожек — даём выбрать нужную
+    var variants = await stream.readVariants(found);
+
+    if (variants.length > 1) {
+        var variant = options.quality
+            ? stream.pickVariant(variants, options.quality)
+            : variants[0];
+
+        if (!variant) {
+            ui.error('Качество «' + options.quality + '» недоступно. Есть: ' +
+                variants.map(function (item) { return item.label; }).join(', '));
+            return 1;
+        }
+
+        found = {
+            url: variant.url,
+            referer: found.referer,
+            origin: found.origin,
+            userAgent: found.userAgent,
+            label: variant.label,
+            variants: variants.map(function (item) { return item.label; })
+        };
+    }
+
+    var title = film.title + (film.year ? ' (' + film.year + ')' : '') +
+        (found.label ? ' · ' + found.label : '');
 
     if (options.json) {
         process.stdout.write(JSON.stringify({
@@ -329,6 +357,8 @@ async function main() {
     }
 }
 
-main().then(function (code) {
+main().then(async function (code) {
+    // Браузер переиспользуется между извлечениями, поэтому закрываем его сами
+    await stream.shutdown();
     process.exit(code);
 });

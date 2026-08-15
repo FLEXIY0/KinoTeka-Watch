@@ -177,7 +177,7 @@ async function searchScreen(state, apiKey) {
         content.push('');
 
         var hints = apiKey
-            ? [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Esc выход']
+            ? [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Ctrl+K ключ', 'Esc выход']
             : ['Enter искать', 'Ctrl+K ключ', 'Esc выход'];
 
         return tui.box('ktw', content, size.width, footer(hints));
@@ -264,8 +264,8 @@ async function searchScreen(state, apiKey) {
 }
 
 // Универсальный экран выбора с обложкой слева
-async function pickerScreen(film, posterLines, title, items, hints, descriptionLines) {
-    var selected = 0;
+async function pickerScreen(film, posterLines, title, items, hints, descriptionLines, initialIndex) {
+    var selected = initialIndex && initialIndex < items.length ? initialIndex : 0;
 
     while (true) {
         var size = metrics();
@@ -300,8 +300,50 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
     }
 }
 
+// Выбор качества из мастер-плейлиста. Балансер отдаёт один адрес, внутри
+// которого несколько дорожек — mpv по умолчанию берёт самую жирную.
+// variants приходят уже загруженными: сеть отдельно, интерактив отдельно,
+// иначе спиннер затирал бы экран выбора.
+async function pickQuality(film, posterLines, found, variants, options, state) {
+    // Одна дорожка или не HLS — выбирать нечего
+    if (variants.length < 2) return found;
+
+    var chosen = options.quality ? stream.pickVariant(variants, options.quality) : null;
+
+    if (!chosen) {
+        var items = variants.map(function (item) {
+            return {
+                label: item.label,
+                hint: item.bandwidth ? Math.round(item.bandwidth / 1000) + ' кбит/с' : ''
+            };
+        });
+
+        // Прошлый выбор подставляем заранее — обычно качество не меняют
+        var preselect = 0;
+        variants.forEach(function (item, index) {
+            if (state.quality && item.height === state.quality) preselect = index;
+        });
+
+        var index = await pickerScreen(film, posterLines, 'Качество', items,
+            [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], 0, preselect);
+
+        if (index === 'back') return null;
+        chosen = variants[index];
+    }
+
+    state.quality = chosen.height;
+
+    return {
+        url: chosen.url,
+        referer: found.referer,
+        origin: found.origin,
+        userAgent: found.userAgent,
+        label: chosen.label
+    };
+}
+
 // Извлечение потока и передача его в mpv
-async function playStream(film, player, translation, season, episode, options) {
+async function playStream(film, player, translation, season, episode, options, state, posterLines) {
     var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
     var iframeUrl = api.withEpisode(source, season, episode);
     var label = film.title + (season ? ' · S' + season + 'E' + episode : '');
@@ -341,8 +383,21 @@ async function playStream(film, player, translation, season, episode, options) {
         return false;
     }
 
+    // Сначала тянем мастер-плейлист под спиннером, потом уже спрашиваем
+    var variants = await tui.withSpinner(stream.readVariants(found), function (frame) {
+        var size = metrics();
+        return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('смотрю, какие есть качества…'), ''],
+            size.width, footer(['почти всё']));
+    });
+
+    var selected = await pickQuality(film, posterLines, found, variants, options, state);
+    if (!selected) return false;
+
+    found = selected;
+
     var title = film.title + (film.year ? ' (' + film.year + ')' : '') +
-        (season ? ' · S' + season + 'E' + episode : '');
+        (season ? ' · S' + season + 'E' + episode : '') +
+        (found.label ? ' · ' + found.label : '');
 
     // На время просмотра отдаём терминал mpv
     tui.exit();
@@ -530,6 +585,10 @@ async function run(options) {
                 if (players.length === 0) {
                     var playersSize = metrics();
 
+                    // Пока пользователь выбирает плеер и озвучку, поднимаем
+                    // браузер: его старт — самая долгая часть извлечения
+                    stream.warmup(options.headful);
+
                     var playersRequest = film.id
                         ? api.getPlayers(film.id)
                         : api.getPlayersByTitle(film.title);
@@ -626,7 +685,7 @@ async function run(options) {
                     translation = variants[translationIndex];
                 }
 
-                await playStream(film, player, translation, season, episode, options);
+                await playStream(film, player, translation, season, episode, options, state, posterLines);
                 autoUsed = true;
 
                 // После просмотра логичнее всего вернуться к выбору серии
@@ -638,6 +697,7 @@ async function run(options) {
         }
     } finally {
         tui.exit();
+        await stream.shutdown();
     }
 }
 

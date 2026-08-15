@@ -70,6 +70,116 @@ ask() {
     printf '%s' "$_answer"
 }
 
+# ---------- живая строка прогресса ----------
+#
+# Долгие шаги (npm install тянет Chromium под 150 МБ) раньше молчали, и было
+# не отличить работу от зависания. Теперь команда уходит в фон, её вывод — в
+# лог, а на экране остаётся одна строка: спиннер, секундомер и либо объём
+# скачанного, либо последняя строка вывода.
+
+SPIN_ASCII=1
+case "${LC_ALL:-}${LC_CTYPE:-}${LANG:-}" in
+    *UTF-8*|*utf-8*|*UTF8*|*utf8*) SPIN_ASCII=0 ;;
+esac
+
+# Не все реализации sleep умеют доли секунды (busybox)
+if sleep 0.2 2>/dev/null; then SPIN_SLEEP=0.2; else SPIN_SLEEP=1; fi
+
+spin_frame() {
+    _n=$1
+
+    if [ "$SPIN_ASCII" = "1" ]; then
+        _n=$((_n % 4))
+        set -- '|' '/' '-' '\'
+    else
+        _n=$((_n % 10))
+        set -- '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏'
+    fi
+
+    while [ "$_n" -gt 0 ]; do
+        shift
+        _n=$((_n - 1))
+    done
+
+    printf '%s' "$1"
+}
+
+SPIN_WATCH=""
+SPIN_BASE=0
+
+# Размер отслеживаемого каталога в килобайтах
+spin_watch_kb() {
+    if [ -n "$SPIN_WATCH" ] && [ -d "$SPIN_WATCH" ]; then
+        du -sk "$SPIN_WATCH" 2>/dev/null | cut -f1
+    else
+        printf '0'
+    fi
+}
+
+# Что показать справа от секундомера: сколько прибавилось в каталоге за этот
+# шаг, иначе последняя осмысленная строка вывода. Считаем именно прирост —
+# полный размер кэша при повторном запуске врал бы про «скачано».
+spin_note() {
+    if [ -n "$SPIN_WATCH" ]; then
+        _grown=$(( $(spin_watch_kb) - SPIN_BASE ))
+
+        if [ "$_grown" -gt 1024 ]; then
+            printf 'скачано %s МБ' "$((_grown / 1024))"
+            return 0
+        fi
+    fi
+
+    tr '\r' '\n' < "$1" 2>/dev/null \
+        | grep -v '^[[:space:]]*$' \
+        | tail -n 1 \
+        | cut -c1-42
+}
+
+spin_run() {
+    _label="$1"
+    shift
+
+    _log="${TMPDIR:-/tmp}/ktw-install.$$.log"
+    : > "$_log"
+    SPIN_BASE=$(spin_watch_kb)
+
+    # Без терминала анимация бессмысленна — просто ждём
+    if [ ! -t 1 ]; then
+        printf '  %s…%s %s\n' "$C_DIM" "$C_RESET" "$_label"
+        "$@" > "$_log" 2>&1
+        return $?
+    fi
+
+    "$@" > "$_log" 2>&1 &
+    _pid=$!
+
+    _start=$(date +%s 2>/dev/null || echo 0)
+    _tick=0
+
+    while kill -0 "$_pid" 2>/dev/null; do
+        _tick=$((_tick + 1))
+        _now=$(date +%s 2>/dev/null || echo 0)
+        printf '\r\033[2K  %s%s%s %s  %s%ss  %s%s' \
+            "$C_ACCENT" "$(spin_frame "$_tick")" "$C_RESET" "$_label" \
+            "$C_DIM" "$((_now - _start))" "$(spin_note "$_log")" "$C_RESET"
+        sleep "$SPIN_SLEEP"
+    done
+
+    _code=0
+    wait "$_pid" || _code=$?
+    printf '\r\033[2K'
+
+    if [ "$_code" != "0" ]; then
+        # Молча глотать ошибку нельзя — показываем хвост лога
+        dim "вывод команды:"
+        tr '\r' '\n' < "$_log" | grep -v '^[[:space:]]*$' | tail -n 6 | while IFS= read -r _line; do
+            dim "  $_line"
+        done
+    fi
+
+    return $_code
+}
+
 # ---------- установка пакетов ----------
 
 PKG_MGR=""
@@ -88,21 +198,62 @@ detect_pkg_mgr() {
     fi
 }
 
+# Как повышать права: root | sudo | doas | su | none
+ROOT_MODE=""
+
+detect_root_mode() {
+    if [ "$(id -u)" = "0" ]; then ROOT_MODE="root"
+    elif has sudo; then ROOT_MODE="sudo"
+    elif has doas; then ROOT_MODE="doas"
+    elif has su; then ROOT_MODE="su"
+    else ROOT_MODE="none"
+    fi
+}
+
 # Запуск команды от root: sudo, doas или su — что найдётся
 run_root() {
-    if [ "$(id -u)" = "0" ]; then
-        sh -c "$*"
-    elif has sudo; then
-        sudo sh -c "$*"
-    elif has doas; then
-        doas sh -c "$*"
-    elif has su; then
-        say ""
-        dim "нужен пароль root для: $*"
-        su -c "$*"
-    else
-        return 1
+    case "$ROOT_MODE" in
+        root) sh -c "$*" ;;
+        sudo) sudo sh -c "$*" ;;
+        doas) doas sh -c "$*" ;;
+        su)   su -c "$*" ;;
+        *)    return 1 ;;
+    esac
+}
+
+# Пароль нельзя спросить из фоновой команды, поэтому sudo авторизуем заранее,
+# одним видимым запросом. Там, где остался только su, анимацию не включаем.
+ROOT_SPINNABLE=0
+
+ensure_root_ready() {
+    case "$ROOT_MODE" in
+        root|doas)
+            ROOT_SPINNABLE=1
+            ;;
+        sudo)
+            if sudo -n true 2>/dev/null; then
+                ROOT_SPINNABLE=1
+            elif has_tty; then
+                say ""
+                dim "нужен пароль sudo, дальше он не понадобится"
+                if sudo -v < /dev/tty; then ROOT_SPINNABLE=1; fi
+            fi
+            ;;
+    esac
+}
+
+# Обёртка: с анимацией, если это безопасно, иначе как есть
+run_root_step() {
+    _label="$1"
+    _command="$2"
+
+    if [ "$ROOT_SPINNABLE" = "1" ]; then
+        spin_run "$_label" run_root "$_command"
+        return $?
     fi
+
+    printf '  %s…%s %s\n' "$C_DIM" "$C_RESET" "$_label"
+    run_root "$_command"
 }
 
 install_pkg() {
@@ -114,19 +265,15 @@ install_pkg() {
     fi
 
     if [ "$PKG_MGR" = "brew" ]; then
-        brew install "$_pkg" >/dev/null 2>&1 && return 0 || return 1
+        spin_run "ставлю $_pkg через brew" brew install "$_pkg" && return 0 || return 1
     fi
 
     if [ "$PKG_MGR" = "apt-get" ] && [ "$PKG_UPDATED" = "0" ]; then
-        run_root "apt-get update -qq" >/dev/null 2>&1 || true
+        run_root_step "обновляю список пакетов" "apt-get update -qq" || true
         PKG_UPDATED=1
     fi
 
-    if run_root "$PKG_INSTALL $_pkg" >/dev/null 2>&1; then
-        return 0
-    fi
-
-    return 1
+    run_root_step "ставлю $_pkg через $PKG_MGR" "$PKG_INSTALL $_pkg"
 }
 
 # Проверяем инструмент и при отсутствии пробуем поставить
@@ -139,8 +286,6 @@ require_tool() {
         ok "$_cmd"
         return 0
     fi
-
-    printf '  %s…%s %s не найден, ставлю через %s\n' "$C_DIM" "$C_RESET" "$_cmd" "${PKG_MGR:-?}"
 
     if install_pkg "$_pkg" && has "$_cmd"; then
         ok "$_cmd установлен"
@@ -159,8 +304,6 @@ require_tool() {
 
 check_node() {
     if ! has node; then
-        printf '  %s…%s node не найден, ставлю\n' "$C_DIM" "$C_RESET"
-
         if [ "$PKG_MGR" = "apt-get" ]; then
             install_pkg "nodejs npm" || true
         else
@@ -183,7 +326,7 @@ check_node() {
 
     ok "node $(node -v)"
 
-    has npm || install_pkg npm >/dev/null 2>&1 || true
+    has npm || install_pkg npm || true
     has npm || die "нужен npm. Поставь пакет npm и запусти скрипт заново"
     ok "npm $(npm -v)"
 }
@@ -197,17 +340,17 @@ fetch_sources() {
     fi
 
     if [ -d "$INSTALL_DIR/.git" ]; then
-        printf '  %s…%s обновляю %s\n' "$C_DIM" "$C_RESET" "$INSTALL_DIR"
-        git -C "$INSTALL_DIR" fetch --quiet origin "$REPO_BRANCH" 2>/dev/null || true
+        spin_run "обновляю $INSTALL_DIR" \
+            git -C "$INSTALL_DIR" fetch origin "$REPO_BRANCH" || true
         git -C "$INSTALL_DIR" checkout --quiet "$REPO_BRANCH" 2>/dev/null || true
         git -C "$INSTALL_DIR" reset --hard --quiet "origin/$REPO_BRANCH" 2>/dev/null || true
         ok "обновлено"
         return 0
     fi
 
-    printf '  %s…%s качаю в %s\n' "$C_DIM" "$C_RESET" "$INSTALL_DIR"
     mkdir -p "$(dirname "$INSTALL_DIR")"
-    git clone --quiet --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" \
+    spin_run "качаю исходники в $INSTALL_DIR" \
+        git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" \
         || die "не смог склонировать $REPO_URL"
     ok "скачано"
 }
@@ -253,19 +396,24 @@ find_system_chromium() {
 install_deps() {
     cd "$INSTALL_DIR"
 
-    printf '  %s…%s ставлю puppeteer (тянет свой Chromium, это долго)\n' "$C_DIM" "$C_RESET"
-    npm install --omit=dev --no-audit --no-fund --loglevel=error >/dev/null 2>&1 \
+    # Показываем, как растёт кэш браузера: качается около 150 МБ
+    SPIN_WATCH="${PUPPETEER_CACHE_DIR:-$HOME/.cache/puppeteer}"
+
+    spin_run "ставлю пакеты Node и Chromium" \
+        npm install --omit=dev --no-audit --no-fund --loglevel=http \
         || warn "npm install ругался — проверю, что получилось"
 
     [ -d "$INSTALL_DIR/node_modules/puppeteer" ] || die "puppeteer не установился, без него не извлечь поток"
 
     if browser_ready; then
+        SPIN_WATCH=""
         ok "зависимости на месте"
         return 0
     fi
 
-    warn "Chromium не скачался — пробую докачать"
-    npx --yes puppeteer browsers install chrome >/dev/null 2>&1 || true
+    warn "Chromium не скачался — докачиваю отдельно"
+    spin_run "качаю Chromium" npx --yes puppeteer browsers install chrome || true
+    SPIN_WATCH=""
 
     if browser_ready; then
         ok "Chromium докачан"
@@ -358,6 +506,8 @@ setup_key() {
 
 banner
 detect_pkg_mgr
+detect_root_mode
+ensure_root_ready
 
 step "Зависимости"
 require_tool git git yes

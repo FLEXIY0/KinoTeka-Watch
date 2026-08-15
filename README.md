@@ -38,9 +38,12 @@ curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/claude/site-
 `~/.local/bin` и спросит ключ API. Если репозиторий уже склонирован — просто
 `sh cli/install.sh` из его корня, тогда ничего не скачивается.
 
-Ключ Кинопоиска бесплатный: [kinopoiskapiunofficial.tech](https://kinopoiskapiunofficial.tech).
-Клиент подхватит его из `--key`, `KINOPOISK_API_KEY`, локального
-`kinopoisk-key.js` или `~/.config/ktw/config.json`.
+Ключ Кинопоиска не обязателен: без него название уходит прямо в Kinobox,
+который ищет по нему сам — смотреть можно сразу, но без обложек, описаний и
+списка серий (сезон и серию тогда задают флагами `-s` и `-e`). Ключ всё это
+добавляет; бесплатный выдаёт
+[kinopoiskapiunofficial.tech](https://kinopoiskapiunofficial.tech), а вставить
+его можно прямо в интерфейсе по `Ctrl+K`.
 
 ## Как проверять
 

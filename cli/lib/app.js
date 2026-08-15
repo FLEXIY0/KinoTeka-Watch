@@ -89,6 +89,37 @@ function filmHeader(film, width, descriptionLines) {
     return lines;
 }
 
+// Экран ввода одной строки (используется для ключа API)
+async function inputScreen(title, label, hintLines, initial) {
+    var value = initial || '';
+
+    while (true) {
+        var size = metrics();
+        var content = [''];
+
+        hintLines.forEach(function (line) {
+            ansi.wrap(line, size.width - 6, 4).forEach(function (wrapped) {
+                content.push('  ' + style.muted(wrapped));
+            });
+        });
+
+        content.push('');
+        content.push('  ' + tui.field(label, value, true));
+        content.push('');
+
+        tui.paint(tui.box(title, content, size.width,
+            footer(['Enter сохранить', 'Esc отмена'])));
+
+        var key = await tui.readKey();
+
+        if (key.name === 'escape') return null;
+        if (key.name === 'return') return value.trim();
+
+        var edited = tui.editText(value, key);
+        if (edited !== null) value = edited;
+    }
+}
+
 // Экран с сообщением; ждёт любую клавишу
 async function messageScreen(title, lines, hint) {
     var size = metrics();
@@ -106,13 +137,14 @@ async function messageScreen(title, lines, hint) {
     await tui.readKey();
 }
 
-// Экран 1 — поиск с живыми подсказками, как на сайте
+// Экран 1 — поиск с живыми подсказками, как на сайте.
+// Без ключа Кинопоиска подсказок нет: там мы идём сразу в Kinobox по названию.
 async function searchScreen(state, apiKey) {
     var query = state.query || '';
     var results = state.results || [];
     var selected = 0;
     var status = null;
-    var pendingSearch = query.length >= 2 && results.length === 0;
+    var pendingSearch = !!apiKey && query.length >= 2 && results.length === 0;
 
     function render(spinnerFrame) {
         var size = metrics();
@@ -125,6 +157,9 @@ async function searchScreen(state, apiKey) {
             content.push('  ' + style.accent(spinnerFrame) + ' ' + style.muted('ищу…'));
         } else if (status) {
             content.push('  ' + style.muted(ansi.truncate(status, size.width - 6)));
+        } else if (!apiKey) {
+            content.push('  ' + style.muted('без ключа: ищу сразу по названию, без постеров'));
+            content.push('  ' + style.muted('и списка серий — Ctrl+K, чтобы вставить ключ'));
         } else if (results.length > 0) {
             var items = results.map(function (film) {
                 var hint = [film.year, film.rating ? (ansi.ascii ? '*' : '★') + ' ' + film.rating : '']
@@ -141,9 +176,11 @@ async function searchScreen(state, apiKey) {
 
         content.push('');
 
-        return tui.box('ktw', content, size.width, footer([
-            glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Esc выход'
-        ]));
+        var hints = apiKey
+            ? [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Esc выход']
+            : ['Enter искать', 'Ctrl+K ключ', 'Esc выход'];
+
+        return tui.box('ktw', content, size.width, footer(hints));
     }
 
     async function runSearch() {
@@ -179,7 +216,20 @@ async function searchScreen(state, apiKey) {
 
         if (key.name === 'escape') return null;
 
+        // Ctrl+K — вставить ключ Кинопоиска, не выходя из программы
+        if (key.ctrl && key.name === 'k') {
+            state.query = query;
+            return 'key';
+        }
+
         if (key.name === 'return') {
+            // Без ключа искать нечем: отдаём название сразу в Kinobox
+            if (!apiKey) {
+                if (query.trim().length < 2) continue;
+                state.query = query;
+                return { id: null, title: query.trim(), keyless: true };
+            }
+
             if (results.length > 0) {
                 state.query = query;
                 state.results = results;
@@ -208,7 +258,7 @@ async function searchScreen(state, apiKey) {
             status = null;
             results = [];
             selected = 0;
-            pendingSearch = query.trim().length >= 2;
+            pendingSearch = !!apiKey && query.trim().length >= 2;
         }
     }
 }
@@ -346,7 +396,58 @@ async function run(options) {
             if (screen === 'search') {
                 film = await searchScreen(state, apiKey);
                 if (!film) return 0;
-                screen = 'load';
+
+                if (film === 'key') {
+                    screen = 'apikey';
+                    continue;
+                }
+
+                // Без ключа карточку загружать нечем — сразу к плеерам
+                screen = film.keyless ? 'players' : 'load';
+                players = [];
+                posterLines = [];
+                seasons = [];
+                continue;
+            }
+
+            // Ввод ключа Кинопоиска с сохранением в конфиг
+            if (screen === 'apikey') {
+                var enteredKey = await inputScreen('Ключ Кинопоиска', 'Ключ', [
+                    'Бесплатный ключ выдают на kinopoiskapiunofficial.tech —',
+                    'регистрация занимает минуту.',
+                    '',
+                    'С ключом появятся выбор среди похожих фильмов, обложки,',
+                    'описания и список сезонов с сериями.'
+                ], '');
+
+                // Ключ уезжает в HTTP-заголовок, а туда нельзя ничего,
+                // кроме латиницы: иначе Node ругается про ByteString
+                if (enteredKey && !/^[\x20-\x7E]+$/.test(enteredKey)) {
+                    await messageScreen('Так не годится', [
+                        'В ключе есть символы вне латиницы — скорее всего,',
+                        'скопировалось лишнее. Ключ выглядит примерно так:',
+                        '',
+                        'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+                    ], 'любая клавиша — ввести заново');
+
+                    screen = 'apikey';
+                    continue;
+                }
+
+                if (enteredKey) {
+                    apiKey = enteredKey;
+
+                    try {
+                        config.save({ kinopoiskApiKey: enteredKey });
+                    } catch (err) {
+                        await messageScreen('Не сохранилось', [
+                            'Ключ приняли на этот запуск, но записать в конфиг не вышло:',
+                            err.message
+                        ], 'любая клавиша — дальше');
+                    }
+                }
+
+                screen = 'search';
                 continue;
             }
 
@@ -429,8 +530,12 @@ async function run(options) {
                 if (players.length === 0) {
                     var playersSize = metrics();
 
+                    var playersRequest = film.id
+                        ? api.getPlayers(film.id)
+                        : api.getPlayersByTitle(film.title);
+
                     try {
-                        players = await tui.withSpinner(api.getPlayers(film.id), function (frame) {
+                        players = await tui.withSpinner(playersRequest, function (frame) {
                             return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('ищу плееры…'), ''],
                                 playersSize.width, footer(['Esc — назад']));
                         });

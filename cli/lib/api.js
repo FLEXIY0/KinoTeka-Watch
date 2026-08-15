@@ -18,6 +18,33 @@ var KINOBOX_MIRRORS = [
 // Браузерный UA — балансеры отдают поток только «настоящим» клиентам
 var USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+// Node прячет причину сетевой ошибки в err.cause, наружу отдавая
+// бесполезное «fetch failed». Достаём и переводим на человеческий.
+function describeNetworkError(err) {
+    var cause = err && err.cause ? err.cause : null;
+    var code = (cause && cause.code) || err.code || '';
+
+    switch (code) {
+        case 'ENOTFOUND':
+        case 'EAI_AGAIN':
+            return 'не разрешается имя хоста — нет интернета или не работает DNS';
+        case 'ECONNREFUSED':
+            return 'соединение отклонено';
+        case 'ECONNRESET':
+            return 'соединение сброшено — возможно, хост режет провайдер';
+        case 'ETIMEDOUT':
+        case 'UND_ERR_CONNECT_TIMEOUT':
+        case 'UND_ERR_HEADERS_TIMEOUT':
+            return 'хост не отвечает';
+        case 'CERT_HAS_EXPIRED':
+        case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
+        case 'SELF_SIGNED_CERT_IN_CHAIN':
+            return 'проблема с сертификатом — возможно, трафик идёт через прокси';
+        default:
+            return (cause && cause.message) || err.message || 'неизвестная ошибка';
+    }
+}
+
 // GET с таймаутом и разбором JSON
 async function fetchJson(url, headers, timeoutMs) {
     var controller = new AbortController();
@@ -30,7 +57,17 @@ async function fetchJson(url, headers, timeoutMs) {
         });
 
         if (!res.ok) {
-            throw new Error('HTTP ' + res.status + ' от ' + new URL(url).host);
+            var reason = 'HTTP ' + res.status;
+
+            if (res.status === 401 || res.status === 403) {
+                reason = 'ключ API не принят (' + res.status + ')';
+            } else if (res.status === 402 || res.status === 429) {
+                reason = 'исчерпан лимит запросов к API (' + res.status + ')';
+            }
+
+            var httpError = new Error(reason + ' — ' + new URL(url).host);
+            httpError.status = res.status;
+            throw httpError;
         }
 
         return await res.json();
@@ -38,6 +75,12 @@ async function fetchJson(url, headers, timeoutMs) {
         if (err.name === 'AbortError') {
             throw new Error('Таймаут запроса к ' + new URL(url).host);
         }
+
+        // Сетевые ошибки Node приходят как безликое «fetch failed»
+        if (err.name === 'TypeError' || /fetch failed/i.test(err.message)) {
+            throw new Error(new URL(url).host + ': ' + describeNetworkError(err));
+        }
+
         throw err;
     } finally {
         clearTimeout(timer);
@@ -153,9 +196,11 @@ function normalizePlayers(list) {
         });
 }
 
-// Список доступных плееров (балансеров) для фильма.
+// Список доступных плееров (балансеров).
+// Kinobox ищет и по id Кинопоиска, и просто по названию — второе не требует
+// никакого ключа, на этом держится работа «из коробки».
 // Зеркала перебираются по очереди: первое ответившее и выигрывает.
-async function getPlayers(kinopoiskId) {
+async function requestPlayers(param, value) {
     var mirrors = process.env.KTW_KINOBOX_API
         ? [process.env.KTW_KINOBOX_API].concat(KINOBOX_MIRRORS)
         : KINOBOX_MIRRORS.slice();
@@ -163,7 +208,7 @@ async function getPlayers(kinopoiskId) {
     var lastError = null;
 
     for (var i = 0; i < mirrors.length; i++) {
-        var url = mirrors[i] + '?kinopoisk=' + encodeURIComponent(kinopoiskId);
+        var url = mirrors[i] + '?' + param + '=' + encodeURIComponent(value);
 
         try {
             var data = await fetchJson(url, {
@@ -185,6 +230,15 @@ async function getPlayers(kinopoiskId) {
     }
 
     throw new Error('Плееры не получены: ' + (lastError ? lastError.message : 'нет ответа'));
+}
+
+function getPlayers(kinopoiskId) {
+    return requestPlayers('kinopoisk', kinopoiskId);
+}
+
+// Поиск сразу по названию, без Кинопоиска и без ключа
+function getPlayersByTitle(title) {
+    return requestPlayers('title', title);
 }
 
 // id Кинопоиска из аргумента: число или ссылка вида kinopoisk.ru/film/301/
@@ -219,5 +273,6 @@ module.exports = {
     getFilm: getFilm,
     getSeasons: getSeasons,
     getPlayers: getPlayers,
+    getPlayersByTitle: getPlayersByTitle,
     withEpisode: withEpisode
 };

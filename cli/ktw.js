@@ -43,6 +43,9 @@ var HELP = [
     '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+C — выход',
     '',
     ui.color.bold('Ключ API:'),
+    '  Без ключа тоже работает: поиск идёт сразу по названию через Kinobox,',
+    '  но без обложек, описаний и списка серий. Ключ добавляет их — вставить',
+    '  можно прямо в интерфейсе по Ctrl+K.',
     '  Берётся из --key, переменной KINOPOISK_API_KEY, файла kinopoisk-key.js',
     '  в корне проекта или из ~/.config/ktw/config.json.',
     '',
@@ -116,6 +119,11 @@ async function pickFilm(options, apiKey) {
         if (!query) return null;
     }
 
+    // Без ключа Кинопоиска ищем сразу в Kinobox по названию
+    if (!apiKey) {
+        return { id: null, title: query, year: '', keyless: true };
+    }
+
     var searchSpinner = ui.spinner('Ищу «' + query + '»');
     var films;
 
@@ -145,7 +153,9 @@ async function pickPlayer(film, options) {
     var players;
 
     try {
-        players = await api.getPlayers(film.id);
+        players = film.id
+            ? await api.getPlayers(film.id)
+            : await api.getPlayersByTitle(film.title);
     } finally {
         playersSpinner.stop();
     }

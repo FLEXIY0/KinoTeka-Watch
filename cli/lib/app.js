@@ -304,10 +304,8 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
 // которого несколько дорожек — mpv по умолчанию берёт самую жирную.
 // variants приходят уже загруженными: сеть отдельно, интерактив отдельно,
 // иначе спиннер затирал бы экран выбора.
-async function pickQuality(film, posterLines, found, variants, options, state) {
-    // Одна дорожка или не HLS — выбирать нечего
-    if (variants.length < 2) return found;
-
+async function pickQuality(film, posterLines, found, variants, options, state, player) {
+    // Флагом качество можно задать заранее и экран не показывать
     var chosen = options.quality ? stream.pickVariant(variants, options.quality) : null;
 
     if (!chosen) {
@@ -317,6 +315,17 @@ async function pickQuality(film, posterLines, found, variants, options, state) {
                 hint: item.bandwidth ? Math.round(item.bandwidth / 1000) + ' кбит/с' : ''
             };
         });
+
+        // Экран показываем всегда, даже когда дорожка одна: пропуская его,
+        // клиент решал за пользователя и выглядел сломанным
+        if (items.length === 0) {
+            items = [{
+                label: 'как есть',
+                hint: player && player.quality && player.quality !== '-'
+                    ? player.quality
+                    : 'балансер отдал одну дорожку'
+            }];
+        }
 
         // Прошлый выбор подставляем заранее — обычно качество не меняют
         var preselect = 0;
@@ -328,8 +337,12 @@ async function pickQuality(film, posterLines, found, variants, options, state) {
             [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], 0, preselect);
 
         if (index === 'back') return null;
+        if (variants.length === 0) return found;
+
         chosen = variants[index];
     }
+
+    if (!chosen) return found;
 
     state.quality = chosen.height;
 
@@ -407,7 +420,7 @@ async function playStream(film, player, translation, season, episode, options, s
             size.width, footer(['почти всё']));
     });
 
-    var selected = await pickQuality(film, posterLines, found, variants, options, state);
+    var selected = await pickQuality(film, posterLines, found, variants, options, state, player);
     if (!selected) return false;
 
     found = selected;
@@ -681,14 +694,18 @@ async function run(options) {
                     })[0] || null;
                 }
 
-                if (!translation && variants.length === 1) {
-                    translation = variants[0];
-                }
-
-                if (!translation && variants.length > 1) {
+                if (!translation) {
                     var translationItems = variants.map(function (item) {
                         return { label: item.name, hint: item.quality };
                     });
+
+                    // Как и с качеством: не решаем за пользователя молча
+                    if (translationItems.length === 0) {
+                        translationItems = [{
+                            label: 'по умолчанию',
+                            hint: 'балансер не разделяет озвучки'
+                        }];
+                    }
 
                     var translationIndex = await pickerScreen(film, posterLines,
                         'Озвучка · ' + player.source, translationItems,
@@ -699,7 +716,7 @@ async function run(options) {
                         continue;
                     }
 
-                    translation = variants[translationIndex];
+                    translation = variants[translationIndex] || null;
                 }
 
                 await playStream(film, player, translation, season, episode, options, state, posterLines);

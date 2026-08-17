@@ -202,11 +202,13 @@ async function resolveStream(iframeUrl, options) {
     var timeoutMs = options.timeout || 40000;
     var report = options.onProgress || function () { };
 
-    var accepted = null;      // подтверждённый контент
+    var candidates = [];      // всё, что похоже на контент
     var rejected = [];        // отбракованная реклама
     var fallbacks = [];       // медиа, которое не удалось проверить
     var seen = {};
     var page = null;
+    var settled = false;
+    var graceTimer = null;
 
     var browser = await getBrowser(!!options.headful);
 
@@ -217,6 +219,12 @@ async function resolveStream(iframeUrl, options) {
 
         var announce = null;
         var contentFound = new Promise(function (resolve) { announce = resolve; });
+
+        function finish() {
+            if (settled) return;
+            settled = true;
+            announce();
+        }
 
         function refererOf(request) {
             var frame = null;
@@ -248,8 +256,6 @@ async function resolveStream(iframeUrl, options) {
         // Манифесты пропускаем внутрь и читаем их тело: так видно,
         // сколько длится дорожка, и рекламу можно отсеять
         page.on('response', function (response) {
-            if (accepted) return;
-
             var url = response.url();
             if (seen[url]) return;
 
@@ -275,7 +281,7 @@ async function resolveStream(iframeUrl, options) {
             seen[url] = true;
 
             response.text().then(function (text) {
-                if (accepted || !text) return;
+                if (!text) return;
 
                 // Тело должно быть настоящим плейлистом, а не сообщением об ошибке
                 if (text.indexOf('#EXTM3U') < 0 && !/\.mpd(\?|$)/i.test(url)) return;
@@ -289,11 +295,19 @@ async function resolveStream(iframeUrl, options) {
                 };
 
                 if (looksLikeContent(info)) {
-                    accepted = entry;
-                    report(info.kind === 'master'
-                        ? 'нашёл поток с выбором качества'
-                        : 'нашёл поток' + (info.duration ? ' на ' + describeDuration(info.duration) : ''));
-                    announce();
+                    candidates.push(entry);
+
+                    if (info.kind === 'master') {
+                        // Мастер-плейлист — лучшее, что может быть: в нём качества
+                        report('нашёл поток с выбором качества');
+                        finish();
+                    } else {
+                        // Медиа-плейлист берём, но даём мастеру шанс появиться:
+                        // иначе выбор качества теряется на ровном месте
+                        report('нашёл поток' + (info.duration ? ' на ' + describeDuration(info.duration) : '') +
+                            ', проверяю, есть ли другие качества');
+                        if (!graceTimer) graceTimer = setTimeout(finish, 1500);
+                    }
                 } else {
                     rejected.push(entry);
                     report('пропустил рекламный ролик' +
@@ -315,7 +329,7 @@ async function resolveStream(iframeUrl, options) {
         var poking = false;
 
         var poker = setInterval(function () {
-            if (poking || accepted) return;
+            if (poking || settled) return;
             poking = true;
             pokePlayers(page).catch(function () { }).then(function () { poking = false; });
         }, 350);
@@ -324,13 +338,19 @@ async function resolveStream(iframeUrl, options) {
             await Promise.race([contentFound, sleep(timeoutMs)]);
         } finally {
             clearInterval(poker);
+            if (graceTimer) clearTimeout(graceTimer);
         }
     } finally {
         if (page) await page.close().catch(function () { });
     }
 
-    if (accepted) {
-        return buildResult(accepted, false);
+    if (candidates.length > 0) {
+        // Мастер предпочтительнее: только он даёт выбор качества
+        var master = candidates.filter(function (item) {
+            return item.info && item.info.kind === 'master';
+        })[0];
+
+        return buildResult(master || candidates[0], false);
     }
 
     // Контента не дождались. Отдаём хоть что-то, но честно помечаем:

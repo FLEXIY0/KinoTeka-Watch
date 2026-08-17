@@ -9,6 +9,9 @@
 // Флаги --json/--no-mpv/--iframe и запуск без терминала уводят в простой
 // построчный режим, пригодный для скриптов и пайпов.
 
+var path = require('path');
+var execFileSync = require('child_process').execFileSync;
+
 var api = require('./lib/api');
 var ui = require('./lib/ui');
 var stream = require('./lib/stream');
@@ -39,6 +42,7 @@ var HELP = [
     '      --timeout <мс>   сколько ждать поток, по умолчанию 40000',
     '      --key <ключ>     ключ API Кинопоиска',
     '  -h, --help           эта справка',
+    '  -V, --version        какая версия и откуда запускается',
     '',
     ui.color.bold('Управление в интерфейсе:'),
     '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+C — выход',
@@ -59,6 +63,23 @@ var HELP = [
     ''
 ].join('\n');
 
+// Какая версия исходников запущена. Нужно, чтобы отличить «не работает»
+// от «запускается старая копия» — вопрос, который возникает первым.
+function version() {
+    var root = path.join(__dirname, '..');
+
+    try {
+        var line = execFileSync('git', ['-C', root, 'log', '-1', '--format=%h %cd', '--date=short'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+        var branch = execFileSync('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+        return line + '  (' + branch + ')\n' + root;
+    } catch (err) {
+        return 'версия неизвестна — рядом нет git-репозитория\n' + root;
+    }
+}
+
 // Разбор аргументов командной строки
 function parseArgs(argv) {
     var options = {
@@ -76,6 +97,7 @@ function parseArgs(argv) {
         timeout: 40000,
         key: null,
         help: false,
+        version: false,
         mpvArgs: []
     };
 
@@ -89,6 +111,7 @@ function parseArgs(argv) {
         }
 
         if (arg === '-h' || arg === '--help') options.help = true;
+        else if (arg === '-V' || arg === '--version') options.version = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
         else if (arg === '-t' || arg === '--translation') options.translation = argv[++i];
         else if (arg === '-q' || arg === '--quality') options.quality = argv[++i];
@@ -348,6 +371,11 @@ async function main() {
 
     if (options.help) {
         ui.info(HELP);
+        return 0;
+    }
+
+    if (options.version) {
+        ui.info(version());
         return 0;
     }
 

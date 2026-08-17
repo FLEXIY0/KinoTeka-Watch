@@ -253,6 +253,11 @@ async function resolveStream(iframeUrl, options) {
             var url = response.url();
             if (seen[url]) return;
 
+            // Ошибочный ответ манифестом быть не может: иначе за поток
+            // принимается страница вида «токен уже использован»
+            var status = response.status();
+            if (status >= 400) return;
+
             var headers = response.headers() || {};
             var contentType = String(headers['content-type'] || '').toLowerCase();
             var isManifest = MANIFEST_RE.test(url) ||
@@ -272,11 +277,15 @@ async function resolveStream(iframeUrl, options) {
             response.text().then(function (text) {
                 if (accepted || !text) return;
 
+                // Тело должно быть настоящим плейлистом, а не сообщением об ошибке
+                if (text.indexOf('#EXTM3U') < 0 && !/\.mpd(\?|$)/i.test(url)) return;
+
                 var info = analyzeHls(text);
                 var entry = {
                     url: url,
                     referer: refererOf(response.request()),
-                    info: info
+                    info: info,
+                    manifest: text
                 };
 
                 if (looksLikeContent(info)) {
@@ -341,15 +350,24 @@ function buildResult(entry, suspicious) {
         origin: origin,
         userAgent: api.USER_AGENT,
         suspicious: suspicious,
-        duration: entry.info ? entry.info.duration : 0
+        duration: entry.info ? entry.info.duration : 0,
+        // Тело плейлиста браузер уже получил. Перечитывать его из Node нельзя:
+        // у балансеров токены часто одноразовые, и второй запрос даёт 403 —
+        // именно из-за этого выбор качества мог не появляться.
+        manifest: entry.manifest || null
     };
 }
 
 // Разбор мастер-плейлиста HLS: какие качества вообще предлагает балансер.
 // Возвращает пустой массив, если это уже медиа-плейлист или не HLS.
 async function readVariants(stream) {
-    if (!/\.m3u8(\?|$)/i.test(stream.url)) return [];
+    // Тело, прочитанное браузером, надёжнее повторного запроса
+    if (stream.manifest) {
+        return parseMaster(stream.manifest, stream.url);
+    }
 
+    // По расширению не отсеиваем: часть балансеров отдаёт плейлист по адресу
+    // без .m3u8, и такой поток раньше молча оставался без выбора качества
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 12000);
     var text;
@@ -372,6 +390,11 @@ async function readVariants(stream) {
         clearTimeout(timer);
     }
 
+    return parseMaster(text, stream.url);
+}
+
+// Разбор мастер-плейлиста в список дорожек
+function parseMaster(text, baseUrl) {
     if (text.indexOf('#EXT-X-STREAM-INF') < 0) return [];
 
     var lines = text.split(/\r?\n/);
@@ -397,7 +420,7 @@ async function readVariants(stream) {
             height: height,
             bandwidth: bandwidth ? parseInt(bandwidth[1], 10) : 0,
             label: name ? name[1] : (height ? height + 'p' : 'вариант ' + (variants.length + 1)),
-            url: new URL(target, stream.url).toString()
+            url: new URL(target, baseUrl).toString()
         });
     }
 

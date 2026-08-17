@@ -12,11 +12,14 @@
 var path = require('path');
 var execFileSync = require('child_process').execFileSync;
 
+var fs = require('fs');
+
 var api = require('./lib/api');
 var ui = require('./lib/ui');
 var stream = require('./lib/stream');
 var mpv = require('./lib/mpv');
 var config = require('./lib/config');
+var poster = require('./lib/poster');
 
 var HELP = [
     '',
@@ -43,6 +46,7 @@ var HELP = [
     '      --key <ключ>     ключ API Кинопоиска',
     '  -h, --help           эта справка',
     '  -V, --version        какая версия и откуда запускается',
+    '      --clean          очистить кэш и показать состояние установки',
     '',
     ui.color.bold('Управление в интерфейсе:'),
     '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+C — выход',
@@ -80,6 +84,61 @@ function version() {
     }
 }
 
+// Очистка кэшей и отчёт о состоянии установки.
+// Первое, что стоит сделать, когда «не работает» после обновления.
+function clean() {
+    var root = path.join(__dirname, '..');
+
+    ui.info('');
+    ui.info(ui.color.bold('Установка'));
+    ui.info('  ' + version().split('\n').join('\n  '));
+
+    // Свежесть исходников: чаще всего «не работает» — это старая копия
+    try {
+        execFileSync('git', ['-C', root, 'fetch', '--quiet', 'origin'],
+            { stdio: 'ignore', timeout: 20000 });
+
+        var behind = execFileSync('git', ['-C', root, 'rev-list', '--count', 'HEAD..@{upstream}'],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+        if (behind && behind !== '0') {
+            ui.info('  ' + ui.color.yellow('отстаёт от origin на ' + behind + ' коммит(ов)'));
+            ui.info('  ' + ui.color.dim('обновить: git -C ' + root + ' pull'));
+        } else {
+            ui.info('  ' + ui.color.green('свежая версия'));
+        }
+    } catch (err) {
+        ui.info('  ' + ui.color.dim('свежесть проверить не вышло: ' + err.message.split('\n')[0]));
+    }
+
+    ui.info('');
+    ui.info(ui.color.bold('Очистка'));
+
+    var removed = poster.clearCache();
+    ui.info('  ' + (removed ? '✓ обложки: ' + removed : '✗ обложки удалить не вышло'));
+
+    // Профиль браузера puppeteer создаёт временный на каждый запуск,
+    // но за ним могли остаться каталоги от аварийных завершений
+    var tmp = process.env.TMPDIR || '/tmp';
+    var leftovers = 0;
+
+    try {
+        fs.readdirSync(tmp).forEach(function (name) {
+            if (name.indexOf('puppeteer_dev_chrome_profile-') !== 0) return;
+            try {
+                fs.rmSync(path.join(tmp, name), { recursive: true, force: true });
+                leftovers++;
+            } catch (err) { /* чужой процесс мог держать каталог */ }
+        });
+    } catch (err) { /* нет доступа к каталогу — не страшно */ }
+
+    ui.info('  ✓ временные профили браузера: ' + leftovers);
+    ui.info('  ' + ui.color.dim('куки и кэш страниц живут только внутри запуска — чистить нечего'));
+    ui.info('');
+
+    return 0;
+}
+
 // Разбор аргументов командной строки
 function parseArgs(argv) {
     var options = {
@@ -98,6 +157,8 @@ function parseArgs(argv) {
         key: null,
         help: false,
         version: false,
+        clean: false,
+        unknown: [],
         mpvArgs: []
     };
 
@@ -112,6 +173,7 @@ function parseArgs(argv) {
 
         if (arg === '-h' || arg === '--help') options.help = true;
         else if (arg === '-V' || arg === '--version') options.version = true;
+        else if (arg === '--clean') options.clean = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
         else if (arg === '-t' || arg === '--translation') options.translation = argv[++i];
         else if (arg === '-q' || arg === '--quality') options.quality = argv[++i];
@@ -124,6 +186,7 @@ function parseArgs(argv) {
         else if (arg === '--headful') options.headful = true;
         else if (arg === '--timeout') options.timeout = parseInt(argv[++i], 10) || 40000;
         else if (arg === '--key') options.key = argv[++i];
+        else if (arg.length > 1 && arg[0] === '-') options.unknown.push(arg);
         else options.query.push(arg);
     }
 
@@ -377,6 +440,19 @@ async function main() {
     if (options.version) {
         ui.info(version());
         return 0;
+    }
+
+    if (options.clean) {
+        return clean();
+    }
+
+    // Молча считать флаг названием фильма нельзя: именно так выглядит
+    // запуск новой команды на старой копии
+    if (options.unknown.length > 0) {
+        ui.error('Неизвестный флаг: ' + options.unknown.join(', '));
+        ui.info(ui.color.dim('  Список флагов: ktw --help'));
+        ui.info(ui.color.dim('  Если флаг должен существовать — обнови: ktw --clean'));
+        return 1;
     }
 
     try {

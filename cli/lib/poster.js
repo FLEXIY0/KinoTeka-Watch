@@ -189,8 +189,22 @@ async function render(url, title, cols, rows) {
     return result;
 }
 
+// Удаление кэша обложек с диска
+function clearCache() {
+    memoryCache.clear();
+
+    try {
+        fs.rmSync(CACHE_DIR, { recursive: true, force: true });
+        return CACHE_DIR;
+    } catch (err) {
+        return null;
+    }
+}
+
 module.exports = {
     render: render,
+    clearCache: clearCache,
+    cacheDir: CACHE_DIR,
     placeholder: placeholder,
     available: function () { return detectTool().name !== 'none'; }
 };

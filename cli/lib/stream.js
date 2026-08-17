@@ -211,9 +211,18 @@ async function resolveStream(iframeUrl, options) {
     var graceTimer = null;
 
     var browser = await getBrowser(!!options.headful);
+    var context = null;
 
     try {
-        page = await browser.newPage();
+        // Каждое извлечение — в своей песочнице: браузер переиспользуется, но
+        // куки, localStorage и HTTP-кэш от прошлой попытки не должны влиять
+        // на следующую, иначе балансер отдаёт залежавшуюся страницу
+        context = browser.createBrowserContext
+            ? await browser.createBrowserContext()
+            : await browser.createIncognitoBrowserContext();
+
+        page = await context.newPage();
+        await page.setCacheEnabled(false);
         await page.setUserAgent(api.USER_AGENT);
         await page.setViewport({ width: 1280, height: 720 });
 
@@ -342,6 +351,7 @@ async function resolveStream(iframeUrl, options) {
         }
     } finally {
         if (page) await page.close().catch(function () { });
+        if (context) await context.close().catch(function () { });
     }
 
     if (candidates.length > 0) {

@@ -28,6 +28,9 @@ function buildArgs(stream, title, extraArgs, socketPath) {
         '--user-agent=' + (stream.userAgent || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'),
         '--referrer=' + stream.referer,
         '--http-header-fields=Origin: ' + stream.origin,
+        '--really-quiet',
+        '--msg-level=all=no',
+        '--terminal=no',
         '--cache=yes',
         '--demuxer-max-bytes=250MiB',
         '--demuxer-max-back-bytes=100MiB',
@@ -201,7 +204,7 @@ function play(stream, title, extraArgs, onProgressCallback) {
         });
 
         var args = buildArgs(stream, title, extraArgs, socketPath);
-        var child = spawn('mpv', args, { stdio: 'inherit' });
+        var child = spawn('mpv', args, { stdio: ['ignore', 'ignore', 'ignore'] });
 
         function cleanupSocket() {
             ipc.close();

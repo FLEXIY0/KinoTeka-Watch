@@ -43,7 +43,15 @@ function metrics() {
 }
 
 function footer(hints) {
-    return style.muted(hints.join('  ' + glyph.dot + '  '));
+    return hints.map(function (h) {
+        var spaceIdx = h.indexOf(' ');
+        if (spaceIdx > 0) {
+            var key = h.slice(0, spaceIdx);
+            var label = h.slice(spaceIdx + 1);
+            return style.secondary('[' + key + ']') + ' ' + style.muted(label);
+        }
+        return style.muted(h);
+    }).join('  ');
 }
 
 // Склейка обложки и правой колонки в одну сетку
@@ -60,13 +68,13 @@ function columns(posterLines, rightLines, rightWidth) {
     return lines;
 }
 
-// Строка «1999 · фантастика, боевик · 136 мин · ★ 8.5»
+// Строка «📅 1999 · 🏷️ фантастика · ⏱️ 136 мин · ★ 8.5»
 function metaLine(film) {
     var parts = [];
 
-    if (film.year) parts.push(String(film.year));
-    if (film.genres && film.genres.length > 0) parts.push(film.genres.slice(0, 2).join(', '));
-    if (film.length) parts.push(film.length + ' мин');
+    if (film.year) parts.push('📅 ' + film.year);
+    if (film.genres && film.genres.length > 0) parts.push('🏷️ ' + film.genres.slice(0, 2).join(', '));
+    if (film.length) parts.push('⏱️ ' + film.length + ' мин');
     if (film.rating) parts.push((ansi.ascii ? '*' : '★') + ' ' + film.rating);
 
     return parts.join(' ' + glyph.dot + ' ');
@@ -427,50 +435,64 @@ async function searchScreen(state, apiKey) {
 
         if (query.trim().length === 0 && !spinnerFrame) {
             var cfg = config.read();
-            var logoLines = themes.renderLogo(cfg.theme || 'cyberpunk');
+            var logoLines = themes.renderLogo(cfg.theme || 'classic_bw');
             logoLines.forEach(function (l) {
                 var len = ansi.visibleWidth(l);
                 var indent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - len) / 2)));
                 content.push('  ' + indent + l);
             });
+            var sub = style.muted('✨ КИНОТЕАТР И СЕРИАЛЫ В ВАШЕМ ТЕРМИНАЛЕ ✨');
+            var subIndent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - ansi.visibleWidth(sub)) / 2)));
+            content.push('  ' + subIndent + sub);
             content.push('');
         }
 
-        content.push('  ' + tui.field('Фильм', query, true));
+        content.push('  ' + tui.field('Поиск', query, true));
         content.push('');
 
         if (spinnerFrame) {
-            content.push('  ' + style.accent(spinnerFrame) + ' ' + style.muted('ищу…'));
+            content.push('  ' + style.accent(spinnerFrame) + ' ' + style.muted('ищу фильмы и сериалы…'));
         } else if (status) {
             content.push('  ' + style.muted(ansi.truncate(status, size.width - 6)));
         } else if (results.length > 0) {
             var items = results.map(function (film) {
-                var hint = [film.year, film.rating ? (ansi.ascii ? '*' : '★') + ' ' + film.rating : '']
-                    .filter(Boolean).join(' ' + glyph.dot + ' ');
-                return { label: film.title, hint: hint };
+                var ratingStr = film.rating ? style.warn('★ ' + film.rating) : '';
+                var yearStr = film.year ? String(film.year) : '';
+                var typeStr = film.type ? style.muted(film.type) : '';
+                var hint = [ratingStr, yearStr, typeStr].filter(Boolean).join(' ' + glyph.dot + ' ');
+                return {
+                    label: glyph.film + ' ' + film.title,
+                    hint: hint
+                };
             });
 
             tui.list(items, selected, size.listRows, size.width - 4).forEach(function (line) {
                 content.push(line);
             });
         } else if (query.trim().length === 0 && recentHistory.length > 0) {
-            content.push('  ' + style.bold('Продолжить просмотр:'));
+            content.push('  ' + style.bold('🍿 ПРОДОЛЖИТЬ ПРОСМОТР:'));
             var hItems = recentHistory.map(function (item) {
-                var label = item.title + (item.season && item.episode ? ' (S' + item.season + 'E' + item.episode + ')' : '');
-                var prog = item.timePos > 0 && item.duration > 0
-                    ? history.formatTime(item.timePos) + ' (' + item.percentage + '%)'
-                    : (item.watched ? '✓' : '');
+                var epTag = item.season && item.episode ? ' [ S' + item.season + 'E' + item.episode + ' ]' : '';
+                var label = '🎬 ' + item.title + epTag;
+                var prog = '';
+                if (item.timePos > 0 && item.duration > 0) {
+                    var filled = Math.min(5, Math.max(1, Math.round(item.percentage / 20)));
+                    var bar = ansi.repeat('▰', filled) + ansi.repeat('▱', 5 - filled);
+                    prog = style.good(bar + ' ' + item.percentage + '%') + ' · ' + history.formatTime(item.timePos);
+                } else if (item.watched) {
+                    prog = style.good('✓ Просмотрено');
+                }
                 return { label: label, hint: prog };
             });
             tui.list(hItems, selected, Math.min(4, size.listRows), size.width - 4).forEach(function (line) {
                 content.push(line);
             });
         } else if (!apiKey) {
-            content.push('  ' + style.muted('без ключа: поиск сразу по названию через Kinobox'));
-            content.push('  ' + style.muted('Ctrl+K: вставить ключ  ·  Ctrl+S: настройки  ·  Ctrl+H: история'));
+            content.push('  ' + style.muted('💡 Поиск напрямую через базу плееров Kinobox'));
+            content.push('  ' + style.muted('   [Ctrl+K] вставить API ключ  ·  [Ctrl+S] настройки  ·  [Ctrl+H] история'));
         } else {
-            content.push('  ' + style.muted('начни печатать название и нажми Enter'));
-            content.push('  ' + style.muted('Ctrl+S: настройки  ·  Ctrl+H: история просмотров'));
+            content.push('  ' + style.muted('⌨️ Введите название фильма и нажмите Enter для поиска'));
+            content.push('  ' + style.muted('   [Ctrl+S] меню настроек  ·  [Ctrl+H] история просмотров'));
         }
 
         content.push('');
@@ -838,6 +860,45 @@ async function playStream(film, player, translation, season, episode, options, s
     };
 }
 
+// Экран обратного отсчета для автозапуска следующей серии (Binge-Watching)
+async function nextEpisodeCountdown(film, nextSeason, nextEp, totalSeconds) {
+    totalSeconds = totalSeconds || 5;
+    var remaining = totalSeconds;
+
+    while (remaining > 0) {
+        var size = metrics();
+        var numStr = 'S' + (nextSeason < 10 ? '0' : '') + nextSeason + 'E' + (nextEp < 10 ? '0' : '') + nextEp;
+        var barFilled = Math.max(1, remaining);
+        var bar = ansi.repeat('▰', barFilled) + ansi.repeat('▱', totalSeconds - barFilled);
+
+        var content = [
+            '',
+            '  ' + style.bold('🍿 АВТОПЕРЕХОД К СЛЕДУЮЩЕЙ СЕРИИ'),
+            '',
+            '  ' + style.accent('Следующая серия: ') + style.bold('[' + numStr + '] ' + film.title),
+            '  ' + style.muted('Воспроизведение начнётся через: ') + style.warn(bar + ' ' + remaining + ' с.'),
+            '',
+            '  ' + style.muted('[ Enter ] Запустить прямо сейчас   [ Esc ] Отмена'),
+            ''
+        ];
+
+        tui.paint(tui.box('Binge-Watching', content, size.width,
+            footer([glyph.arrow + ' Enter запуск', 'Esc остановить'])));
+
+        var key = await tui.readKey(1000);
+        if (key && (key.name === 'escape' || key.name === 'q')) {
+            return false;
+        }
+        if (key && (key.name === 'return' || key.name === 'space')) {
+            return true;
+        }
+
+        remaining--;
+    }
+
+    return true;
+}
+
 // Главный цикл приложения
 async function run(options) {
     var apiKey = config.resolveApiKey(options.key);
@@ -1021,10 +1082,21 @@ async function run(options) {
                 var current = seasons.filter(function (item) { return item.number === season; })[0];
                 var episodeItems = (current ? current.episodes : []).map(function (item) {
                     var isWatched = history.isEpisodeWatched(film.id, season, item.number);
-                    var prefix = isWatched ? style.accent('✓ ') : '';
+                    var epProg = history.getProgress(film.id, season, item.number);
+                    var mark = isWatched ? style.good('✓') : (epProg && epProg.timePos > 0 ? style.accent('▶') : ' ');
+                    var numStr = 'S' + (season < 10 ? '0' : '') + season + 'E' + (item.number < 10 ? '0' : '') + item.number;
+                    var titleStr = item.title ? (' ' + item.title) : '';
+                    var hint = '';
+                    if (isWatched) {
+                        hint = style.good('✓ Просмотрено');
+                    } else if (epProg && epProg.timePos > 0) {
+                        hint = style.accent(history.formatTime(epProg.timePos) + ' (' + epProg.percentage + '%)');
+                    } else if (item.date) {
+                        hint = String(item.date).slice(0, 10);
+                    }
                     return {
-                        label: prefix + 'S' + season + 'E' + item.number + (item.title ? '  ' + item.title : ''),
-                        hint: isWatched ? 'Просмотрено' : (item.date ? String(item.date).slice(0, 10) : '')
+                        label: mark + ' [' + numStr + ']' + titleStr,
+                        hint: hint
                     };
                 });
 
@@ -1081,13 +1153,13 @@ async function run(options) {
                         screen = seasons.length > 0 ? 'episodes' : 'search';
                         continue;
                     }
-                }
 
-                if (players.length === 0) {
-                    await messageScreen('Пусто', ['Для «' + film.title + '» нет доступных плееров.'],
-                        'любая клавиша — назад');
-                    screen = seasons.length > 0 ? 'episodes' : 'search';
-                    continue;
+                    if (players.length === 0) {
+                        await messageScreen('Пусто', ['Для «' + film.title + '» нет доступных плееров.'],
+                            'любая клавиша — назад');
+                        screen = seasons.length > 0 ? 'episodes' : 'search';
+                        continue;
+                    }
                 }
 
                 var chosenPlayer = null;
@@ -1102,10 +1174,12 @@ async function run(options) {
 
                 if (!chosenPlayer) {
                     var playerItems = players.map(function (item) {
-                        var directBadge = item.direct ? ' ⚡[прямой]' : '';
+                        var directBadge = item.direct ? style.good(' ⚡[ПРЯМОЙ]') : '';
+                        var trCount = item.translations ? ('🎧 ' + item.translations.length + ' озв.') : '';
+                        var qBadge = item.quality ? ('📺 ' + item.quality) : '';
                         return {
                             label: item.source + directBadge,
-                            hint: ansi.truncate(item.translation, 22) + ' ' + glyph.dot + ' ' + item.quality
+                            hint: [trCount, qBadge].filter(Boolean).join('  ·  ')
                         };
                     });
 

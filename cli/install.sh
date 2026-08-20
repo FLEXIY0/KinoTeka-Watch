@@ -9,8 +9,8 @@
 set -eu
 
 REPO_URL="${KTW_REPO:-https://github.com/FLEXIY0/KinoTeka-Watch.git}"
-REPO_BRANCH="${KTW_BRANCH:-main}"
-INSTALL_DIR="${KTW_HOME:-$HOME/.local/share/ktw}"
+REPO_BRANCH="${KTW_BRANCH:-feature/direct-kinobox-tui}"
+INSTALL_DIR="${KTW_HOME:-$HOME/.local/share/ktw2}"
 BIN_DIR="${KTW_BIN:-$HOME/.local/bin}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ktw"
 
@@ -342,17 +342,13 @@ fetch_sources() {
     fi
 
     if [ -d "$INSTALL_DIR/.git" ]; then
-        if spin_run "обновляю $INSTALL_DIR" git -C "$INSTALL_DIR" fetch origin "$REPO_BRANCH" \
-            && git -C "$INSTALL_DIR" checkout --quiet "$REPO_BRANCH" 2>/dev/null \
-            && git -C "$INSTALL_DIR" reset --hard --quiet "origin/$REPO_BRANCH" 2>/dev/null; then
+        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" remote set-branches origin '*' 2>/dev/null || true; git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -B \"$REPO_BRANCH\" \"origin/$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
             ok "обновлено до $(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null)"
+            return 0
         else
-            # Раньше здесь было безусловное «обновлено», и сломанное дерево
-            # обнаруживалось только при первом запуске
-            warn "обновить не вышло — работаю с тем, что уже лежит в $INSTALL_DIR"
+            warn "не удалось обновить на месте — перекачиваю начисто в $INSTALL_DIR"
+            rm -rf "$INSTALL_DIR"
         fi
-
-        return 0
     fi
 
     mkdir -p "$(dirname "$INSTALL_DIR")"
@@ -449,7 +445,8 @@ link_binary() {
     mkdir -p "$BIN_DIR"
     chmod +x "$INSTALL_DIR/cli/ktw.js"
     ln -sf "$INSTALL_DIR/cli/ktw.js" "$BIN_DIR/ktw"
-    ok "ktw → $BIN_DIR/ktw"
+    ln -sf "$INSTALL_DIR/cli/ktw.js" "$BIN_DIR/ktw2"
+    ok "ktw / ktw2 → $BIN_DIR/ktw"
 
     case ":$PATH:" in
         *":$BIN_DIR:"*)

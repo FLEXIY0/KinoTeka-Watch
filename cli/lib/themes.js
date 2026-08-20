@@ -1,8 +1,16 @@
 'use strict';
 
-// Коллекция визуальных тем оформления и динамическая генерация ANSI/ASCII шрифтов через FIGlet.
+// Коллекция визуальных тем оформления и динамический ANSI генератор на cfonts и figlet.
 
 var ansi = require('./ansi');
+
+var cfonts;
+try {
+    cfonts = require('cfonts');
+} catch (e) {
+    cfonts = null;
+}
+
 var figlet;
 try {
     figlet = require('figlet');
@@ -15,62 +23,40 @@ var BUILTIN_LOGOS = {
         '┌─┐ ┬ ┌┐┌ ┌─┐ ┌┬┐ ┌─┐ ┬┌─ ┌─┐',
         '├┴┐ │ │││ │ │  │  ├┤  ├┴┐ ├─┤',
         '┴ ┴ ┴ ┘└┘ └─┘  ┴  └─┘ ┴ ┴ ┴ ┴'
-    ],
-    monument: [
-        '██   ██  ██  ███    ██   ██████   ████████  ████████  ██   ██   █████  ',
-        '██  ██   ██  ████   ██  ██    ██     ██     ██        ██  ██   ██   ██ ',
-        '█████    ██  ██ ██  ██  ██    ██     ██     ██████    █████    ███████ ',
-        '██  ██   ██  ██  ██ ██  ██    ██     ██     ██        ██  ██   ██   ██ ',
-        '██   ██  ██  ██   ████   ██████      ██     ████████  ██   ██  ██   ██ '
-    ],
-    gothic: [
-        '  ▄▄▄  ▄ ▄▄   ▄  ▄▄▄  ▄▄▄▄▄ ▄▄▄▄ ▄▄▄  ▄   ▄ ',
-        '  █  █ █ █ █  █ █   █   █   █    █  █ █   █ ',
-        '  █▀▀▄ █ █  █ █ █   █   █   █▀▀  █▀▀▄ █▀▀▀█ ',
-        '  █  █ █ █   ██  ▀▄▄▀   █   █▄▄▄ █  █ █   █ '
-    ],
-    cyber: [
-        '╦╔═ ╦ ╔╗╔ ╔═╗ ╔╦╗ ╔═╗ ╦╔═ ╔═╗',
-        '╠╩╗ ║ ║║║ ║ ║  ║  ║╣  ╠╩╗ ╠═╣',
-        '╩ ╩ ╩ ╝╚╝ ╚═╝  ╩  ╚═╝ ╩ ╩ ╩ ╩'
     ]
-};
-
-var FIGLET_FONT_MAP = {
-    ansi_shadow: 'ANSI Shadow',
-    slant: 'Slant',
-    doom: 'Doom',
-    standard: 'Standard',
-    small: 'Small',
-    cybermedium: 'Cybermedium',
-    big: 'Big'
 };
 
 var FONT_KEYS = [
     'auto',
-    'ansi_shadow',
+    'block',
+    'slick',
+    'grid',
+    'shade',
+    'pallet',
+    'chrome',
+    'simple3d',
     'slant',
     'doom',
     'standard',
-    'small',
-    'monument',
+    'tiny',
     'lineart',
-    'cyber',
-    'gothic',
     'off'
 ];
 
 var FONT_LABELS = {
-    auto: 'Авто (из темы)',
-    ansi_shadow: 'ANSI Shadow (3D Блоки)',
-    slant: 'Slant (Наклонный 3D)',
-    doom: 'Doom (Классика игр)',
+    auto: 'Авто (под тему)',
+    block: 'Block (3D ANSI Блоки)',
+    slick: 'Slick (Диагональный изометрик)',
+    grid: 'Grid (Матричная сетка)',
+    shade: 'Shade (Текстурный градиент)',
+    pallet: 'Pallet (Теневой)',
+    chrome: 'Chrome (Кибер контур)',
+    simple3d: 'Simple3D (Наклонный 3D)',
+    slant: 'Slant (Классика Slant)',
+    doom: 'Doom (Игровой)',
     standard: 'Standard (ASCII)',
-    small: 'Small (Компактный)',
-    monument: 'Monument (Монолит)',
+    tiny: 'Tiny (Компактный)',
     lineart: 'Line-Art (Тонкие рамки)',
-    cyber: 'Cyber (Кибернетика)',
-    gothic: 'Gothic (Готика)',
     off: 'Выключить (без баннера)'
 };
 
@@ -79,7 +65,8 @@ var THEMES = {
         id: 'classic_bw',
         name: 'Classic Monochrome',
         tagline: 'Строгий минимализм, чистый монохром',
-        logoStyle: 'lineart',
+        logoStyle: 'block',
+        hexColors: ['#ffffff', '#888888'],
         colors: {
             accent: [255, 255, 255],
             secondary: [210, 210, 210],
@@ -101,7 +88,8 @@ var THEMES = {
         id: 'monument',
         name: 'Monument Dark',
         tagline: 'Монументальные блоки, глубокий графит',
-        logoStyle: 'monument',
+        logoStyle: 'block',
+        hexColors: ['#ebf0f5', '#788c9e'],
         colors: {
             accent: [235, 240, 245],
             secondary: [160, 175, 190],
@@ -123,7 +111,8 @@ var THEMES = {
         id: 'cyberpunk',
         name: 'Neon Cyberpunk',
         tagline: 'Электрический циан, неоновый пурпур',
-        logoStyle: 'slant',
+        logoStyle: 'block',
+        hexColors: ['#00f0ff', '#ff007f'],
         colors: {
             accent: [0, 240, 255],
             secondary: [255, 0, 127],
@@ -145,7 +134,8 @@ var THEMES = {
         id: 'cinema',
         name: 'Cinema Noir & Gold',
         tagline: 'Обсидиан и бархатное золото',
-        logoStyle: 'gothic',
+        logoStyle: 'shade',
+        hexColors: ['#f5b941', '#ff8c32'],
         colors: {
             accent: [245, 185, 65],
             secondary: [255, 220, 130],
@@ -167,7 +157,8 @@ var THEMES = {
         id: 'matrix',
         name: 'Matrix Hacker',
         tagline: 'Фосфорный монохром, кибернетика',
-        logoStyle: 'cyber',
+        logoStyle: 'grid',
+        hexColors: ['#00ff6e', '#8cffb4'],
         colors: {
             accent: [0, 255, 110],
             secondary: [140, 255, 180],
@@ -189,7 +180,8 @@ var THEMES = {
         id: 'nordic',
         name: 'Nordic Frost',
         tagline: 'Арктический синий и белый ледник',
-        logoStyle: 'lineart',
+        logoStyle: 'slick',
+        hexColors: ['#88c0d0', '#81a1c1'],
         colors: {
             accent: [136, 192, 208],
             secondary: [129, 161, 193],
@@ -209,66 +201,80 @@ var THEMES = {
     }
 };
 
-// Генерация цветного ANSI логотипа с горизонтальным градиентом
+var CFONTS_LIST = ['block', 'slick', 'grid', 'shade', 'pallet', 'chrome', 'simple3d', 'tiny'];
+
+// Динамическая генерация цветного ANSI логотипа
 function renderLogo(themeId, bannerStyle, maxWidth) {
     if (bannerStyle === 'off') {
         return [];
     }
 
     var theme = THEMES[themeId] || THEMES.classic_bw;
-    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'slant');
+    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'block');
+    var isShort = (maxWidth && maxWidth < 70);
+    var text = isShort ? 'KTW' : 'KINOTEKA';
 
-    var rawLines = null;
-
-    // 1. Проверяем генератор figlet
-    if (figlet && FIGLET_FONT_MAP[styleKey]) {
+    // 1. Генерация через cfonts (нативные градиенты и ANSI тени)
+    if (cfonts && CFONTS_LIST.indexOf(styleKey) >= 0) {
         try {
-            var fontName = FIGLET_FONT_MAP[styleKey];
-            var text = (maxWidth && maxWidth < 65) ? 'KTW' : 'KINOTEKA';
-            var generated = figlet.textSync(text, { font: fontName });
-            if (generated) {
-                rawLines = generated.split('\n').filter(function (l) { return l.length > 0; });
+            var rendered = cfonts.render(text, {
+                font: styleKey,
+                gradient: theme.hexColors || ['#00f0ff', '#ff007f'],
+                transitionGradient: true,
+                letterSpacing: 1,
+                lineHeight: 1,
+                space: false
+            });
+            if (rendered && Array.isArray(rendered.array) && rendered.array.length > 0) {
+                return rendered.array.filter(function (l) { return l.trim().length > 0; });
             }
         } catch (e) {
-            rawLines = null;
+            // fallback
         }
     }
 
-    // 2. Встроенные шрифты
-    if (!rawLines) {
-        rawLines = BUILTIN_LOGOS[styleKey] || BUILTIN_LOGOS.lineart;
-    }
+    // 2. Генерация через figlet (Slant, Doom, Standard)
+    var FIGLET_MAP = {
+        slant: 'Slant',
+        doom: 'Doom',
+        standard: 'Standard'
+    };
 
-    var c1 = theme.colors.accent;
-    var c2 = theme.colors.secondary || theme.colors.highlight;
-
-    if (theme.id === 'classic_bw') {
-        return rawLines.map(function (l) {
-            return ansi.style.bold(ansi.fg(240, 240, 240) + l + ansi.style.reset);
-        });
-    }
-
-    var rendered = [];
-    rawLines.forEach(function (line) {
-        var len = line.length;
-        var coloredLine = '';
-        for (var i = 0; i < len; i++) {
-            var ratio = len > 1 ? (i / (len - 1)) : 0;
-            var r = Math.round(c1[0] + ratio * (c2[0] - c1[0]));
-            var g = Math.round(c1[1] + ratio * (c2[1] - c1[1]));
-            var b = Math.round(c1[2] + ratio * (c2[2] - c1[2]));
-            coloredLine += ansi.fg(r, g, b) + line[i];
+    if (figlet && FIGLET_MAP[styleKey]) {
+        try {
+            var fontName = FIGLET_MAP[styleKey];
+            var generated = figlet.textSync(text, { font: fontName });
+            if (generated) {
+                var lines = generated.split('\n').filter(function (l) { return l.length > 0; });
+                var c1 = theme.colors.accent;
+                var c2 = theme.colors.secondary || theme.colors.highlight;
+                return lines.map(function (line) {
+                    var len = line.length;
+                    var colLine = '';
+                    for (var i = 0; i < len; i++) {
+                        var ratio = len > 1 ? (i / (len - 1)) : 0;
+                        var r = Math.round(c1[0] + ratio * (c2[0] - c1[0]));
+                        var g = Math.round(c1[1] + ratio * (c2[1] - c1[1]));
+                        var b = Math.round(c1[2] + ratio * (c2[2] - c1[2]));
+                        colLine += ansi.fg(r, g, b) + line[i];
+                    }
+                    return colLine + ansi.style.reset;
+                });
+            }
+        } catch (e) {
+            // fallback
         }
-        coloredLine += ansi.style.reset;
-        rendered.push(coloredLine);
+    }
+
+    // 3. Встроенный минималистичный fallback
+    var rawLines = BUILTIN_LOGOS[styleKey] || BUILTIN_LOGOS.lineart;
+    return rawLines.map(function (l) {
+        return ansi.style.bold(ansi.fg(theme.colors.accent[0], theme.colors.accent[1], theme.colors.accent[2]) + l + ansi.style.reset);
     });
-
-    return rendered;
 }
 
 module.exports = {
-    BUILTIN_LOGOS: BUILTIN_LOGOS,
-    FIGLET_FONT_MAP: FIGLET_FONT_MAP,
+    CFONTS_LIST: CFONTS_LIST,
     FONT_KEYS: FONT_KEYS,
     FONT_LABELS: FONT_LABELS,
     THEMES: THEMES,

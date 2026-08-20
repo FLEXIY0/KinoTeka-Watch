@@ -400,40 +400,19 @@ find_system_chromium() {
 install_deps() {
     cd "$INSTALL_DIR"
 
-    # Показываем, как растёт кэш браузера: качается около 150 МБ
-    SPIN_WATCH="${PUPPETEER_CACHE_DIR:-$HOME/.cache/puppeteer}"
+    export PUPPETEER_SKIP_DOWNLOAD=true
+    spin_run "ставлю пакеты Node" \
+        npm install --omit=dev --no-audit --no-fund \
+        || warn "npm install завершился с предупреждением"
 
-    spin_run "ставлю пакеты Node и Chromium" \
-        npm install --omit=dev --no-audit --no-fund --loglevel=http \
-        || warn "npm install ругался — проверю, что получилось"
+    ok "пакеты установлены"
 
-    [ -d "$INSTALL_DIR/node_modules/puppeteer" ] || die "puppeteer не установился, без него не извлечь поток"
-
-    if browser_ready; then
-        SPIN_WATCH=""
-        ok "зависимости на месте"
-        return 0
+    # Проверяем, есть ли уже системный браузер (для Puppeteer-фоллбэка)
+    _chromium=$(find_system_chromium 2>/dev/null || echo "")
+    if [ -n "$_chromium" ]; then
+        write_config chromiumPath "$_chromium"
+        dim "найден системный браузер: $_chromium"
     fi
-
-    warn "Chromium не скачался — докачиваю отдельно"
-    spin_run "качаю Chromium" npx --yes puppeteer browsers install chrome || true
-    SPIN_WATCH=""
-
-    if browser_ready; then
-        ok "Chromium докачан"
-        return 0
-    fi
-
-    warn "не вышло — ищу системный Chromium"
-    _chromium=$(find_system_chromium) || {
-        install_pkg chromium || true
-        _chromium=$(find_system_chromium) || _chromium=""
-    }
-
-    [ -n "$_chromium" ] || die "нет ни своего, ни системного Chromium — извлекать поток будет нечем"
-
-    write_config chromiumPath "$_chromium"
-    ok "использую системный Chromium: $_chromium"
 }
 
 # Заполняется, если команду не получится вызвать по имени.
@@ -446,7 +425,15 @@ link_binary() {
     chmod +x "$INSTALL_DIR/cli/ktw.js"
     ln -sf "$INSTALL_DIR/cli/ktw.js" "$BIN_DIR/ktw"
     ln -sf "$INSTALL_DIR/cli/ktw.js" "$BIN_DIR/ktw2"
-    ok "ktw / ktw2 → $BIN_DIR/ktw"
+    ok "команды: $BIN_DIR/ktw и $BIN_DIR/ktw2"
+
+    # Если доступен root/sudo, линкуем в /usr/local/bin — тогда команда доступна в PATH мгновенно
+    if [ "$(id -u)" = "0" ] || sudo -n true 2>/dev/null; then
+        run_root ln -sf "$INSTALL_DIR/cli/ktw.js" /usr/local/bin/ktw 2>/dev/null || true
+        run_root ln -sf "$INSTALL_DIR/cli/ktw.js" /usr/local/bin/ktw2 2>/dev/null || true
+        ok "системные команды: /usr/local/bin/ktw и /usr/local/bin/ktw2"
+        return 0
+    fi
 
     case ":$PATH:" in
         *":$BIN_DIR:"*)

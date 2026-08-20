@@ -139,20 +139,20 @@ var FONT_LABELS = {
 var THEMES = {
     classic_bw: {
         id: 'classic_bw',
-        name: 'Classic Monochrome',
-        tagline: 'Строгий минимализм, чистый монохром',
+        name: 'Classic Orange',
+        tagline: 'Фирменный теплый оранжевый #e8975f и темный графит',
         logoStyle: 'ansi_shadow',
         colors: {
-            accent: [255, 255, 255],
-            secondary: [200, 200, 200],
-            highlight: [255, 255, 255],
-            muted: [120, 120, 120],
-            border: [130, 130, 130],
-            good: [230, 230, 230],
-            warn: [190, 190, 190],
-            bad: [140, 140, 140],
-            titleBg: [15, 15, 15],
-            cardBg: [0, 0, 0]
+            accent: [232, 151, 95],       // #e8975f
+            secondary: [242, 175, 125],   // #f2af7d
+            highlight: [255, 220, 195],
+            muted: [135, 120, 115],
+            border: [130, 95, 70],
+            good: [232, 151, 95],
+            warn: [242, 175, 125],
+            bad: [220, 80, 80],
+            titleBg: [28, 20, 15],
+            cardBg: [16, 13, 11]
         },
         glyphs: {
             tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
@@ -566,13 +566,6 @@ function renderLogo(themeId, bannerStyle, maxWidth, bannerSize) {
 
     var c1 = theme.colors.accent;
     var c2 = theme.colors.secondary || theme.colors.highlight;
-
-    // В монохроме красим ярким белым/серым
-    if (theme.id === 'classic_bw') {
-        return safeLines.map(function (l) {
-            return ansi.style.bold(ansi.fg(240, 240, 240) + l + ansi.style.reset);
-        });
-    }
 
     // Раскрашиваем горизонтальным градиентом
     var rendered = [];

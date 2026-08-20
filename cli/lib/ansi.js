@@ -1,10 +1,7 @@
 'use strict';
 
-// Низкоуровневые примитивы терминала: цвета, ширина строк, рамки.
-// Глубина цвета определяется по окружению, чтобы не рассыпаться
-// на старых терминалах (linux console, urxvt без truecolor).
+// Низкоуровневые примитивы терминала: цвета, ширина строк, рамки, темы оформления.
 
-// Любая CSI-последовательность: считать её ширину нельзя ни в каком виде
 var CSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
 
 var depth = detectDepth();
@@ -24,7 +21,6 @@ function detectDepth() {
     return 0;
 }
 
-// Приведение RGB к палитре xterm-256
 function to256(r, g, b) {
     if (Math.abs(r - g) < 12 && Math.abs(g - b) < 12) {
         var gray = Math.round((r + g + b) / 3);
@@ -54,26 +50,89 @@ function sgr(code, text) {
     return depth === 0 ? text : '\x1b[' + code + 'm' + text + '\x1b[0m';
 }
 
+function getTheme() {
+    try {
+        var themes = require('./themes');
+        var config = require('./config');
+        var themeId = config.read().theme || 'cyberpunk';
+        return themes.THEMES[themeId] || themes.THEMES.cyberpunk;
+    } catch (e) {
+        return {
+            colors: {
+                accent: [0, 240, 255],
+                secondary: [255, 0, 127],
+                highlight: [157, 0, 255],
+                muted: [120, 125, 135],
+                border: [120, 0, 220],
+                good: [0, 255, 160],
+                warn: [255, 215, 0],
+                bad: [255, 45, 85]
+            },
+            glyphs: {
+                tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║',
+                arrow: '▶', caret: '▋', dot: '◆', up: '▲', down: '▼', star: '★', film: '🎞️'
+            }
+        };
+    }
+}
+
 var style = {
     reset: depth === 0 ? '' : '\x1b[0m',
     bold: function (t) { return sgr('1', t); },
     dim: function (t) { return sgr('2', t); },
     italic: function (t) { return sgr('3', t); },
     inverse: function (t) { return sgr('7', t); },
-    accent: function (t) { return depth === 0 ? t : fg(120, 200, 255) + t + '\x1b[0m'; },
-    muted: function (t) { return depth === 0 ? t : fg(120, 125, 135) + t + '\x1b[0m'; },
-    border: function (t) { return depth === 0 ? t : fg(80, 85, 95) + t + '\x1b[0m'; },
-    good: function (t) { return depth === 0 ? t : fg(120, 220, 150) + t + '\x1b[0m'; },
-    warn: function (t) { return depth === 0 ? t : fg(240, 200, 110) + t + '\x1b[0m'; },
-    bad: function (t) { return depth === 0 ? t : fg(240, 120, 120) + t + '\x1b[0m'; }
+    accent: function (t) {
+        var c = getTheme().colors.accent;
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    secondary: function (t) {
+        var c = getTheme().colors.secondary || [255, 0, 127];
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    highlight: function (t) {
+        var c = getTheme().colors.highlight || [157, 0, 255];
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    muted: function (t) {
+        var c = getTheme().colors.muted;
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    border: function (t) {
+        var c = getTheme().colors.border;
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    good: function (t) {
+        var c = getTheme().colors.good;
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    warn: function (t) {
+        var c = getTheme().colors.warn;
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    },
+    bad: function (t) {
+        var c = getTheme().colors.bad;
+        return depth === 0 ? t : fg(c[0], c[1], c[2]) + t + '\x1b[0m';
+    }
 };
 
-// Символы рамок; для совсем древних терминалов — ASCII
-var glyph = ascii
-    ? { tl: '+', tr: '+', bl: '+', br: '+', h: '-', v: '|', arrow: '>', caret: '_', dot: '*', up: '^', down: 'v' }
-    : { tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│', arrow: '❯', caret: '▏', dot: '·', up: '↑', down: '↓' };
+// Динамический объект символов рамок и пиктограмм
+var glyph = {
+    get tl() { return ascii ? '+' : getTheme().glyphs.tl; },
+    get tr() { return ascii ? '+' : getTheme().glyphs.tr; },
+    get bl() { return ascii ? '+' : getTheme().glyphs.bl; },
+    get br() { return ascii ? '+' : getTheme().glyphs.br; },
+    get h() { return ascii ? '-' : getTheme().glyphs.h; },
+    get v() { return ascii ? '|' : getTheme().glyphs.v; },
+    get arrow() { return ascii ? '>' : getTheme().glyphs.arrow; },
+    get caret() { return ascii ? '_' : getTheme().glyphs.caret; },
+    get dot() { return ascii ? '*' : getTheme().glyphs.dot; },
+    get up() { return ascii ? '^' : getTheme().glyphs.up; },
+    get down() { return ascii ? 'v' : getTheme().glyphs.down; },
+    get star() { return ascii ? '*' : (getTheme().glyphs.star || '★'); },
+    get film() { return ascii ? '#' : (getTheme().glyphs.film || '🎬'); }
+};
 
-// Видимая ширина строки без управляющих последовательностей
 function visibleWidth(text) {
     return Array.from(String(text).replace(CSI_RE, '')).length;
 }
@@ -82,7 +141,6 @@ function strip(text) {
     return String(text).replace(CSI_RE, '');
 }
 
-// Убираем всё, кроме раскраски: chafa любит подмешивать управление курсором
 function keepColorsOnly(text) {
     return String(text).replace(CSI_RE, function (match) {
         return /m$/.test(match) ? match : '';
@@ -93,12 +151,10 @@ function repeat(char, count) {
     return count > 0 ? new Array(count + 1).join(char) : '';
 }
 
-// Дополнение до нужной ширины с учётом невидимых последовательностей
 function pad(text, width) {
     return text + repeat(' ', width - visibleWidth(text));
 }
 
-// Обрезка по видимой ширине; вызывать до раскраски
 function truncate(text, width) {
     var chars = Array.from(String(text));
     if (chars.length <= width) return String(text);
@@ -107,7 +163,6 @@ function truncate(text, width) {
     return chars.slice(0, width - 1).join('') + '…';
 }
 
-// Разбивка текста по словам
 function wrap(text, width, maxLines) {
     var words = String(text).split(/\s+/).filter(Boolean);
     var lines = [];
@@ -141,6 +196,7 @@ function wrap(text, width, maxLines) {
 module.exports = {
     depth: depth,
     ascii: ascii,
+    getTheme: getTheme,
     style: style,
     glyph: glyph,
     fg: fg,

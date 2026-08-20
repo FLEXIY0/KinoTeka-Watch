@@ -39,6 +39,7 @@ var HELP = [
     '  -e, --episode <n>    номер серии',
     '      --resume         продолжить просмотр с сохранённой секунды',
     '      --history        показать историю просмотров',
+    '      --stand, --themes интерактивный стенд выбора стиля и ANSI арта',
     '      --direct         только прямое извлечение ⚡ (без запуска Chromium)',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
     '      --no-mpv         найти поток, но не запускать mpv',
@@ -57,6 +58,7 @@ var HELP = [
     '',
     ui.color.bold('Примеры:'),
     '  ktw',
+    '  ktw --stand',
     '  ktw матрица',
     '  ktw "во все тяжкие" -s 1 -e 3 --resume',
     '  ktw 301 --player collaps --no-mpv',
@@ -163,6 +165,7 @@ function parseArgs(argv) {
         episode: null,
         resume: false,
         history: false,
+        stand: false,
         direct: false,
         iframe: false,
         noMpv: false,
@@ -191,6 +194,7 @@ function parseArgs(argv) {
         else if (arg === '-V' || arg === '--version') options.version = true;
         else if (arg === '--clean') options.clean = true;
         else if (arg === '--history') options.history = true;
+        else if (arg === '--stand' || arg === '--themes') options.stand = true;
         else if (arg === '--resume') options.resume = true;
         else if (arg === '--settings') options.settings = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
@@ -507,6 +511,10 @@ async function main() {
 
     if (options.history) {
         return printHistory();
+    }
+
+    if (options.stand) {
+        return await require('./lib/stand').runStand();
     }
 
     if (options.unknown.length > 0) {

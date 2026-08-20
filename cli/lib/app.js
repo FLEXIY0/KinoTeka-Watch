@@ -18,6 +18,7 @@ var stream = require('./stream');
 var mpv = require('./mpv');
 var config = require('./config');
 var history = require('./history');
+var themes = require('./themes');
 
 var style = ansi.style;
 var glyph = ansi.glyph;
@@ -157,10 +158,29 @@ async function settingsScreen() {
     var modeOptions = [false, true];
     var modeLabels = ['Гибридный ⚡ (прямой + браузер)', 'Только прямой ⚡ (без запуска Chromium)'];
 
+    var themeOptions = ['cyberpunk', 'cinema', 'matrix', 'tokyo', 'nordic'];
+    var themeLabels = [
+        'Neon Cyberpunk (Неон / Киберпанк)',
+        'Cinema Noir & Gold (Тёмное Золото / Премиум)',
+        'Matrix Hacker (Матрица / Зелёный)',
+        'Tokyo Night (Токио Ночь / Синтвейв)',
+        'Nordic Frost (Северный Ледник / Минимал)'
+    ];
+
     while (true) {
         var size = metrics();
 
         var items = [
+            {
+                key: 'theme',
+                label: 'Тема оформления',
+                valueText: themeLabels[themeOptions.indexOf(cfg.theme || 'cyberpunk')] || (cfg.theme || 'cyberpunk')
+            },
+            {
+                key: 'openStand',
+                label: 'Стенд выбора стиля',
+                valueText: '▶ Открыть живую галерею'
+            },
             {
                 key: 'preferredPlayer',
                 label: 'Плеер по умолчанию',
@@ -240,7 +260,17 @@ async function settingsScreen() {
         if (key.name === 'return' || key.name === 'space' || key.name === 'right' || key.name === 'left') {
             var cur = items[selected];
 
-            if (cur.key === 'preferredPlayer') {
+            if (cur.key === 'theme') {
+                var curTIdx = themeOptions.indexOf(cfg.theme || 'cyberpunk');
+                var nextTIdx = (curTIdx + (key.name === 'left' ? -1 : 1) + themeOptions.length) % themeOptions.length;
+                cfg.theme = themeOptions[nextTIdx];
+                config.save({ theme: cfg.theme });
+            } else if (cur.key === 'openStand') {
+                var standTheme = await require('./stand').runStand();
+                if (standTheme) {
+                    cfg.theme = standTheme;
+                }
+            } else if (cur.key === 'preferredPlayer') {
                 var curPIdx = playerOptions.indexOf(cfg.preferredPlayer || '');
                 var nextPIdx = (curPIdx + (key.name === 'left' ? -1 : 1) + playerOptions.length) % playerOptions.length;
                 cfg.preferredPlayer = playerOptions[nextPIdx];
@@ -393,6 +423,17 @@ async function searchScreen(state, apiKey) {
     function render(spinnerFrame) {
         var size = metrics();
         var content = [''];
+
+        if (query.trim().length === 0 && !spinnerFrame) {
+            var cfg = config.read();
+            var logoLines = themes.renderLogo(cfg.theme || 'cyberpunk');
+            logoLines.forEach(function (l) {
+                var len = ansi.visibleWidth(l);
+                var indent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - len) / 2)));
+                content.push('  ' + indent + l);
+            });
+            content.push('');
+        }
 
         content.push('  ' + tui.field('Фильм', query, true));
         content.push('');

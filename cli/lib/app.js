@@ -158,8 +158,9 @@ async function settingsScreen() {
     var modeOptions = [false, true];
     var modeLabels = ['Гибридный ⚡ (прямой + браузер)', 'Только прямой ⚡ (без запуска Chromium)'];
 
-    var themeOptions = ['cyberpunk', 'cinema', 'matrix', 'tokyo', 'nordic'];
+    var themeOptions = ['classic_bw', 'cyberpunk', 'cinema', 'matrix', 'tokyo', 'nordic'];
     var themeLabels = [
+        'Classic Monochrome (Классическая Ч/Б)',
         'Neon Cyberpunk (Неон / Киберпанк)',
         'Cinema Noir & Gold (Тёмное Золото / Премиум)',
         'Matrix Hacker (Матрица / Зелёный)',

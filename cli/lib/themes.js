@@ -1,40 +1,61 @@
 'use strict';
 
-// Коллекция визуальных стилей, цветовых палитр и ANSI арта для KTW.
+// Коллекция визуальных стилей, цветовых палитр и точного ANSI арта для KTW.
 
 var ansi = require('./ansi');
 
 var LOGOS = {
-    // 1. Компактный градиентный баннер
-    sleek: [
-        '█▀▀█ █ █ █ █▀▀█ ▀▀█▀▀ █▀▀ █ █ █▀▀█',
-        '█▄▄▀ █ █▀▄ █  █   █   █▀▀ █▀▄ █▄▄█',
-        '▀  ▀ ▀ ▀ ▀ ▀▀▀▀   ▀   ▀▀▀ ▀ ▀ ▀  ▀'
+    // 1. Точный 3-строчный шрифт KINOTEKA
+    standard: [
+        '█  █ ▀█▀ █▄  █ ▄▀▀▄ ▀█▀ █▀▀ █  █ ▄▀▀▄',
+        '█▄▀   █  █ ▀▄█ █  █  █  █▀▀ █▄▀  █▄▄█',
+        '█ ▀▄ ▄█▄ █  ▀█ ▀▄▄▀  █  █▄▄ █ ▀▄ █  █'
     ],
-    // 2. Киберпанк / Неон 3D
-    cyber: [
-        '╦╔═ ╦ ╔╗╔ ╔═╗ ╔╦╗ ╔═╗ ╦╔═ ╔═╗',
-        '╠╩╗ ║ ║║║ ║ ║  ║  ║╣  ╠╩╗ ╠═╣',
-        '╩ ╩ ╩ ╝╚╝ ╚═╝  ╩  ╚═╝ ╩ ╩ ╩ ╩'
+    // 2. Компактный 2-строчный шрифт KINOTEKA
+    compact: [
+        '█▄▀ █ █▄ █ █▀█ ▀█▀ █▀▀ █▄▀ █▀█',
+        '█ █ █ █ ▀█ █▄█  █  ██▄ █ █ █▀█'
     ],
-    // 3. Кинолента / Киноплёнка
-    cinema: [
-        '░█▀▀░█░█░█▀▀░█▀▀█ ░▀█▀░█▀▀░█░█░█▀▀█',
-        '░█░░░█▀▄░█▀▀░█░░█ ░░█░░█▀▀░█▀▄░█▄▄█',
-        '░▀▀▀░▀░▀░▀▀▀░▀▀▀▀ ░░▀░░▀▀▀░▀░▀░▀░░▀'
+    // 3. Киберпанк / Контурный KTW
+    ktw: [
+        '╦╔═ ╔╦╗ ╦ ╦ ╦',
+        '╠╩╗  ║  ║║║║║',
+        '╩ ╩  ╩  ╚╩╝╩╝'
     ],
-    // 4. Минималистичный микро-логотип
+    // 4. Минималистичный микро-бейдж
     mini: [
-        '▰▰▰ KINOTEKA WATCH ▰▰▰'
+        '▰▰▰ K I N O T E K A ▰▰▰'
     ]
 };
 
 var THEMES = {
+    classic_bw: {
+        id: 'classic_bw',
+        name: 'Classic Monochrome (Классическая Ч/Б)',
+        tagline: 'Строгий минимализм, чистый белый и серебристые полутона',
+        logoStyle: 'standard',
+        colors: {
+            accent: [255, 255, 255],   // Pure White
+            secondary: [215, 215, 215],// Light Silver
+            highlight: [255, 255, 255],// White
+            muted: [130, 130, 130],    // Neutral Gray
+            border: [160, 160, 160],   // Crisp Gray
+            good: [240, 240, 240],     // White-Silver
+            warn: [200, 200, 200],     // Silver
+            bad: [150, 150, 150],      // Medium Gray
+            titleBg: [20, 20, 20],
+            cardBg: [10, 10, 10]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '>', caret: '█', dot: '·', up: '▲', down: '▼', star: '★', film: '■'
+        }
+    },
     cyberpunk: {
         id: 'cyberpunk',
         name: 'Neon Cyberpunk (Неон / Киберпанк)',
         tagline: 'Электрический циан, неоновый пурпур и глитч-эффекты',
-        logoStyle: 'cyber',
+        logoStyle: 'standard',
         colors: {
             accent: [0, 240, 255],     // Electric Cyan
             secondary: [255, 0, 127],  // Neon Pink/Magenta
@@ -56,7 +77,7 @@ var THEMES = {
         id: 'cinema',
         name: 'Cinema Noir & Gold (Тёмное Золото / Премиум Кино)',
         tagline: 'Глубокий обсидиан, бархатное золото и эстетика IMAX',
-        logoStyle: 'cinema',
+        logoStyle: 'standard',
         colors: {
             accent: [245, 185, 65],    // Warm Amber Gold
             secondary: [255, 220, 130],// Soft Champagne
@@ -78,7 +99,7 @@ var THEMES = {
         id: 'matrix',
         name: 'Matrix Hacker (Матрица / Зелёный Терминал)',
         tagline: 'Классический фосфорный монохром и кибернетический дух',
-        logoStyle: 'sleek',
+        logoStyle: 'standard',
         colors: {
             accent: [0, 255, 110],     // Phosphor Green
             secondary: [140, 255, 180],// Light Mint
@@ -100,7 +121,7 @@ var THEMES = {
         id: 'tokyo',
         name: 'Tokyo Night & Synthwave (Токио Ночь / Синтвейв)',
         tagline: 'Фиолетовые сумерки, лавандовый и пастельный циан',
-        logoStyle: 'sleek',
+        logoStyle: 'standard',
         colors: {
             accent: [125, 207, 255],   // Sky Cyan
             secondary: [187, 154, 247],// Soft Lavender
@@ -122,7 +143,7 @@ var THEMES = {
         id: 'nordic',
         name: 'Nordic Frost (Северный Ледник / Минимализм)',
         tagline: 'Арктический синий, чистый белый и морозный минимализм',
-        logoStyle: 'sleek',
+        logoStyle: 'standard',
         colors: {
             accent: [136, 192, 208],   // Frost Blue
             secondary: [129, 161, 193],// Ice Blue
@@ -144,10 +165,17 @@ var THEMES = {
 
 // Генерация цветного ANSI логотипа с горизонтальным градиентом
 function renderLogo(themeId) {
-    var theme = THEMES[themeId] || THEMES.cyberpunk;
-    var rawLines = LOGOS[theme.logoStyle] || LOGOS.sleek;
+    var theme = THEMES[themeId] || THEMES.classic_bw;
+    var rawLines = LOGOS[theme.logoStyle] || LOGOS.standard;
     var c1 = theme.colors.accent;
     var c2 = theme.colors.secondary || theme.colors.highlight;
+
+    // В классической ч/б теме — чистая монохромная заливка
+    if (theme.id === 'classic_bw') {
+        return rawLines.map(function (l) {
+            return ansi.style.bold(ansi.fg(255, 255, 255) + l + ansi.style.reset);
+        });
+    }
 
     var rendered = [];
     rawLines.forEach(function (line) {

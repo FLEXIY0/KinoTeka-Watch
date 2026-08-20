@@ -182,17 +182,9 @@ async function settingsScreen() {
         'Nordic Frost (Северный Ледник / Минимал)'
     ];
 
-    var bannerOptions = ['auto', 'slant', 'monument', 'cyber', 'gothic', 'lineart', 'classic_figlet', 'off'];
-    var bannerLabels = [
-        'Авто (из темы)',
-        'Slant (3D Наклонный)',
-        'Monument (Монолитные блоки)',
-        'Cyber (Кибернетика)',
-        'Gothic (Готика)',
-        'Line-Art (Тонкие рамки)',
-        'Classic Figlet (ASCII)',
-        'Выключить (без баннера)'
-    ];
+    var bannerOptions = themes.FONT_KEYS;
+    var sizeOptions = ['auto', 'full', 'compact', 'mini'];
+    var sizeLabels = ['Авто (адаптивный)', 'Полный (KINOTEKA)', 'Компактный (KTW)', 'Мини (ktw)'];
 
     while (true) {
         var size = metrics();
@@ -211,7 +203,12 @@ async function settingsScreen() {
             {
                 key: 'bannerStyle',
                 label: 'Стиль ANSI логотипа',
-                valueText: bannerLabels[bannerOptions.indexOf(cfg.bannerStyle || 'auto')] || (cfg.bannerStyle || 'Авто')
+                valueText: themes.FONT_LABELS[cfg.bannerStyle || 'auto'] || (cfg.bannerStyle || 'Авто')
+            },
+            {
+                key: 'bannerSize',
+                label: 'Размер логотипа',
+                valueText: sizeLabels[sizeOptions.indexOf(cfg.bannerSize || 'auto')] || (cfg.bannerSize || 'Авто')
             },
             {
                 key: 'openStand',
@@ -302,11 +299,12 @@ async function settingsScreen() {
                 var nextLIdx = (curLIdx + (key.name === 'left' ? -1 : 1) + langOptions.length) % langOptions.length;
                 cfg.lang = langOptions[nextLIdx];
                 config.save({ lang: cfg.lang });
-            } else if (cur.key === 'theme' || cur.key === 'bannerStyle' || cur.key === 'openStand') {
+            } else if (cur.key === 'theme' || cur.key === 'bannerStyle' || cur.key === 'bannerSize' || cur.key === 'openStand') {
                 var standRes = await require('./stand').runStand();
                 if (standRes) {
                     cfg.theme = standRes.theme;
                     cfg.bannerStyle = standRes.bannerStyle;
+                    cfg.bannerSize = standRes.bannerSize;
                 }
             } else if (cur.key === 'preferredPlayer') {
                 var curPIdx = playerOptions.indexOf(cfg.preferredPlayer || '');
@@ -497,7 +495,7 @@ async function searchScreen(state, apiKey) {
 
         if (query.trim().length === 0 && !spinnerFrame) {
             var cfg = config.read();
-            var logoLines = themes.renderLogo(cfg.theme || 'classic_bw', cfg.bannerStyle || 'auto');
+            var logoLines = themes.renderLogo(cfg.theme || 'classic_bw', cfg.bannerStyle || 'auto', size.width - 6, cfg.bannerSize || 'auto');
             logoLines.forEach(function (l) {
                 var len = ansi.visibleWidth(l);
                 var indent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - len) / 2)));

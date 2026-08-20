@@ -23,7 +23,8 @@ var DEFAULTS = {
     directOnly: false,         // режим только прямого парсинга без запуска браузера
     posterMode: 'auto',        // 'auto', 'ascii', 'off'
     theme: 'classic_bw',       // 'classic_bw', 'monument', 'cyberpunk', 'cinema', 'matrix', 'nordic'
-    bannerStyle: 'auto',       // 'auto', 'slant', 'monument', 'cyber', 'gothic', 'lineart', 'classic_figlet', 'off'
+    bannerStyle: 'auto',       // font style name or 'auto'
+    bannerSize: 'auto',        // 'auto', 'full', 'compact', 'mini'
     lang: 'ru',                // 'ru', 'en'
     timeout: 40000
 };

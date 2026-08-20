@@ -1,6 +1,6 @@
 'use strict';
 
-// Интерактивный выставочный стенд живой настройки стилей оформления и ANSI шрифтов для KTW.
+// Интерактивный выставочный стенд живой настройки тем, шрифтов и размеров баннера для KTW.
 
 var ansi = require('./ansi');
 var tui = require('./tui');
@@ -9,13 +9,21 @@ var config = require('./config');
 
 var style = ansi.style;
 
-function renderStand(themeId, bannerStyle) {
+var SIZE_KEYS = ['auto', 'full', 'compact', 'mini'];
+var SIZE_LABELS = {
+    auto: 'Авто (адаптивный)',
+    full: 'Полный (KINOTEKA)',
+    compact: 'Компактный (KTW)',
+    mini: 'Мини (ktw)'
+};
+
+function renderStand(themeId, bannerStyle, bannerSize) {
     var theme = themes.THEMES[themeId] || themes.THEMES.classic_bw;
     var size = tui.size();
-    var width = Math.max(56, Math.min(size.cols - 4, 88));
+    var width = Math.max(54, Math.min(size.cols - 4, 96));
     var inner = width - 2;
 
-    var logoLines = themes.renderLogo(themeId, bannerStyle, inner);
+    var logoLines = themes.renderLogo(themeId, bannerStyle, inner, bannerSize);
     var g = theme.glyphs;
     var c = theme.colors;
 
@@ -24,7 +32,8 @@ function renderStand(themeId, bannerStyle) {
     }
 
     var fontLabel = themes.FONT_LABELS[bannerStyle] || bannerStyle;
-    var headerTitle = theme.name + '  ·  Шрифт: ' + fontLabel;
+    var sizeLabel = SIZE_LABELS[bannerSize] || bannerSize;
+    var headerTitle = theme.name + ' · Шрифт: ' + fontLabel + ' · Размер: ' + sizeLabel;
 
     var head = colorFg(c.border, g.tl + g.h + ' ') + style.bold(colorFg(c.accent, headerTitle)) + ' ' +
         colorFg(c.border, ansi.repeat(g.h, Math.max(0, inner - ansi.visibleWidth(headerTitle) - 3)) + g.tr);
@@ -97,7 +106,7 @@ function renderStand(themeId, bannerStyle) {
     var fontKeys = themes.FONT_KEYS;
     var fontIndex = fontKeys.indexOf(bannerStyle);
 
-    var navStr = '←/→ тема (' + (currentIndex + 1) + '/' + themeKeys.length + ')  ·  ↑/↓ шрифт (' + (fontIndex + 1) + '/' + fontKeys.length + ')  ·  Enter применить  ·  Esc назад';
+    var navStr = '←/→ тема (' + (currentIndex + 1) + '/' + themeKeys.length + ')  ·  ↑/↓ шрифт (' + (fontIndex + 1) + '/' + fontKeys.length + ')  ·  s размер (' + sizeLabel + ')  ·  Enter применить  ·  Esc назад';
     var navCentered = Math.max(0, Math.floor((width - ansi.visibleWidth(navStr)) / 2));
     lines.push('');
     lines.push(ansi.repeat(' ', navCentered) + style.muted(navStr));
@@ -112,6 +121,7 @@ async function runStand() {
 
     var currentIndex = Math.max(0, themeKeys.indexOf(currentConfig.theme || 'classic_bw'));
     var fontIndex = Math.max(0, fontKeys.indexOf(currentConfig.bannerStyle || 'auto'));
+    var sizeIndex = Math.max(0, SIZE_KEYS.indexOf(currentConfig.bannerSize || 'auto'));
 
     tui.enter();
 
@@ -119,7 +129,9 @@ async function runStand() {
         while (true) {
             var activeThemeId = themeKeys[currentIndex];
             var activeBanner = fontKeys[fontIndex];
-            tui.paint(renderStand(activeThemeId, activeBanner));
+            var activeSize = SIZE_KEYS[sizeIndex];
+
+            tui.paint(renderStand(activeThemeId, activeBanner, activeSize));
 
             var key = await tui.readKey();
 
@@ -127,6 +139,7 @@ async function runStand() {
                 return null;
             }
 
+            // Переключение шрифта
             if (key.name === 'tab' || key.name === 'down') {
                 fontIndex = (fontIndex + 1) % fontKeys.length;
                 continue;
@@ -137,6 +150,7 @@ async function runStand() {
                 continue;
             }
 
+            // Переключение темы
             if (key.name === 'left') {
                 currentIndex = (currentIndex - 1 + themeKeys.length) % themeKeys.length;
                 continue;
@@ -147,11 +161,18 @@ async function runStand() {
                 continue;
             }
 
+            // Переключение размера баннера (s / S)
+            if (key.name === 's') {
+                sizeIndex = (sizeIndex + 1) % SIZE_KEYS.length;
+                continue;
+            }
+
             if (key.name === 'return' || key.name === 'space') {
                 var selectedTheme = themeKeys[currentIndex];
                 var selectedFont = fontKeys[fontIndex];
-                config.save({ theme: selectedTheme, bannerStyle: selectedFont });
-                return { theme: selectedTheme, bannerStyle: selectedFont };
+                var selectedSize = SIZE_KEYS[sizeIndex];
+                config.save({ theme: selectedTheme, bannerStyle: selectedFont, bannerSize: selectedSize });
+                return { theme: selectedTheme, bannerStyle: selectedFont, bannerSize: selectedSize };
             }
         }
     } finally {

@@ -78,11 +78,23 @@ async function runTests() {
     assert(isWatched === true, 'Серия помечена как просмотренная (isEpisodeWatched: true)');
     var isNotWatched = history.isEpisodeWatched(999998, 1, 4);
     assert(isNotWatched === false, 'Непросмотренная серия возвращает false');
+    assert(history.getWatchedEpisodesCount(999998) === 1, 'getWatchedEpisodesCount: 1 серия');
+
+    // Проверяем сброс прогресса сериала (resetSerial)
+    history.resetSerial(999998);
+    assert(history.isEpisodeWatched(999998, 1, 3) === false, 'После resetSerial серия больше не помечена');
+    assert(history.getWatchedEpisodesCount(999998) === 0, 'После resetSerial количество просмотренных серий = 0');
 
     // Очищаем тестовые записи
     history.remove(999999);
     history.remove(999998);
     assert(history.getProgress(999999) === null, 'Тестовые записи успешно удалены из истории');
+
+    // ТЕСТ i18n: Локализация
+    var i18n = require('./lib/i18n');
+    assert(i18n.t('search_field', 'ru') === 'Поиск', 'i18n RU: Поиск');
+    assert(i18n.t('search_field', 'en') === 'Search', 'i18n EN: Search');
+    assert(i18n.t('history_title', 'en') === 'History Gallery', 'i18n EN: History Gallery');
 
     // ТЕСТ 3: Kinobox API и получение плееров
     console.log('\n\x1b[36m[3/6] Тестирование Kinobox API (Матрица id=301)\x1b[0m');

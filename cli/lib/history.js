@@ -136,6 +136,36 @@ function isEpisodeWatched(filmId, season, episode) {
     return list.indexOf(Number(season) + '_' + Number(episode)) >= 0;
 }
 
+// Получить список просмотренных серий для сериала
+function getWatchedEpisodesList(filmId) {
+    if (!filmId) return [];
+    var data = read();
+    return data.watchedEpisodes[String(filmId)] || [];
+}
+
+// Получить количество просмотренных серий
+function getWatchedEpisodesCount(filmId) {
+    return getWatchedEpisodesList(filmId).length;
+}
+
+// Сброс прогресса сериала/фильма (обнуление таймкода и очистка отметок серий)
+function resetSerial(filmId) {
+    if (!filmId) return;
+    var data = read();
+    var idStr = String(filmId);
+
+    delete data.watchedEpisodes[idStr];
+    var item = data.items.find(function (i) { return String(i.filmId) === idStr; });
+    if (item) {
+        item.timePos = 0;
+        item.percentage = 0;
+        item.watched = false;
+        item.season = item.serial ? 1 : null;
+        item.episode = item.serial ? 1 : null;
+    }
+    write(data);
+}
+
 // Получить список последних недосмотренных / просмотренных фильмов
 function getRecent(limit) {
     var data = read();
@@ -164,6 +194,9 @@ module.exports = {
     saveProgress: saveProgress,
     getProgress: getProgress,
     isEpisodeWatched: isEpisodeWatched,
+    getWatchedEpisodesList: getWatchedEpisodesList,
+    getWatchedEpisodesCount: getWatchedEpisodesCount,
+    resetSerial: resetSerial,
     getRecent: getRecent,
     remove: remove,
     clear: clear

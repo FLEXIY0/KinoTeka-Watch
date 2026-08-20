@@ -22,7 +22,8 @@ var DEFAULTS = {
     mpvCustomArgs: [],
     directOnly: false,         // режим только прямого парсинга без запуска браузера
     posterMode: 'auto',        // 'auto', 'ascii', 'off'
-    theme: 'cyberpunk',        // 'cyberpunk', 'cinema', 'matrix', 'tokyo', 'nordic'
+    theme: 'classic_bw',       // 'classic_bw', 'monument', 'cyberpunk', 'cinema', 'matrix', 'nordic'
+    lang: 'ru',                // 'ru', 'en'
     timeout: 40000
 };
 

@@ -1,10 +1,16 @@
 #!/bin/sh
 # Установка ktw — терминального клиента KinoTeka Watch.
 #
-#   curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/main/cli/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/feature/direct-kinobox-tui/cli/install.sh | sh
 #
-# Чистый POSIX sh: на Devuan и Debian /bin/sh — это dash, поэтому никаких
-# bash-измов. Systemd не требуется, права root — только для установки пакетов.
+# Рантайм — только Bun. Node.js не нужен и не ставится: ktw.js собран под bun
+# (#!/usr/bin/env bun), пакеты ставятся через `bun install`.
+#
+# Чистый POSIX sh: на Devuan, Loc OS, antiX и Alpine /bin/sh — это dash или
+# busybox ash, поэтому никаких bash-измов. Systemd не требуется нигде: ни один
+# шаг не трогает systemctl, юниты и logind — установщик одинаково работает на
+# sysvinit, OpenRC, runit и systemd. Root нужен только для системных пакетов
+# (git, mpv), и то через sudo/doas/su — что найдётся.
 
 set -eu
 
@@ -50,6 +56,24 @@ banner() {
 
 has() { command -v "$1" >/dev/null 2>&1; }
 
+# Создать каталог и убедиться, что он действительно каталог.
+#
+# Раньше тут был голый `mkdir -p`, и на выходе можно было получить
+# «cannot create ~/.local/bin/ktw: Directory nonexistent»: если по пути лежал
+# файл или битый симлинк, mkdir -p возвращал ошибку, но скрипт всё равно
+# доходил до записи. Теперь путь проверяется по факту, а мусор убирается.
+ensure_dir() {
+    [ -d "$1" ] && return 0
+
+    # Симлинк в никуда или файл на месте каталога — сносим, иначе mkdir не сможет
+    if [ -e "$1" ] || [ -L "$1" ]; then
+        rm -f "$1" 2>/dev/null || true
+    fi
+
+    mkdir -p "$1" 2>/dev/null || true
+    [ -d "$1" ]
+}
+
 # Скрипт мог прийти по конвейеру из curl — тогда спрашивать не у кого.
 # Проверяем именно открытием: файл /dev/tty есть всегда, но без
 # управляющего терминала открыть его нельзя.
@@ -72,10 +96,9 @@ ask() {
 
 # ---------- живая строка прогресса ----------
 #
-# Долгие шаги (npm install тянет Chromium под 150 МБ) раньше молчали, и было
-# не отличить работу от зависания. Теперь команда уходит в фон, её вывод — в
-# лог, а на экране остаётся одна строка: спиннер, секундомер и либо объём
-# скачанного, либо последняя строка вывода.
+# Долгие шаги раньше молчали, и было не отличить работу от зависания. Теперь
+# команда уходит в фон, её вывод — в лог, а на экране остаётся одна строка:
+# спиннер, секундомер и либо объём скачанного, либо последняя строка вывода.
 
 SPIN_ASCII=1
 case "${LC_ALL:-}${LC_CTYPE:-}${LANG:-}" in
@@ -135,6 +158,10 @@ spin_note() {
         | cut -c1-42
 }
 
+# Фоновая команда обязана получить stdin из /dev/null. Скрипт запускают как
+# `curl … | sh`, то есть stdin оболочки — это ещё не дочитанный текст самого
+# скрипта; дочерний процесс, дёрнувший read, откусит от него кусок, и дальше
+# оболочка выполнит обрезанный текст. Так и терялся `mkdir -p "$BIN_DIR"`.
 spin_run() {
     _label="$1"
     shift
@@ -146,11 +173,11 @@ spin_run() {
     # Без терминала анимация бессмысленна — просто ждём
     if [ ! -t 1 ]; then
         printf '  %s…%s %s\n' "$C_DIM" "$C_RESET" "$_label"
-        "$@" > "$_log" 2>&1
+        "$@" > "$_log" 2>&1 < /dev/null
         return $?
     fi
 
-    "$@" > "$_log" 2>&1 &
+    "$@" > "$_log" 2>&1 < /dev/null &
     _pid=$!
 
     _start=$(date +%s 2>/dev/null || echo 0)
@@ -180,6 +207,22 @@ spin_run() {
     return $_code
 }
 
+# ---------- загрузка файлов ----------
+
+# curl есть не везде (минимальный Devuan/Alpine ставится с wget)
+fetch_to() {
+    _url="$1"
+    _dest="$2"
+
+    if has curl; then
+        curl -fsSL --retry 3 -o "$_dest" "$_url" < /dev/null
+    elif has wget; then
+        wget -q -O "$_dest" "$_url" < /dev/null
+    else
+        return 1
+    fi
+}
+
 # ---------- установка пакетов ----------
 
 PKG_MGR=""
@@ -194,6 +237,7 @@ detect_pkg_mgr() {
     elif has pacman; then PKG_MGR="pacman"; PKG_INSTALL="pacman -S --noconfirm --needed"
     elif has zypper; then PKG_MGR="zypper"; PKG_INSTALL="zypper install -y"
     elif has xbps-install; then PKG_MGR="xbps"; PKG_INSTALL="xbps-install -Sy"
+    elif has emerge; then PKG_MGR="emerge"; PKG_INSTALL="emerge --quiet"
     elif has brew; then PKG_MGR="brew"; PKG_INSTALL="brew install"
     fi
 }
@@ -210,13 +254,15 @@ detect_root_mode() {
     fi
 }
 
-# Запуск команды от root: sudo, doas или su — что найдётся
+# Запуск команды от root: sudo, doas или su — что найдётся.
+# su читает пароль с управляющего терминала, поэтому ему отдаём /dev/tty,
+# а не наш stdin (в котором лежит хвост самого скрипта).
 run_root() {
     case "$ROOT_MODE" in
         root) sh -c "$*" ;;
         sudo) sudo sh -c "$*" ;;
         doas) doas sh -c "$*" ;;
-        su)   su -c "$*" ;;
+        su)   if has_tty; then su -c "$*" < /dev/tty; else su -c "$*" < /dev/null; fi ;;
         *)    return 1 ;;
     esac
 }
@@ -269,11 +315,11 @@ install_pkg() {
     fi
 
     if [ "$PKG_MGR" = "apt-get" ] && [ "$PKG_UPDATED" = "0" ]; then
-        run_root_step "обновляю список пакетов" "apt-get update -qq" || true
+        run_root_step "обновляю список пакетов" "DEBIAN_FRONTEND=noninteractive apt-get update -qq" || true
         PKG_UPDATED=1
     fi
 
-    run_root_step "ставлю $_pkg через $PKG_MGR" "$PKG_INSTALL $_pkg"
+    run_root_step "ставлю $_pkg через $PKG_MGR" "DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $_pkg"
 }
 
 # Проверяем инструмент и при отсутствии пробуем поставить
@@ -300,47 +346,166 @@ require_tool() {
     return 1
 }
 
-# ---------- шаги установки ----------
+# ---------- рантайм: только Bun ----------
+#
+# Node.js не используется вообще. Официальный `curl … bun.sh/install | bash`
+# требует bash и unzip, а на голом sysvinit-минимуме их может не быть, поэтому
+# основной путь — прямая распаковка релизного архива с GitHub, а bun.sh идёт
+# запасным вариантом.
 
-RUNTIME_CMD="node"
+BUN_BIN=""
 
-check_runtime() {
+# Имя релизного архива под текущую машину
+bun_asset() {
+    _os=$(uname -s 2>/dev/null || echo Linux)
+    _arch=$(uname -m 2>/dev/null || echo x86_64)
+
+    case "$_arch" in
+        x86_64|amd64)  _arch="x64" ;;
+        aarch64|arm64) _arch="aarch64" ;;
+        *) return 1 ;;
+    esac
+
+    case "$_os" in
+        Darwin)
+            printf 'bun-darwin-%s' "$_arch"
+            return 0
+            ;;
+        Linux) ;;
+        *) return 1 ;;
+    esac
+
+    # Alpine и прочий musl — отдельная сборка
+    _libc=""
+    if [ -n "$(ls /lib/ld-musl-* 2>/dev/null)" ] || (ldd --version 2>&1 | grep -qi musl); then
+        _libc="-musl"
+    fi
+
+    # Без AVX2 обычная сборка падает с SIGILL — для старых CPU есть baseline
+    _base=""
+    if [ "$_arch" = "x64" ] && ! grep -qw avx2 /proc/cpuinfo 2>/dev/null; then
+        _base="-baseline"
+    fi
+
+    printf 'bun-linux-%s%s%s' "$_arch" "$_libc" "$_base"
+}
+
+# Распаковка zip чем угодно: unzip, bsdtar или python3
+unzip_to() {
+    _zip="$1"
+    _dir="$2"
+
+    if has unzip; then
+        unzip -q -o "$_zip" -d "$_dir" < /dev/null && return 0
+    fi
+
+    if has bsdtar; then
+        (cd "$_dir" && bsdtar -xf "$_zip") < /dev/null && return 0
+    fi
+
+    if has python3; then
+        python3 -c 'import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+            "$_zip" "$_dir" < /dev/null && return 0
+    fi
+
+    return 1
+}
+
+# Скачать релиз с GitHub и положить бинарь в ~/.bun/bin/bun
+bun_from_release() {
+    _asset=$(bun_asset) || return 1
+    _tmp="${TMPDIR:-/tmp}/ktw-bun.$$"
+
+    ensure_dir "$_tmp" || return 1
+
+    if ! fetch_to "https://github.com/oven-sh/bun/releases/latest/download/$_asset.zip" "$_tmp/bun.zip"; then
+        rm -rf "$_tmp"
+        return 1
+    fi
+
+    # unzip/bsdtar/python3 может не быть на минимальной системе — доставим
+    if ! has unzip && ! has bsdtar && ! has python3; then
+        install_pkg unzip >/dev/null 2>&1 || true
+    fi
+
+    if ! unzip_to "$_tmp/bun.zip" "$_tmp"; then
+        rm -rf "$_tmp"
+        return 1
+    fi
+
+    _found=$(find "$_tmp" -name bun -type f 2>/dev/null | head -n 1)
+    [ -n "$_found" ] || { rm -rf "$_tmp"; return 1; }
+
+    ensure_dir "$HOME/.bun/bin" || { rm -rf "$_tmp"; return 1; }
+    cp -f "$_found" "$HOME/.bun/bin/bun"
+    chmod +x "$HOME/.bun/bin/bun"
+    rm -rf "$_tmp"
+
+    "$HOME/.bun/bin/bun" --version >/dev/null 2>&1
+}
+
+# Запасной путь — официальный установщик (нужен bash и unzip)
+bun_from_official() {
+    has bash || return 1
+    has unzip || install_pkg unzip >/dev/null 2>&1 || true
+    has curl || return 1
+
+    sh -c "curl -fsSL https://bun.sh/install | bash" < /dev/null >/dev/null 2>&1
+    [ -x "$HOME/.bun/bin/bun" ] && "$HOME/.bun/bin/bun" --version >/dev/null 2>&1
+}
+
+use_bun() {
+    BUN_BIN="$1"
+    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    PATH="$(dirname "$BUN_BIN"):$PATH"
+    export PATH
+}
+
+ensure_bun() {
+    # Уже в PATH
     if has bun; then
-        ok "рантайм: $(bun --version 2>&1 | head -n1 | sed 's/^/bun /')"
-        RUNTIME_CMD="bun"
+        use_bun "$(command -v bun)"
+        ok "bun $(bun --version 2>/dev/null)"
         return 0
     fi
 
-    if has node; then
-        _major=$(node -v | sed 's/^v\([0-9][0-9]*\).*/\1/')
-        if [ "$_major" -ge 18 ] 2>/dev/null; then
-            ok "рантайм: node $(node -v)"
-            RUNTIME_CMD="node"
+    # Ставился раньше, но PATH не подхватил
+    for _candidate in "$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun; do
+        if [ -x "$_candidate" ]; then
+            use_bun "$_candidate"
+            ok "bun $(bun --version 2>/dev/null) ($_candidate)"
             return 0
         fi
+    done
+
+    say ""
+    dim "рантайм — Bun, ставлю в ~/.bun (без root, без systemd)"
+
+    if spin_run "качаю Bun" bun_from_release && [ -x "$HOME/.bun/bin/bun" ]; then
+        use_bun "$HOME/.bun/bin/bun"
+        ok "bun $(bun --version 2>/dev/null) установлен в ~/.bun/bin/bun"
+        return 0
+    fi
+
+    if spin_run "ставлю Bun официальным скриптом" bun_from_official && [ -x "$HOME/.bun/bin/bun" ]; then
+        use_bun "$HOME/.bun/bin/bun"
+        ok "bun $(bun --version 2>/dev/null) установлен в ~/.bun/bin/bun"
+        return 0
+    fi
+
+    # Последняя попытка — пакет из репозитория дистрибутива (есть в Arch, Void)
+    install_pkg bun >/dev/null 2>&1 || true
+    if has bun; then
+        use_bun "$(command -v bun)"
+        ok "bun $(bun --version 2>/dev/null) из пакетов"
+        return 0
     fi
 
     say ""
-    dim "ставлю ультра-быстрый рантайм Bun (без root)..."
-    if spin_run "ставлю Bun" sh -c "curl -fsSL https://bun.sh/install | bash"; then
-        export BUN_INSTALL="$HOME/.bun"
-        export PATH="$BUN_INSTALL/bin:$PATH"
-        if has bun; then
-            ok "bun установлен ($(bun --version))"
-            RUNTIME_CMD="bun"
-            return 0
-        fi
-    fi
-
-    if [ "$PKG_MGR" = "apt-get" ]; then
-        install_pkg "nodejs npm" || true
-    else
-        install_pkg nodejs || true
-    fi
-
-    has node || die "нужен Bun или Node.js. Поставь Bun: curl -fsSL https://bun.sh/install | bash"
-    RUNTIME_CMD="node"
-    ok "node $(node -v)"
+    dim "не вышло автоматически. Поставь Bun руками и запусти установщик снова:"
+    dim "  curl -fsSL https://bun.sh/install | bash"
+    dim "архитектура: $(uname -m 2>/dev/null || echo '?'), нужен x86_64 или aarch64"
+    die "без Bun ktw не запустится — Node.js этот клиент не поддерживает"
 }
 
 SOURCES_CLONED=0
@@ -362,7 +527,8 @@ fetch_sources() {
 
     # Очищаем перед клонированием, чтобы избежать ошибок 'destination path already exists'
     rm -rf "$INSTALL_DIR"
-    mkdir -p "$(dirname "$INSTALL_DIR")"
+    ensure_dir "$(dirname "$INSTALL_DIR")" \
+        || die "не могу создать $(dirname "$INSTALL_DIR") — проверь права на \$HOME"
 
     spin_run "качаю исходники в $INSTALL_DIR" \
         git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" \
@@ -375,27 +541,14 @@ fetch_sources() {
 
 # Записать значение в config.json, не потеряв остальные поля
 write_config() {
-    mkdir -p "$CONFIG_DIR"
-    "$RUNTIME_CMD" -e '
+    ensure_dir "$CONFIG_DIR" || return 1
+    bun -e '
         var fs = require("fs"), file = process.argv[1], key = process.argv[2], value = process.argv[3];
         var config = {};
         try { config = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {}
         config[key] = value;
         fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
-    ' "$CONFIG_DIR/config.json" "$1" "$2"
-}
-
-# Скачанный puppeteer'ом браузер реально лежит на диске?
-browser_ready() {
-    "$RUNTIME_CMD" -e '
-        try {
-            var fs = require("fs");
-            var file = require("puppeteer").executablePath();
-            process.exit(file && fs.existsSync(file) ? 0 : 1);
-        } catch (e) {
-            process.exit(1);
-        }
-    ' 2>/dev/null
+    ' "$CONFIG_DIR/config.json" "$1" "$2" < /dev/null
 }
 
 find_system_chromium() {
@@ -412,24 +565,19 @@ find_system_chromium() {
 install_deps() {
     cd "$INSTALL_DIR"
 
+    # Chromium под 150 МБ качать не нужно: берём системный, если он есть
     export PUPPETEER_SKIP_DOWNLOAD=true
+    export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-    if [ "$RUNTIME_CMD" = "bun" ] || has bun; then
-        spin_run "ставлю пакеты через bun" \
-            bun install --production --no-progress \
-            || warn "bun install завершился с предупреждением"
-        ok "пакеты установлены через bun"
-    else
-        spin_run "ставлю пакеты Node" \
-            npm install --omit=dev --no-audit --no-fund \
-            || warn "npm install завершился с предупреждением"
-        ok "пакеты установлены"
-    fi
+    spin_run "ставлю пакеты через bun" bun install --production --no-progress \
+        || warn "bun install завершился с предупреждением"
 
-    # Проверяем, есть ли уже системный браузер (для Puppeteer-фоллбэка)
+    [ -d "$INSTALL_DIR/node_modules" ] || die "bun install не создал node_modules в $INSTALL_DIR"
+    ok "пакеты установлены через bun"
+
     _chromium=$(find_system_chromium 2>/dev/null || echo "")
     if [ -n "$_chromium" ]; then
-        write_config chromiumPath "$_chromium"
+        write_config chromiumPath "$_chromium" || true
         dim "найден системный браузер: $_chromium"
     fi
 }
@@ -439,34 +587,64 @@ install_deps() {
 PATH_PROBLEM=0
 PATH_RC=""
 
+# Лаунчер: ищет bun там, где мы его оставили, потом в PATH, потом по типовым
+# путям. Node.js не упоминается — его тут просто нет.
+write_launcher() {
+    _dest="$1"
+    _tmp="$_dest.tmp.$$"
+
+    cat > "$_tmp" << EOF
+#!/bin/sh
+# ktw — KinoTeka Watch в терминале. Рантайм: Bun.
+KTW_DIR="$INSTALL_DIR"
+
+for _bun in "$BUN_BIN" "\$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun; do
+    [ -n "\$_bun" ] && [ -x "\$_bun" ] && exec "\$_bun" "\$KTW_DIR/cli/ktw.js" "\$@"
+done
+
+if command -v bun >/dev/null 2>&1; then
+    exec bun "\$KTW_DIR/cli/ktw.js" "\$@"
+fi
+
+echo "ktw: не найден bun. Поставь: curl -fsSL https://bun.sh/install | bash" >&2
+exit 1
+EOF
+
+    chmod +x "$_tmp"
+    mv -f "$_tmp" "$_dest"
+}
+
 link_binary() {
-    mkdir -p "$BIN_DIR"
     chmod +x "$INSTALL_DIR/cli/ktw.js"
 
-    # Создаем универсальный лаунчер, который всегда запускает bun (если доступен)
-    cat << EOF > "$BIN_DIR/ktw"
-#!/bin/sh
-if command -v bun >/dev/null 2>&1; then
-    exec bun "$INSTALL_DIR/cli/ktw.js" "\$@"
-elif [ -x "\$HOME/.bun/bin/bun" ]; then
-    exec "\$HOME/.bun/bin/bun" "$INSTALL_DIR/cli/ktw.js" "\$@"
-elif command -v node >/dev/null 2>&1; then
-    exec node "$INSTALL_DIR/cli/ktw.js" "\$@"
-else
-    echo "Ошибка: не найден Bun или Node.js для запуска ktw" >&2
-    exit 1
-fi
-EOF
-    chmod +x "$BIN_DIR/ktw"
+    # Каталог для команд: сначала выбранный, потом ~/bin, потом /usr/local/bin.
+    # Без этого установка падала на «Directory nonexistent», если ~/.local/bin
+    # не создался (битый симлинк, файл на его месте, урезанные права).
+    if ! ensure_dir "$BIN_DIR"; then
+        warn "не смог создать $BIN_DIR"
+
+        if ensure_dir "$HOME/bin"; then
+            BIN_DIR="$HOME/bin"
+            dim "ставлю команду в $BIN_DIR"
+        elif [ "$ROOT_MODE" != "none" ] && run_root "mkdir -p /usr/local/bin" 2>/dev/null; then
+            BIN_DIR="/usr/local/bin"
+            dim "ставлю команду в $BIN_DIR"
+        else
+            die "некуда положить команду ktw. Задай каталог: KTW_BIN=~/мой/bin"
+        fi
+    fi
+
+    write_launcher "$BIN_DIR/ktw" || die "не смог записать $BIN_DIR/ktw"
     cp -f "$BIN_DIR/ktw" "$BIN_DIR/ktw2"
     ok "команды: $BIN_DIR/ktw и $BIN_DIR/ktw2"
 
-    # Если доступен root/sudo, линкуем в /usr/local/bin — тогда команда доступна в PATH мгновенно
-    if [ "$(id -u)" = "0" ] || sudo -n true 2>/dev/null; then
-        run_root cp -f "$BIN_DIR/ktw" /usr/local/bin/ktw 2>/dev/null || true
-        run_root cp -f "$BIN_DIR/ktw" /usr/local/bin/ktw2 2>/dev/null || true
-        ok "системные команды: /usr/local/bin/ktw и /usr/local/bin/ktw2"
-        return 0
+    # Если доступен root/sudo, кладём копию в /usr/local/bin — тогда команда
+    # доступна в PATH мгновенно, без перелогина
+    if [ "$BIN_DIR" != "/usr/local/bin" ] && { [ "$(id -u)" = "0" ] || sudo -n true 2>/dev/null; }; then
+        if run_root "cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw2" 2>/dev/null; then
+            ok "системные команды: /usr/local/bin/ktw и /usr/local/bin/ktw2"
+            return 0
+        fi
     fi
 
     case ":$PATH:" in
@@ -513,16 +691,16 @@ EOF
 }
 
 # Проверка, что клиент реально стартует. Ловит неполное дерево (недокачанный
-# или битый клон) сразу, а не при первом запуске непонятной ошибкой Node.
+# или битый клон) сразу, а не при первом запуске непонятной ошибкой.
 verify_install() {
-    _out=$("$RUNTIME_CMD" "$INSTALL_DIR/cli/ktw.js" --help 2>&1) && {
+    _out=$(bun "$INSTALL_DIR/cli/ktw.js" --help 2>&1 < /dev/null) && {
         ok "клиент запускается"
         return 0
     }
 
     bad "клиент не стартует"
 
-    # Полезное — в начале вывода Node, стек внизу не нужен
+    # Полезное — в начале вывода, стек внизу не нужен
     { printf '%s\n' "$_out" | grep -m1 -A3 '^Error' || printf '%s\n' "$_out" | head -n 4; } \
         | while IFS= read -r _line; do
             dim "  $_line"
@@ -583,7 +761,7 @@ ensure_root_ready
 
 step "Зависимости"
 require_tool git git yes
-check_runtime
+ensure_bun
 require_tool mpv mpv yes
 require_tool chafa chafa no
 

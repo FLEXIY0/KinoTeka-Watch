@@ -442,14 +442,29 @@ PATH_RC=""
 link_binary() {
     mkdir -p "$BIN_DIR"
     chmod +x "$INSTALL_DIR/cli/ktw.js"
-    ln -sf "$INSTALL_DIR/cli/ktw.js" "$BIN_DIR/ktw"
-    ln -sf "$INSTALL_DIR/cli/ktw.js" "$BIN_DIR/ktw2"
+
+    # Создаем универсальный лаунчер, который всегда запускает bun (если доступен)
+    cat << EOF > "$BIN_DIR/ktw"
+#!/bin/sh
+if command -v bun >/dev/null 2>&1; then
+    exec bun "$INSTALL_DIR/cli/ktw.js" "\$@"
+elif [ -x "\$HOME/.bun/bin/bun" ]; then
+    exec "\$HOME/.bun/bin/bun" "$INSTALL_DIR/cli/ktw.js" "\$@"
+elif command -v node >/dev/null 2>&1; then
+    exec node "$INSTALL_DIR/cli/ktw.js" "\$@"
+else
+    echo "Ошибка: не найден Bun или Node.js для запуска ktw" >&2
+    exit 1
+fi
+EOF
+    chmod +x "$BIN_DIR/ktw"
+    cp -f "$BIN_DIR/ktw" "$BIN_DIR/ktw2"
     ok "команды: $BIN_DIR/ktw и $BIN_DIR/ktw2"
 
     # Если доступен root/sudo, линкуем в /usr/local/bin — тогда команда доступна в PATH мгновенно
     if [ "$(id -u)" = "0" ] || sudo -n true 2>/dev/null; then
-        run_root ln -sf "$INSTALL_DIR/cli/ktw.js" /usr/local/bin/ktw 2>/dev/null || true
-        run_root ln -sf "$INSTALL_DIR/cli/ktw.js" /usr/local/bin/ktw2 2>/dev/null || true
+        run_root cp -f "$BIN_DIR/ktw" /usr/local/bin/ktw 2>/dev/null || true
+        run_root cp -f "$BIN_DIR/ktw" /usr/local/bin/ktw2 2>/dev/null || true
         ok "системные команды: /usr/local/bin/ktw и /usr/local/bin/ktw2"
         return 0
     fi

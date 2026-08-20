@@ -162,7 +162,7 @@ async function memoryBenchmarkScreen() {
             '',
             '  ' + style.bold('Реальное потребление RAM процессами KTW:'),
             '',
-            '  ' + style.bold('• KTW (Node.js TUI процесс):') + '   ' + style.accent(stats.ktw + ' МБ') + style.muted(' (Resident RSS)'),
+            '  ' + style.bold('• KTW (' + stats.runtime + ' TUI):') + '   ' + style.accent(stats.ktw + ' МБ') + style.muted(' (Resident RSS)'),
             '    ' + style.muted('- Heap JS движка:            ' + stats.heap + ' МБ'),
             '',
             '  ' + style.bold('• Видеоплеер mpv:') + '              ' + style.warn(stats.mpv + ' МБ') + style.muted(stats.mpvActive ? ' (активен сейчас)' : ' (базовый замер)'),

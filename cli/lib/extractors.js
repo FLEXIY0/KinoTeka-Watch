@@ -1,19 +1,32 @@
 'use strict';
 
-// Прямые быстрые экстракторы потоков из балансеров.
+// Прямые экстракторы потоков из балансеров.
 //
-// Большинство популярных балансеров (Collaps, Kodik, Alloha, Voidboost и др.)
-// отдают полные данные о потоке, звуковых дорожках, субтитрах и плейлистах
-// прямо в HTML/API фрейма. Прямой парсинг работает за <100 мс и не требует
-// запуска браузера, траты памяти и риска блокировки анти-ботами.
+// Браузер здесь не используется вообще: Chromium из зависимостей убран, а
+// значит каждый балансер должен разбираться напрямую по HTML и его API.
+// Каждый экстрактор либо возвращает объект потока, либо бросает BalancerError
+// с понятной причиной (регион, протухшая ссылка, DPI провайдера) — молчаливый
+// null раньше превращал любую поломку в бесполезное «поток не найден».
 
-var USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var http = require('./http');
+
+var USER_AGENT = http.USER_AGENT;
+var BalancerError = http.BalancerError;
+
+// Ссылки на плейлисты внутри JS: и обычные, и с экранированными слэшами
+var M3U8_RE = /https?:(?:\\?\/){2}(?:[^"'\s\\]|\\\/)+?\.(?:m3u8|mpd)(?:\?(?:[^"'\s\\]|\\\/)*)?/ig;
+
+function unescapeUrl(url) {
+    return String(url).replace(/\\\//g, '/').replace(/\\u002[fF]/g, '/').replace(/&amp;/g, '&');
+}
 
 // Разбор JS-литерала объекта из текста
 function parseJsObject(code) {
     if (!code) return null;
+
     try {
         var clean = code.trim();
+
         if (clean[0] !== '{' || clean[clean.length - 1] !== '}') {
             var firstBrace = clean.indexOf('{');
             var lastBrace = clean.lastIndexOf('}');
@@ -21,62 +34,84 @@ function parseJsObject(code) {
                 clean = clean.slice(firstBrace, lastBrace + 1);
             }
         }
-        var fn = new Function('return (' + clean + ');');
-        return fn();
+
+        return new Function('return (' + clean + ');')();
     } catch (err) {
         return null;
     }
 }
 
-// 1. Экстрактор Collaps (api.ortified.ws, apicollaps.cc, fprxnet.org, etc.)
-async function extractCollaps(iframeUrl, options) {
-    options = options || {};
-    var season = options.season ? parseInt(options.season, 10) : null;
-    var episode = options.episode ? parseInt(options.episode, 10) : null;
+// Вырезать сбалансированный объект, начиная с первой «{» после позиции
+function sliceBalanced(text, from) {
+    var start = text.indexOf('{', from);
+    if (start < 0) return null;
 
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, options.timeout || 12000);
+    var depth = 0;
 
-    var res;
-    try {
-        res = await fetch(iframeUrl, {
-            headers: {
-                'User-Agent': USER_AGENT,
-                'Referer': options.referer || 'https://kinobox.tv/',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            },
-            signal: controller.signal
-        });
-    } finally {
-        clearTimeout(timer);
-    }
-
-    if (!res.ok) {
-        throw new Error('Collaps вернул HTTP ' + res.status);
-    }
-
-    var html = await res.text();
-    var origin = new URL(iframeUrl).origin;
-
-    var makePlayerMatch = html.match(/makePlayer\s*\(\s*(\{[\s\S]*?\})\s*\);/);
-    if (!makePlayerMatch) {
-        var altMatch = html.match(/makePlayer\s*\(\s*(\{[\s\S]*)/);
-        if (altMatch) {
-            var depth = 0;
-            var endIdx = -1;
-            for (var i = 0; i < altMatch[1].length; i++) {
-                if (altMatch[1][i] === '{') depth++;
-                else if (altMatch[1][i] === '}') {
-                    depth--;
-                    if (depth === 0) { endIdx = i + 1; break; }
-                }
-            }
-            if (endIdx > 0) {
-                makePlayerMatch = [null, altMatch[1].slice(0, endIdx)];
-            }
+    for (var i = start; i < text.length; i++) {
+        if (text[i] === '{') depth++;
+        else if (text[i] === '}') {
+            depth--;
+            if (depth === 0) return text.slice(start, i + 1);
         }
     }
 
+    return null;
+}
+
+// Все плейлисты, встречающиеся в тексте страницы
+function scanPlaylists(text) {
+    var found = [];
+    var seen = {};
+    var match;
+
+    M3U8_RE.lastIndex = 0;
+
+    while ((match = M3U8_RE.exec(text)) !== null) {
+        var url = unescapeUrl(match[0]);
+
+        // Реклама и превью — не контент
+        if (/(vast|vmap|vpaid|advert|\/ads?\/|preroll|midroll|postroll|trailer|preview|sprite|thumb)/i.test(url)) continue;
+        if (seen[url]) continue;
+
+        seen[url] = true;
+        found.push(url);
+    }
+
+    return found;
+}
+
+function baseResult(type, url, pageUrl, extra) {
+    var origin = new URL(pageUrl).origin;
+
+    return Object.assign({
+        type: type,
+        url: url,
+        referer: origin + '/',
+        origin: origin,
+        userAgent: USER_AGENT,
+        audioTracks: [],
+        subtitles: [],
+        duration: 0,
+        title: '',
+        direct: true
+    }, extra || {});
+}
+
+// ---------- Collaps (api.ortified.ws, apicollaps.cc, fprxnet.org) ----------
+
+async function extractCollaps(iframeUrl, options) {
+    options = options || {};
+
+    var season = options.season ? parseInt(options.season, 10) : null;
+    var episode = options.episode ? parseInt(options.episode, 10) : null;
+
+    var res = await http.requestOk(iframeUrl, {
+        referer: options.referer || 'https://kinobox.tv/',
+        timeout: options.timeout || 12000
+    });
+
+    var html = res.body;
     var hlsUrl = null;
     var dashUrl = null;
     var audioTracks = [];
@@ -84,355 +119,467 @@ async function extractCollaps(iframeUrl, options) {
     var duration = 0;
     var title = '';
 
-    if (makePlayerMatch) {
-        var cfg = parseJsObject(makePlayerMatch[1]);
-        if (cfg) {
-            if (cfg.title) title = cfg.title;
+    var makePlayerAt = html.indexOf('makePlayer');
+    var cfg = makePlayerAt >= 0 ? parseJsObject(sliceBalanced(html, makePlayerAt)) : null;
 
-            // Сериал с плейлистом сезонов и серий
-            if (cfg.playlist && cfg.playlist.seasons && cfg.playlist.seasons.length > 0) {
-                var targetSeason = null;
-                if (season) {
-                    targetSeason = cfg.playlist.seasons.find(function (s) { return s.season === season; });
-                }
-                if (!targetSeason) targetSeason = cfg.playlist.seasons[0];
+    if (cfg) {
+        if (cfg.title) title = cfg.title;
 
-                var targetEpisode = null;
-                if (targetSeason && targetSeason.episodes && targetSeason.episodes.length > 0) {
-                    if (episode) {
-                        targetEpisode = targetSeason.episodes.find(function (e) {
-                            return parseInt(e.episode, 10) === episode;
-                        });
-                    }
-                    if (!targetEpisode) targetEpisode = targetSeason.episodes[0];
-                }
+        var source = null;
 
-                if (targetEpisode) {
-                    hlsUrl = targetEpisode.hls || null;
-                    dashUrl = targetEpisode.dash || targetEpisode.dasha || null;
-                    duration = targetEpisode.duration || 0;
-                    if (targetEpisode.title) title = targetEpisode.title;
+        if (cfg.playlist && cfg.playlist.seasons && cfg.playlist.seasons.length > 0) {
+            var targetSeason = season
+                ? cfg.playlist.seasons.find(function (s) { return s.season === season; })
+                : null;
+            if (!targetSeason) targetSeason = cfg.playlist.seasons[0];
 
-                    if (targetEpisode.audio && targetEpisode.audio.names) {
-                        audioTracks = targetEpisode.audio.names.map(function (name, idx) {
-                            var order = (targetEpisode.audio.order && targetEpisode.audio.order[idx] !== undefined)
-                                ? targetEpisode.audio.order[idx] : idx;
-                            return {
-                                id: order,
-                                index: idx,
-                                name: name,
-                                audioId: order + 1 // mpv --aid=1, 2, ...
-                            };
-                        });
-                    }
-
-                    if (targetEpisode.cc && Array.isArray(targetEpisode.cc)) {
-                        subtitles = targetEpisode.cc.map(function (c) {
-                            return { name: c.name || 'Субтитры', url: c.url };
-                        });
-                    }
-                }
-            } else if (cfg.source) {
-                // Фильм (одиночное видео)
-                hlsUrl = cfg.source.hls || null;
-                dashUrl = cfg.source.dash || cfg.source.dasha || null;
-
-                if (cfg.source.audio && cfg.source.audio.names) {
-                    audioTracks = cfg.source.audio.names.map(function (name, idx) {
-                        var order = (cfg.source.audio.order && cfg.source.audio.order[idx] !== undefined)
-                            ? cfg.source.audio.order[idx] : idx;
-                        return {
-                            id: order,
-                            index: idx,
-                            name: name,
-                            audioId: order + 1
-                        };
-                    });
-                }
-
-                if (cfg.source.cc && Array.isArray(cfg.source.cc)) {
-                    subtitles = cfg.source.cc.map(function (c) {
-                        return { name: c.name || 'Субтитры', url: c.url };
-                    });
-                }
+            if (targetSeason && targetSeason.episodes && targetSeason.episodes.length > 0) {
+                source = episode
+                    ? targetSeason.episodes.find(function (e) { return parseInt(e.episode, 10) === episode; })
+                    : null;
+                if (!source) source = targetSeason.episodes[0];
             }
+        } else if (cfg.source) {
+            source = cfg.source;
         }
-    }
 
-    if (!hlsUrl) {
-        var hlsRegexMatch = html.match(/["'](https?:\\?\/\\?\/[^"']+\.mp4\\?\/master\.m3u8[^"']*)["']/i) ||
-            html.match(/hls\s*:\s*["']([^"']+)["']/i);
-        if (hlsRegexMatch) {
-            hlsUrl = hlsRegexMatch[1].replace(/\\\//g, '/');
+        if (source) {
+            hlsUrl = source.hls || null;
+            dashUrl = source.dash || source.dasha || null;
+            duration = source.duration || 0;
+            if (source.title) title = source.title;
+
+            if (source.audio && source.audio.names) {
+                audioTracks = source.audio.names.map(function (name, idx) {
+                    return { name: name, index: idx, lang: '' };
+                });
+            }
+
+            if (Array.isArray(source.cc)) {
+                subtitles = source.cc
+                    .filter(function (c) { return c && c.url; })
+                    .map(function (c) { return { name: c.name || 'Субтитры', url: c.url }; });
+            }
         }
     }
 
     if (!hlsUrl && !dashUrl) {
-        return null;
+        var scanned = scanPlaylists(html);
+        if (scanned.length > 0) hlsUrl = scanned[0];
     }
 
-    return {
-        type: 'collaps',
-        url: hlsUrl || dashUrl,
+    if (!hlsUrl && !dashUrl) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': в ответе нет ссылки на плейлист', 'noplaylist');
+    }
+
+    return baseResult('collaps', hlsUrl || dashUrl, res.url, {
         hlsUrl: hlsUrl,
         dashUrl: dashUrl,
-        referer: origin + '/',
-        origin: origin,
-        userAgent: USER_AGENT,
         audioTracks: audioTracks,
         subtitles: subtitles,
         duration: duration,
-        title: title,
-        direct: true
-    };
+        title: title
+    });
 }
 
-// 2. Экстрактор Kodik
-async function extractKodik(iframeUrl, options) {
-    options = options || {};
-    var urlObj = new URL(iframeUrl);
-    if (!/kodik/i.test(urlObj.hostname) && !/kodik/i.test(iframeUrl)) {
-        return null;
+// ---------- Veoveo / Voidboost (tazaromikaz.link) ----------
+//
+// Плеер — SPA на Vite: сам iframe отдаёт только конфиг, а поток берётся из
+// catalog-api. Адрес базы лежит в window.ENV_BASE_URL, а ключи доступа —
+// в window.REQUEST_HEADERS (DLE-API-TOKEN и Iframe-Request-Id). Тот же
+// Iframe-Request-Id вшит в подписанный путь плейлиста, поэтому заголовки
+// нельзя выдумывать — только брать со страницы.
+
+function parseVeoveoConfig(html) {
+    var baseMatch = html.match(/window\.ENV_BASE_URL\s*=\s*['"]([^'"]+)['"]/);
+    if (!baseMatch) return null;
+
+    var headers = {};
+    var headersAt = html.indexOf('window.REQUEST_HEADERS');
+
+    if (headersAt >= 0) {
+        var literal = sliceBalanced(html, headersAt);
+        var parsed = literal ? parseJsObject(literal) : null;
+
+        if (parsed) {
+            Object.keys(parsed).forEach(function (key) {
+                if (typeof parsed[key] === 'string') headers[key] = parsed[key];
+            });
+        }
     }
 
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, options.timeout || 12000);
+    return { base: baseMatch[1], headers: headers };
+}
 
-    var res;
-    try {
-        res = await fetch(iframeUrl, {
-            headers: {
-                'User-Agent': USER_AGENT,
-                'Referer': options.referer || 'https://kinobox.tv/'
-            },
-            signal: controller.signal
+// Из episodeVariants делаем список озвучек с готовой ссылкой
+function veoveoVariants(episode) {
+    return (episode.episodeVariants || [])
+        .filter(function (variant) { return variant && (variant.filepath || variant.m3u8MasterFilePath); })
+        .map(function (variant, idx) {
+            return {
+                name: variant.title || ('Дорожка ' + (idx + 1)),
+                url: variant.filepath || variant.m3u8MasterFilePath,
+                duration: variant.duration || 0,
+                index: idx
+            };
         });
-    } finally {
-        clearTimeout(timer);
-    }
-
-    if (!res.ok) return null;
-
-    var html = await res.text();
-    var origin = urlObj.origin;
-
-    var m3u8Match = html.match(/["'](https?:\\?\/\\?\/[^"']+\.m3u8[^"']*)["']/i);
-    if (m3u8Match) {
-        var directHls = m3u8Match[1].replace(/\\\//g, '/');
-        if (directHls.indexOf('//') === 0) directHls = 'https:' + directHls;
-        return {
-            type: 'kodik',
-            url: directHls,
-            referer: origin + '/',
-            origin: origin,
-            userAgent: USER_AGENT,
-            audioTracks: [],
-            subtitles: [],
-            direct: true
-        };
-    }
-
-    return null;
 }
 
-// 3. Экстрактор Alloha (theatre.stravers.live, alloha.tv, etc.)
-async function extractAlloha(iframeUrl, options) {
-    options = options || {};
-    var urlObj = new URL(iframeUrl);
-    if (!/stravers|alloha/i.test(urlObj.hostname) && !/alloha/i.test(iframeUrl)) {
-        return null;
-    }
-
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, options.timeout || 12000);
-
-    var res;
-    try {
-        res = await fetch(iframeUrl, {
-            headers: {
-                'User-Agent': USER_AGENT,
-                'Referer': options.referer || 'https://kinobox.tv/',
-                'Sec-Fetch-Dest': 'iframe',
-                'Sec-Fetch-Mode': 'navigate'
-            },
-            signal: controller.signal
-        });
-    } finally {
-        clearTimeout(timer);
-    }
-
-    if (!res.ok) return null;
-
-    var html = await res.text();
-    var origin = urlObj.origin;
-
-    // Ищем JSON fileList
-    var fileListMatch = html.match(/const\s+fileList\s*=\s*JSON\.parse\s*\(\s*['"](\{[\s\S]*?\})['"]\s*\);/);
-    var tokenMatch = html.match(/token:\s*['"]([a-f0-9]+)['"]/);
-    var movieIdMatch = html.match(/id:\s*['"]([a-f0-9]+)['"]/);
-
-    if (fileListMatch) {
-        try {
-            var fileList = JSON.parse(fileListMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
-            var active = fileList.active || {};
-            var activeId = active.id;
-
-            // Если есть id активного видео, запрашиваем прямой манифест с /lists.php
-            if (activeId && tokenMatch) {
-                var listRes = await fetch(origin + '/lists.php', {
-                    method: 'POST',
-                    headers: {
-                        'User-Agent': USER_AGENT,
-                        'Referer': iframeUrl,
-                        'Origin': origin,
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                    },
-                    body: 'id=' + encodeURIComponent(activeId) + '&token=' + encodeURIComponent(tokenMatch[1])
-                }).catch(function () { return null; });
-
-                if (listRes && listRes.ok) {
-                    var listData = await listRes.json().catch(function () { return null; });
-                    if (listData && (listData.file || listData.hls || listData.url)) {
-                        var streamUrl = listData.file || listData.hls || listData.url;
-                        return {
-                            type: 'alloha',
-                            url: streamUrl,
-                            referer: origin + '/',
-                            origin: origin,
-                            userAgent: USER_AGENT,
-                            audioTracks: [],
-                            subtitles: [],
-                            direct: true
-                        };
-                    }
-                }
-            }
-        } catch (e) {}
-    }
-
-    // Резервный поиск m3u8
-    var m3u8Match = html.match(/https?:\\?\/\\?\/[^"']+\.m3u8[^"']*/i);
-    if (m3u8Match) {
-        return {
-            type: 'alloha',
-            url: m3u8Match[0].replace(/\\\//g, '/'),
-            referer: origin + '/',
-            origin: origin,
-            userAgent: USER_AGENT,
-            audioTracks: [],
-            subtitles: [],
-            direct: true
-        };
-    }
-
-    return null;
-}
-
-// 4. Экстрактор Veoveo / Voidboost
 async function extractVeoveo(iframeUrl, options) {
     options = options || {};
-    var urlObj = new URL(iframeUrl);
-    if (!/tazaromikaz|voidboost|veoveo/i.test(urlObj.hostname) && !/balancer-api/i.test(urlObj.pathname)) {
-        return null;
+
+    var res = await http.requestOk(iframeUrl, {
+        referer: options.referer || 'https://kinobox.tv/',
+        timeout: options.timeout || 12000
+    });
+
+    var config = parseVeoveoConfig(res.body);
+
+    if (!config) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': в странице плеера нет ENV_BASE_URL', 'noconfig');
     }
 
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, options.timeout || 12000);
+    var movieId = new URL(res.url).searchParams.get('movie_id') ||
+        new URL(iframeUrl).searchParams.get('movie_id');
 
-    var res;
+    if (!movieId) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': в ссылке нет movie_id', 'noid');
+    }
+
+    var origin = new URL(res.url).origin;
+
+    var apiRes = await http.requestOk(config.base + '/catalog-api/episodes?content-id=' + encodeURIComponent(movieId), {
+        referer: origin + '/',
+        origin: origin,
+        accept: 'application/json',
+        headers: config.headers,
+        timeout: options.timeout || 12000
+    });
+
+    var episodes;
+
     try {
-        res = await fetch(iframeUrl, {
-            headers: {
-                'User-Agent': USER_AGENT,
-                'Referer': options.referer || 'https://kinobox.tv/'
-            },
-            signal: controller.signal
+        episodes = JSON.parse(apiRes.body);
+    } catch (err) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': catalog-api вернул не JSON', 'badjson');
+    }
+
+    if (!Array.isArray(episodes) || episodes.length === 0) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': catalog-api не отдал ни одной серии', 'noepisodes');
+    }
+
+    var season = options.season ? parseInt(options.season, 10) : null;
+    var episodeNo = options.episode ? parseInt(options.episode, 10) : null;
+
+    var target = null;
+
+    if (season || episodeNo) {
+        target = episodes.find(function (item) {
+            var seasonOk = !season || (item.season && item.season.order === season);
+            var episodeOk = !episodeNo || item.order === episodeNo;
+            return seasonOk && episodeOk;
         });
-    } finally {
-        clearTimeout(timer);
     }
 
-    if (!res.ok) return null;
+    if (!target) target = episodes[0];
 
-    var html = await res.text();
-    var origin = urlObj.origin;
+    var variants = veoveoVariants(target);
 
-    var m3u8Match = html.match(/https?:\\?\/\\?\/[^"']+\.m3u8[^"']*/i) ||
-        html.match(/["'](https?:\/\/[^"']+\.mp4\/[a-zA-Z0-9_\-\/]+\.m3u8[^"']*)["']/i);
-
-    if (m3u8Match) {
-        return {
-            type: 'veoveo',
-            url: (m3u8Match[1] || m3u8Match[0]).replace(/\\\//g, '/'),
-            referer: origin + '/',
-            origin: origin,
-            userAgent: USER_AGENT,
-            audioTracks: [],
-            subtitles: [],
-            direct: true
-        };
+    if (variants.length === 0) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': у серии нет ни одной дорожки', 'notracks');
     }
 
-    return null;
+    var chosen = null;
+
+    if (options.translation) {
+        var wanted = normalizeName(options.translation);
+        chosen = variants.find(function (item) { return namesMatch(normalizeName(item.name), wanted); });
+    }
+
+    if (!chosen) chosen = variants[0];
+
+    return baseResult('veoveo', chosen.url, res.url, {
+        duration: chosen.duration || 0,
+        title: target.title || '',
+        // Дорожки этого балансера — отдельные плейлисты, а не aid внутри одного
+        variantTracks: variants.map(function (item) {
+            return { name: item.name, url: item.url, index: item.index };
+        })
+    });
 }
 
-// Универсальная точка входа для прямого извлечения потока
-async function extractDirectStream(iframeUrl, options) {
-    if (!iframeUrl) return null;
+// ---------- Alloha (theatre.stravers.live) ----------
+
+async function extractAlloha(iframeUrl, options) {
     options = options || {};
 
-    try {
-        var parsed = new URL(iframeUrl);
-        var host = parsed.hostname.toLowerCase();
+    var res = await http.requestOk(iframeUrl, {
+        referer: options.referer || 'https://kinobox.tv/',
+        headers: { 'Sec-Fetch-Dest': 'iframe', 'Sec-Fetch-Mode': 'navigate' },
+        timeout: options.timeout || 12000
+    });
 
-        // 1. Collaps и его зеркала
-        if (host.indexOf('ortified') >= 0 || host.indexOf('collaps') >= 0 ||
-            host.indexOf('fprxnet') >= 0 || host.indexOf('interkh') >= 0 ||
-            parsed.pathname.indexOf('/embed/movie/') >= 0 || parsed.pathname.indexOf('/embed/v/') >= 0) {
-            var collapsRes = await extractCollaps(iframeUrl, options).catch(function () { return null; });
-            if (collapsRes && collapsRes.url) return collapsRes;
+    var html = res.body;
+    var origin = new URL(res.url).origin;
+
+    var fileListMatch = html.match(/fileList\s*=\s*JSON\.parse\s*\(\s*['"]([\s\S]*?)['"]\s*\)/);
+    var tokenMatch = html.match(/token\s*:\s*['"]([a-f0-9]+)['"]/i);
+
+    if (fileListMatch && tokenMatch) {
+        var fileList = null;
+
+        try {
+            fileList = JSON.parse(fileListMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+        } catch (err) {
+            fileList = null;
         }
 
-        // 2. Kodik
-        if (host.indexOf('kodik') >= 0) {
-            var kodikRes = await extractKodik(iframeUrl, options).catch(function () { return null; });
-            if (kodikRes && kodikRes.url) return kodikRes;
+        var activeId = fileList && fileList.active ? fileList.active.id : null;
+
+        if (activeId) {
+            var listRes = await http.request(origin + '/lists.php', {
+                method: 'POST',
+                referer: res.url,
+                origin: origin,
+                accept: 'application/json',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: 'id=' + encodeURIComponent(activeId) + '&token=' + encodeURIComponent(tokenMatch[1]),
+                timeout: options.timeout || 12000
+            });
+
+            if (listRes.ok) {
+                var data = null;
+                try { data = JSON.parse(listRes.body); } catch (err) { data = null; }
+
+                var streamUrl = data && (data.file || data.hls || data.url);
+                if (streamUrl) return baseResult('alloha', unescapeUrl(streamUrl), res.url);
+            }
+        }
+    }
+
+    var scanned = scanPlaylists(html);
+    if (scanned.length > 0) return baseResult('alloha', scanned[0], res.url);
+
+    throw BalancerError(http.hostOf(iframeUrl) + ': в ответе нет ссылки на плейлист', 'noplaylist');
+}
+
+// ---------- Kodik ----------
+//
+// Kodik отдаёт ссылки не в HTML, а из POST /ftor, и каждая ссылка закодирована
+// сдвигом по алфавиту поверх base64. Сдвиг они периодически меняют, поэтому
+// перебираем все 25 и берём тот, что даёт настоящий URL.
+
+function kodikDecode(value) {
+    for (var shift = 1; shift < 26; shift++) {
+        var rotated = String(value).replace(/[a-zA-Z]/g, function (ch) {
+            var base = ch <= 'Z' ? 65 : 97;
+            return String.fromCharCode((ch.charCodeAt(0) - base + shift) % 26 + base);
+        });
+
+        var decoded = '';
+
+        try {
+            decoded = Buffer.from(rotated, 'base64').toString('utf8');
+        } catch (err) {
+            continue;
         }
 
-        // 3. Alloha
-        if (host.indexOf('stravers') >= 0 || host.indexOf('alloha') >= 0) {
-            var allohaRes = await extractAlloha(iframeUrl, options).catch(function () { return null; });
-            if (allohaRes && allohaRes.url) return allohaRes;
+        if (/^(https?:)?\/\/[\w.-]+\//.test(decoded)) {
+            return decoded.indexOf('//') === 0 ? 'https:' + decoded : decoded;
         }
-
-        // 4. Veoveo / Voidboost
-        if (host.indexOf('tazaromikaz') >= 0 || host.indexOf('voidboost') >= 0 || parsed.pathname.indexOf('balancer-api') >= 0) {
-            var veoveoRes = await extractVeoveo(iframeUrl, options).catch(function () { return null; });
-            if (veoveoRes && veoveoRes.url) return veoveoRes;
-        }
-
-        // 5. Резервная проверка для любого другого плеера через универсальный парсер Collaps
-        var genericCollaps = await extractCollaps(iframeUrl, Object.assign({}, options, { timeout: 2500 })).catch(function () { return null; });
-        if (genericCollaps && genericCollaps.url) return genericCollaps;
-
-    } catch (err) {
-        return null;
     }
 
     return null;
 }
 
-// Проверка: поддерживается ли плеер быстрым прямым экстрактором
+async function extractKodik(iframeUrl, options) {
+    options = options || {};
+
+    var res = await http.requestOk(iframeUrl, {
+        referer: options.referer || 'https://kinobox.tv/',
+        timeout: options.timeout || 12000
+    });
+
+    var html = res.body;
+    var origin = new URL(res.url).origin;
+
+    var paramsAt = html.indexOf('urlParams');
+    var params = paramsAt >= 0 ? parseJsObject(sliceBalanced(html, paramsAt)) : null;
+
+    if (!params) {
+        var raw = html.match(/urlParams\s*=\s*'([^']+)'/);
+        if (raw) {
+            try { params = JSON.parse(raw[1]); } catch (err) { params = null; }
+        }
+    }
+
+    var idMatch = html.match(/videoInfo\.id\s*=\s*['"]?([\w-]+)/) || html.match(/"id"\s*:\s*"?([\w-]+)"?/);
+    var typeMatch = html.match(/videoInfo\.type\s*=\s*['"]([\w-]+)['"]/);
+    var hashMatch = html.match(/videoInfo\.hash\s*=\s*['"]([\w-]+)['"]/);
+
+    if (!params || !idMatch || !typeMatch || !hashMatch) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': не разобрал параметры плеера', 'noparams');
+    }
+
+    var form = new URLSearchParams();
+    form.set('id', idMatch[1]);
+    form.set('type', typeMatch[1]);
+    form.set('hash', hashMatch[1]);
+    form.set('d', params.d || '');
+    form.set('d_sign', params.d_sign || '');
+    form.set('pd', params.pd || '');
+    form.set('pd_sign', params.pd_sign || '');
+    form.set('ref', params.ref || '');
+    form.set('ref_sign', params.ref_sign || '');
+    form.set('bad_user', 'false');
+    form.set('cdn_is_working', 'true');
+
+    var apiRes = await http.requestOk(origin + '/ftor', {
+        method: 'POST',
+        referer: res.url,
+        origin: origin,
+        accept: 'application/json',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: form.toString(),
+        timeout: options.timeout || 12000
+    });
+
+    var data = null;
+    try { data = JSON.parse(apiRes.body); } catch (err) { data = null; }
+
+    var links = data && data.links ? data.links : null;
+
+    if (!links) {
+        throw BalancerError(http.hostOf(iframeUrl) + ': /ftor не отдал ссылки', 'nolinks');
+    }
+
+    // Берём самое высокое качество из отданных
+    var qualities = Object.keys(links).sort(function (a, b) { return parseInt(b, 10) - parseInt(a, 10); });
+
+    for (var i = 0; i < qualities.length; i++) {
+        var entry = links[qualities[i]];
+        var src = Array.isArray(entry) ? (entry[0] && entry[0].src) : entry;
+        var decoded = src ? kodikDecode(src) : null;
+
+        if (decoded) return baseResult('kodik', decoded, res.url);
+    }
+
+    throw BalancerError(http.hostOf(iframeUrl) + ': не смог раскодировать ссылки /ftor', 'nodecode');
+}
+
+// ---------- Универсальный разбор (Turbo/obrut.show и всё остальное) ----------
+//
+// Балансеров больше, чем экстракторов, и адреса у них меняются. Общий проход
+// умеет немного: найти плейлист прямо в HTML и спуститься на один вложенный
+// iframe. Этого хватает для простых плееров и не мешает остальным.
+
+async function extractGeneric(iframeUrl, options) {
+    options = options || {};
+
+    var res = await http.requestOk(iframeUrl, {
+        referer: options.referer || 'https://kinobox.tv/',
+        timeout: options.timeout || 10000
+    });
+
+    var scanned = scanPlaylists(res.body);
+    if (scanned.length > 0) return baseResult('direct', scanned[0], res.url);
+
+    // Плеер часто оборачивает настоящий в ещё один iframe
+    if (!options.noNested) {
+        var nested = res.body.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+
+        if (nested) {
+            var nestedUrl = new URL(unescapeUrl(nested[1]), res.url).toString();
+
+            if (nestedUrl !== res.url) {
+                return await extractGeneric(nestedUrl, Object.assign({}, options, {
+                    noNested: true,
+                    referer: res.url
+                }));
+            }
+        }
+    }
+
+    throw BalancerError(http.hostOf(iframeUrl) + ': в ответе нет ссылки на плейлист', 'noplaylist');
+}
+
+// ---------- маршрутизация ----------
+
+var ROUTES = [
+    { name: 'collaps', test: /ortified|collaps|fprxnet|interkh/i, run: extractCollaps },
+    { name: 'veoveo',  test: /tazaromikaz|voidboost|veoveo/i,     run: extractVeoveo },
+    { name: 'alloha',  test: /stravers|alloha/i,                  run: extractAlloha },
+    { name: 'kodik',   test: /kodik/i,                            run: extractKodik },
+    { name: 'turbo',   test: /obrut|turbo/i,                      run: extractGeneric }
+];
+
+function routeFor(iframeUrl) {
+    var haystack = String(iframeUrl || '');
+
+    for (var i = 0; i < ROUTES.length; i++) {
+        if (ROUTES[i].test.test(haystack)) return ROUTES[i];
+    }
+
+    return null;
+}
+
+// Универсальная точка входа. Возвращает поток или null; все причины отказа
+// складываются в options.errors, чтобы вызывающий мог их показать.
+async function extractDirectStream(iframeUrl, options) {
+    if (!iframeUrl) return null;
+
+    options = options || {};
+    var errors = options.errors || [];
+
+    var attempts = [];
+    var route = routeFor(iframeUrl);
+
+    if (route) attempts.push(route);
+
+    // Общий проход как запасной — вдруг балансер сменил домен
+    if (!route || route.run !== extractGeneric) {
+        attempts.push({ name: 'generic', run: extractGeneric });
+    }
+
+    for (var i = 0; i < attempts.length; i++) {
+        try {
+            var result = await attempts[i].run(iframeUrl, options);
+            if (result && result.url) return result;
+        } catch (err) {
+            err.balancer = attempts[i].name;
+            errors.push(err);
+
+            // Регион и протухшая ссылка не лечатся другим парсером
+            if (err.code === 'geo' || err.code === 'gone') break;
+        }
+    }
+
+    return null;
+}
+
+// Поддерживается ли плеер прямым экстрактором
 function isDirectSupported(sourceName, iframeUrl) {
-    var s = (sourceName || '').toLowerCase();
-    var u = (iframeUrl || '').toLowerCase();
+    var haystack = (sourceName || '') + ' ' + (iframeUrl || '');
+    return ROUTES.some(function (route) { return route.test.test(haystack); });
+}
 
-    if (s.indexOf('collaps') >= 0 || u.indexOf('ortified') >= 0 || u.indexOf('collaps') >= 0) return true;
-    if (s.indexOf('kodik') >= 0 || u.indexOf('kodik') >= 0) return true;
-    if (s.indexOf('alloha') >= 0 || u.indexOf('stravers') >= 0) return true;
-    if (s.indexOf('veoveo') >= 0 || u.indexOf('tazaromikaz') >= 0 || u.indexOf('voidboost') >= 0) return true;
+// ---------- сопоставление названий озвучек ----------
 
-    return false;
+function normalizeName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .replace(/^\s*\d+[.)]\s*/, '')      // «01. Дубляж» -> «дубляж»
+        .replace(/\((?:rus|eng|ukr)\)/gi, '')
+        .replace(/[^\wа-яё]+/gi, ' ')
+        .trim();
+}
+
+function namesMatch(a, b) {
+    if (!a || !b) return false;
+    return a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
 }
 
 module.exports = {
@@ -442,5 +589,11 @@ module.exports = {
     extractCollaps: extractCollaps,
     extractKodik: extractKodik,
     extractAlloha: extractAlloha,
-    extractVeoveo: extractVeoveo
+    extractVeoveo: extractVeoveo,
+    extractGeneric: extractGeneric,
+    kodikDecode: kodikDecode,
+    scanPlaylists: scanPlaylists,
+    parseVeoveoConfig: parseVeoveoConfig,
+    normalizeName: normalizeName,
+    namesMatch: namesMatch
 };

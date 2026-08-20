@@ -41,12 +41,11 @@ var HELP = [
     '      --history        показать историю просмотров',
     '      --stand, --themes интерактивный стенд выбора стиля и ANSI арта',
     '      --ram, --bench   замер реального потребления памяти KTW + mpv в МБ',
-    '      --direct         только прямое извлечение ⚡ (без запуска Chromium)',
+    '      --doctor         проверить, что именно не работает, и подсказать чем лечить',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
     '      --no-mpv         найти поток, но не запускать mpv',
     '      --json           вывести результат в JSON (для скриптов)',
     '      --plain          построчный режим без полноэкранного интерфейса',
-    '      --headful        показать окно браузера (отладка извлечения)',
     '      --timeout <мс>   сколько ждать поток, по умолчанию 40000',
     '      --key <ключ>     ключ API Кинопоиска',
     '      --settings       открыть меню тонких настроек',
@@ -114,21 +113,7 @@ function clean() {
     var removed = poster.clearCache();
     ui.info('  ' + (removed ? '✓ обложки: ' + removed : '✗ обложки удалить не вышло'));
 
-    var tmp = process.env.TMPDIR || '/tmp';
-    var leftovers = 0;
-
-    try {
-        fs.readdirSync(tmp).forEach(function (name) {
-            if (name.indexOf('puppeteer_dev_chrome_profile-') !== 0) return;
-            try {
-                fs.rmSync(path.join(tmp, name), { recursive: true, force: true });
-                leftovers++;
-            } catch (err) { }
-        });
-    } catch (err) { }
-
-    ui.info('  ✓ временные профили браузера: ' + leftovers);
-    ui.info('  ' + ui.color.dim('куки и кэш страниц живут только внутри запуска — чистить нечего'));
+    ui.info('  ' + ui.color.dim('браузер не используется — временных профилей не бывает'));
     ui.info('');
 
     return 0;
@@ -172,7 +157,8 @@ function parseArgs(argv) {
         noMpv: false,
         json: false,
         plain: false,
-        headful: false,
+        doctor: false,
+        doctorBrief: false,
         timeout: 40000,
         key: null,
         settings: false,
@@ -205,12 +191,14 @@ function parseArgs(argv) {
         else if (arg === '-q' || arg === '--quality') options.quality = argv[++i];
         else if (arg === '-s' || arg === '--season') options.season = argv[++i];
         else if (arg === '-e' || arg === '--episode') options.episode = argv[++i];
+        else if (arg === '--doctor') options.doctor = true;
+        else if (arg === '--doctor-brief') { options.doctor = true; options.doctorBrief = true; }
         else if (arg === '--direct') options.direct = true;
         else if (arg === '--iframe') options.iframe = true;
         else if (arg === '--no-mpv') options.noMpv = true;
         else if (arg === '--json') options.json = true;
         else if (arg === '--plain') options.plain = true;
-        else if (arg === '--headful') options.headful = true;
+        else if (arg === '--headful') options.headful = true; // оставлен, чтобы старые команды не падали
         else if (arg === '--timeout') options.timeout = parseInt(argv[++i], 10) || 40000;
         else if (arg === '--key') options.key = argv[++i];
         else if (arg.length > 1 && arg[0] === '-') options.unknown.push(arg);
@@ -346,7 +334,6 @@ async function pickTranslation(player, options) {
 // Построчный режим для скриптов и терминалов без интерактива
 async function runPlain(options) {
     var apiKey = config.resolveApiKey(options.key);
-    config.applyChromiumPath();
     var userConfig = config.read();
 
     var film = await pickFilm(options, apiKey);
@@ -381,18 +368,28 @@ async function runPlain(options) {
         found = await stream.resolveStream(iframeUrl, {
             season: options.season,
             episode: options.episode,
+            translation: translation ? translation.name : '',
             timeout: options.timeout || userConfig.timeout,
-            headful: options.headful,
-            directOnly: options.direct || userConfig.directOnly,
             onProgress: function (message) { streamSpinner.update(message); }
         });
+    } catch (err) {
+        streamSpinner.stop();
+        ui.error('Плеер ' + player.source + ' не отдал поток: ' + err.message);
+
+        (err.reasons || []).forEach(function (reason) {
+            if (reason.message !== err.message) ui.info(ui.color.dim('  · ' + reason.message));
+        });
+
+        ui.info(ui.color.dim('  Ссылка на плеер: ' + iframeUrl));
+        ui.info(ui.color.dim('  Что именно сломалось — покажет ktw --doctor'));
+        return 1;
     } finally {
         streamSpinner.stop();
     }
 
     if (!found) {
         ui.error('Поток не найден за ' + Math.round((options.timeout || userConfig.timeout) / 1000) + ' с.');
-        ui.info(ui.color.dim('  Попробуй другой плеер (например, collaps ⚡) или --headful для отладки.'));
+        ui.info(ui.color.dim('  Попробуй другой плеер (например, collaps ⚡).'));
         ui.info(ui.color.dim('  Ссылка на плеер: ' + iframeUrl));
         return 1;
     }
@@ -402,21 +399,10 @@ async function runPlain(options) {
         ui.info(ui.color.dim('  Попробуй другой балансер: --player collaps'));
     }
 
-    if (translation && translation.audioId !== undefined) {
-        found.audioId = translation.audioId;
-    } else if (found.audioTracks && found.audioTracks.length > 0 && translation && translation.name) {
-        var wantedAudio = translation.name.toLowerCase();
-        var matched = found.audioTracks.find(function (t) {
-            return t.name.toLowerCase().indexOf(wantedAudio) >= 0 ||
-                wantedAudio.indexOf(t.name.toLowerCase()) >= 0;
-        });
-        if (matched) found.audioId = matched.audioId;
-    }
-
     var variants = await stream.readVariants(found);
     var wantedQuality = options.quality || userConfig.preferredQuality;
 
-    if (variants.length > 1) {
+    if (variants.length > 0) {
         var variant = wantedQuality
             ? stream.pickVariant(variants, wantedQuality)
             : variants[0];
@@ -427,17 +413,14 @@ async function runPlain(options) {
             return 1;
         }
 
-        found = {
-            url: variant.url,
-            referer: found.referer,
-            origin: found.origin,
-            userAgent: found.userAgent,
-            label: variant.label,
-            audioId: found.audioId,
-            subtitles: found.subtitles,
-            direct: found.direct,
-            variants: variants.map(function (item) { return item.label; })
-        };
+        found = stream.applyVariant(found, variant);
+        found.variants = variants.map(function (item) { return item.label; });
+    }
+
+    // Озвучку выбираем уже по дорожкам мастер-плейлиста: их номера и есть --aid
+    if (translation && translation.name) {
+        var matched = stream.matchAudioTrack(found.audioTracks, translation.name);
+        if (matched && matched.audioId) found.audioId = matched.audioId;
     }
 
     if (options.resume && film.id) {
@@ -495,6 +478,39 @@ function wantsTui(options) {
     return process.stdin.isTTY && process.stdout.isTTY;
 }
 
+// Полный отчёт доктора (ktw --doctor) или только проблемы (--doctor-brief)
+async function runDoctor(brief) {
+    var doctor = require('./lib/doctor');
+    var result = await doctor.run(brief ? 'brief' : 'full');
+    var text = doctor.render(result, { brief: brief });
+
+    if (text) {
+        ui.info('');
+        ui.info(text);
+        ui.info('');
+    }
+
+    return result.ok ? 0 : 1;
+}
+
+// Быстрая локальная проверка при каждом запуске: молчит, пока всё на месте.
+// Смысл — не гадать «почему ничего не работает», когда нет mpv или ключа.
+async function warnIfBroken() {
+    try {
+        var doctor = require('./lib/doctor');
+        var result = await doctor.run('quick');
+
+        if (result.failed.length === 0) return;
+
+        ui.info('');
+        ui.info(doctor.render(result, { brief: true }));
+        ui.info(ui.color.dim('  Подробный разбор: ktw --doctor'));
+        ui.info('');
+    } catch (err) {
+        // Доктор не должен мешать запуску
+    }
+}
+
 async function main() {
     var options = parseArgs(process.argv.slice(2));
 
@@ -510,6 +526,10 @@ async function main() {
 
     if (options.clean) {
         return clean();
+    }
+
+    if (options.doctor) {
+        return await runDoctor(options.doctorBrief);
     }
 
     if (options.history) {
@@ -542,6 +562,8 @@ async function main() {
         ui.info(ui.color.dim('  Если флаг должен существовать — обнови: ktw --clean'));
         return 1;
     }
+
+    await warnIfBroken();
 
     try {
         if (wantsTui(options)) {

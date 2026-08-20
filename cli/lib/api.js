@@ -7,6 +7,7 @@
 
 var extractors = require('./extractors');
 var config = require('./config');
+var http = require('./http');
 
 var KINOPOISK_SEARCH = 'https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword';
 var KINOPOISK_FILMS = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
@@ -22,71 +23,33 @@ var KINOBOX_MIRRORS = [
 // Браузерный UA
 var USER_AGENT = extractors.USER_AGENT || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// Node прячет причину сетевой ошибки в err.cause, наружу отдавая
-// бесполезное «fetch failed». Достаём и переводим на человеческий.
-function describeNetworkError(err) {
-    var cause = err && err.cause ? err.cause : null;
-    var code = (cause && cause.code) || err.code || '';
-
-    switch (code) {
-        case 'ENOTFOUND':
-        case 'EAI_AGAIN':
-            return 'не разрешается имя хоста — нет интернета или не работает DNS';
-        case 'ECONNREFUSED':
-            return 'соединение отклонено';
-        case 'ECONNRESET':
-            return 'соединение сброшено — возможно, хост режет провайдер';
-        case 'ETIMEDOUT':
-        case 'UND_ERR_CONNECT_TIMEOUT':
-        case 'UND_ERR_HEADERS_TIMEOUT':
-            return 'хост не отвечает';
-        case 'CERT_HAS_EXPIRED':
-        case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
-        case 'SELF_SIGNED_CERT_IN_CHAIN':
-            return 'проблема с сертификатом — возможно, трафик идёт через прокси';
-        default:
-            return (cause && cause.message) || err.message || 'неизвестная ошибка';
-    }
-}
-
-// GET с таймаутом и разбором JSON
+// GET с таймаутом и разбором JSON. Сетевой слой общий с экстракторами и
+// доктором: одна и та же поломка должна называться одинаково везде.
 async function fetchJson(url, headers, timeoutMs) {
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, timeoutMs || 15000);
+    var res = await http.request(url, {
+        headers: headers || {},
+        accept: 'application/json',
+        timeout: timeoutMs || 15000
+    });
+
+    if (!res.ok) {
+        var reason = 'HTTP ' + res.status;
+
+        if (res.status === 401 || res.status === 403) {
+            reason = 'ключ API не принят (' + res.status + ')';
+        } else if (res.status === 402 || res.status === 429) {
+            reason = 'исчерпан лимит запросов к API (' + res.status + ')';
+        }
+
+        var httpError = new Error(reason + ' — ' + http.hostOf(url));
+        httpError.status = res.status;
+        throw httpError;
+    }
 
     try {
-        var res = await fetch(url, {
-            headers: Object.assign({ 'User-Agent': USER_AGENT, 'Accept': 'application/json' }, headers || {}),
-            signal: controller.signal
-        });
-
-        if (!res.ok) {
-            var reason = 'HTTP ' + res.status;
-
-            if (res.status === 401 || res.status === 403) {
-                reason = 'ключ API не принят (' + res.status + ')';
-            } else if (res.status === 402 || res.status === 429) {
-                reason = 'исчерпан лимит запросов к API (' + res.status + ')';
-            }
-
-            var httpError = new Error(reason + ' — ' + new URL(url).host);
-            httpError.status = res.status;
-            throw httpError;
-        }
-
-        return await res.json();
+        return JSON.parse(res.body);
     } catch (err) {
-        if (err.name === 'AbortError') {
-            throw new Error('Таймаут запроса к ' + new URL(url).host);
-        }
-
-        if (err.name === 'TypeError' || /fetch failed/i.test(err.message)) {
-            throw new Error(new URL(url).host + ': ' + describeNetworkError(err));
-        }
-
-        throw err;
-    } finally {
-        clearTimeout(timer);
+        throw new Error(http.hostOf(url) + ': ответ не разобрался как JSON');
     }
 }
 

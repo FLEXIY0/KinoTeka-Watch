@@ -76,16 +76,6 @@ function resolveKinoboxApi(explicitMirror) {
     return conf && conf.trim() ? conf.trim() : null;
 }
 
-// Путь к Chromium: если в конфиге записан свой, отдаём его puppeteer
-function applyChromiumPath() {
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) return;
-
-    var chromiumPath = read().chromiumPath;
-    if (chromiumPath && fs.existsSync(chromiumPath)) {
-        process.env.PUPPETEER_EXECUTABLE_PATH = chromiumPath;
-    }
-}
-
 module.exports = {
     CONFIG_DIR: CONFIG_DIR,
     file: CONFIG_FILE,
@@ -94,6 +84,5 @@ module.exports = {
     read: read,
     save: save,
     resolveApiKey: resolveApiKey,
-    resolveKinoboxApi: resolveKinoboxApi,
-    applyChromiumPath: applyChromiumPath
+    resolveKinoboxApi: resolveKinoboxApi
 };

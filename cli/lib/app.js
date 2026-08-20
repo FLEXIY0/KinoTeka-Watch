@@ -204,7 +204,7 @@ async function settingsScreen() {
     var hwdecLabels = ['Авто (auto-safe)', 'Выкл (no)', 'NVIDIA (nvdec)', 'Intel/AMD Linux (vaapi)', 'Windows (d3d11va)'];
 
     var modeOptions = [false, true];
-    var modeLabels = ['Гибридный ⚡ (прямой + браузер)', 'Только прямой ⚡ (без запуска Chromium)'];
+    var modeLabels = ['Прямой парсинг ⚡', 'Прямой парсинг ⚡ (браузер не используется)'];
 
     var themeOptions = Object.keys(themes.THEMES);
     var themeLabels = themeOptions.map(function (k) { return themes.THEMES[k].name; });
@@ -783,16 +783,7 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
 
     state.quality = chosen.height;
 
-    return {
-        url: chosen.url,
-        referer: found.referer,
-        origin: found.origin,
-        userAgent: found.userAgent,
-        label: chosen.label,
-        audioId: found.audioId,
-        subtitles: found.subtitles,
-        direct: found.direct
-    };
+    return stream.applyVariant(found, chosen);
 }
 
 // Интерактивный экран обратного отсчета для авто-перехода к следующей серии (Binge-Watching)
@@ -859,13 +850,21 @@ async function playStream(film, player, translation, season, episode, options, s
         found = await tui.withSpinner(stream.resolveStream(iframeUrl, {
             season: season,
             episode: episode,
+            translation: translation ? translation.name : '',
             timeout: options.timeout || userConfig.timeout,
-            headful: options.headful,
-            directOnly: userConfig.directOnly,
             onProgress: function (message) { progress = message; }
         }), render);
     } catch (err) {
-        await messageScreen('Не вышло', [err.message], 'любая клавиша — назад');
+        var lines = [err.message];
+
+        (err.reasons || []).forEach(function (reason) {
+            if (reason.message !== err.message) lines.push('· ' + reason.message);
+        });
+
+        lines.push('');
+        lines.push('Проверить, что именно сломалось: ktw --doctor');
+
+        await messageScreen('Плеер ' + player.source + ' не отдал поток', lines, 'любая клавиша — назад');
         return { ok: false };
     }
 
@@ -887,21 +886,6 @@ async function playStream(film, player, translation, season, episode, options, s
         ], 'любая клавиша — продолжить');
     }
 
-    if (translation && translation.audioId !== undefined) {
-        found.audioId = translation.audioId;
-    }
-
-    if (found.audioTracks && found.audioTracks.length > 0 && translation && translation.name) {
-        var wantedAudio = translation.name.toLowerCase();
-        var matchedTrack = found.audioTracks.find(function (t) {
-            return t.name.toLowerCase().indexOf(wantedAudio) >= 0 ||
-                wantedAudio.indexOf(t.name.toLowerCase()) >= 0;
-        });
-        if (matchedTrack) {
-            found.audioId = matchedTrack.audioId;
-        }
-    }
-
     // Загружаем мастер-плейлист
     var variants = await tui.withSpinner(stream.readVariants(found), function (frame) {
         var size = metrics();
@@ -914,6 +898,13 @@ async function playStream(film, player, translation, season, episode, options, s
     if (selectedQuality === 'settings') return { ok: false, settings: true };
 
     found = selectedQuality;
+
+    // Озвучку выбираем по дорожкам мастер-плейлиста: их порядок и есть --aid
+    if (translation && translation.name) {
+        var matchedTrack = stream.matchAudioTrack(found.audioTracks, translation.name);
+        if (matchedTrack && matchedTrack.audioId) found.audioId = matchedTrack.audioId;
+    }
+
     found.startTime = startTime || 0;
     found.filmInfo = film;
     found.season = season;
@@ -994,7 +985,6 @@ async function nextEpisodeCountdown(film, nextSeason, nextEp, totalSeconds) {
 // Главный цикл приложения
 async function run(options) {
     var apiKey = config.resolveApiKey(options.key);
-    config.applyChromiumPath();
 
     var state = { query: options.query || '', results: [] };
     var film = null;
@@ -1241,7 +1231,6 @@ async function run(options) {
             if (screen === 'players') {
                 if (players.length === 0) {
                     var playersSize = metrics();
-                    stream.warmup(options.headful);
 
                     var playersRequest = film.id
                         ? api.getPlayers(film.id)

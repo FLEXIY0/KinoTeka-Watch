@@ -551,21 +551,11 @@ write_config() {
     ' "$CONFIG_DIR/config.json" "$1" "$2" < /dev/null
 }
 
-find_system_chromium() {
-    for _candidate in chromium chromium-browser google-chrome google-chrome-stable brave-browser; do
-        if has "$_candidate"; then
-            command -v "$_candidate"
-            return 0
-        fi
-    done
-
-    return 1
-}
-
 install_deps() {
     cd "$INSTALL_DIR"
 
-    # Chromium под 150 МБ качать не нужно: берём системный, если он есть
+    # Браузер не нужен: потоки берутся прямым парсингом, Chromium из
+    # зависимостей убран. Переменные оставлены на случай старого lock-файла.
     export PUPPETEER_SKIP_DOWNLOAD=true
     export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
@@ -574,12 +564,6 @@ install_deps() {
 
     [ -d "$INSTALL_DIR/node_modules" ] || die "bun install не создал node_modules в $INSTALL_DIR"
     ok "пакеты установлены через bun"
-
-    _chromium=$(find_system_chromium 2>/dev/null || echo "")
-    if [ -n "$_chromium" ]; then
-        write_config chromiumPath "$_chromium" || true
-        dim "найден системный браузер: $_chromium"
-    fi
 }
 
 # Заполняется, если команду не получится вызвать по имени.
@@ -777,6 +761,19 @@ verify_install
 
 step "Ключ API"
 setup_key
+
+# Доктор проверяет всё, что нужно для просмотра, и печатает только проблемы.
+# Когда всё на месте — молчит, чтобы не превращать успешную установку в стену текста.
+step "Проверка"
+_doctor=$("$BIN_DIR/ktw" --doctor-brief 2>/dev/null || true)
+
+if [ -n "$_doctor" ]; then
+    printf '%s\n' "$_doctor"
+    say ""
+    dim "полный разбор — ktw --doctor"
+else
+    ok "всё на месте"
+fi
 
 say ""
 

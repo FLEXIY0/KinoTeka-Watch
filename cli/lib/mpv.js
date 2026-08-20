@@ -3,6 +3,12 @@
 // Запуск mpv с потоком и отслеживанием прогресса через IPC сокет.
 // Referer и User-Agent обязательны: CDN балансеров отдают сегменты
 // только с теми же заголовками, с какими их запрашивал бы браузер.
+//
+// Про звук. У балансеров озвучки лежат отдельными рендициями
+// (#EXT-X-MEDIA:TYPE=AUDIO), а вариант качества — это чистое видео. Поэтому
+// mpv всегда получает мастер-плейлист, качество задаётся через --hls-bitrate,
+// а озвучка — через --aid по номеру внутри группы. Подмена URL на вариант
+// давала картинку без звука.
 
 var spawn = require('child_process').spawn;
 var net = require('net');
@@ -56,9 +62,25 @@ function buildArgs(stream, title, extraArgs, socketPath) {
         args.push('--start=' + Math.floor(Number(stream.startTime)));
     }
 
-    // Передача конкретной звуковой дорожки (--aid)
-    if (stream.audioId !== undefined && stream.audioId !== null) {
-        args.push('--aid=' + stream.audioId);
+    // Качество внутри мастер-плейлиста: так звуковые группы остаются на месте
+    if (stream.hlsBitrate && Number(stream.hlsBitrate) > 0) {
+        args.push('--hls-bitrate=' + Math.floor(Number(stream.hlsBitrate)));
+    }
+
+    // Передача конкретной звуковой дорожки (--aid).
+    // Номер обязан быть в пределах реального списка дорожек: --aid на
+    // несуществующую дорожку mpv молча играет вообще без звука.
+    var audioId = Number(stream.audioId);
+    var trackCount = stream.audioTracks ? stream.audioTracks.length : 0;
+
+    if (stream.audioId !== undefined && stream.audioId !== null &&
+        audioId >= 1 && (trackCount === 0 || audioId <= trackCount)) {
+        args.push('--aid=' + audioId);
+    }
+
+    // Звук отдельным плейлистом — когда дорожки не собраны в группу
+    if (stream.audioUrl) {
+        args.push('--audio-file=' + stream.audioUrl);
     }
 
     // Субтитры, если доступны

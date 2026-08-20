@@ -152,6 +152,40 @@ async function messageScreen(title, lines, hint) {
     await tui.readKey();
 }
 
+// Экран подробного замера оперативной памяти (RAM Benchmark)
+async function memoryBenchmarkScreen() {
+    var sysinfo = require('./sysinfo');
+    while (true) {
+        var size = metrics();
+        var stats = sysinfo.getMemoryStats();
+        var content = [
+            '',
+            '  ' + style.bold('Реальное потребление RAM процессами KTW:'),
+            '',
+            '  ' + style.bold('• KTW (Node.js TUI процесс):') + '   ' + style.accent(stats.ktw + ' МБ') + style.muted(' (Resident RSS)'),
+            '    ' + style.muted('- Heap JS движка:            ' + stats.heap + ' МБ'),
+            '',
+            '  ' + style.bold('• Видеоплеер mpv:') + '              ' + style.warn(stats.mpv + ' МБ') + style.muted(stats.mpvActive ? ' (активен сейчас)' : ' (базовый замер)'),
+            '',
+            '  ' + style.bold('• Терминал / Shell (TTY):') + '    ' + style.muted((stats.terminal > 0 ? stats.terminal : '—') + ' МБ'),
+            '',
+            '  ' + style.muted(ansi.repeat('─', Math.max(0, size.width - 8))),
+            '  ' + style.bold('Всего используется RAM:') + '       ' + style.good(stats.total + ' МБ'),
+            '',
+            '  ' + style.good('✓ Для сравнения: браузеры расходуют от 800 до 2500 МБ памяти'),
+            ''
+        ];
+
+        tui.paint(tui.box('Замер потребления оперативной памяти', content, size.width,
+            footer(['Enter обновить', 'Esc назад'])));
+
+        var key = await tui.readKey();
+        if (key.name === 'escape') {
+            break;
+        }
+    }
+}
+
 // Экран настроек (Settings)
 async function settingsScreen() {
     var cfg = config.read();
@@ -247,6 +281,14 @@ async function settingsScreen() {
                 key: 'kinopoiskApiKey',
                 label: t('key_label'),
                 valueText: cfg.kinopoiskApiKey ? (cfg.kinopoiskApiKey.slice(0, 8) + '…' + cfg.kinopoiskApiKey.slice(-4)) : t('key_not_set')
+            },
+            {
+                key: 'memoryBenchmark',
+                label: '📊 Замер памяти (RAM)',
+                valueText: (function () {
+                    var ms = require('./sysinfo').getMemoryStats();
+                    return 'KTW ' + ms.ktw + ' МБ + mpv ' + ms.mpv + ' МБ' + (ms.terminal > 0 ? (' + TTY ' + ms.terminal + ' МБ') : '') + ' = ' + ms.total + ' МБ';
+                })()
             }
         ];
 
@@ -347,6 +389,8 @@ async function settingsScreen() {
                     cfg.kinopoiskApiKey = newKey;
                     config.save({ kinopoiskApiKey: newKey });
                 }
+            } else if (cur.key === 'memoryBenchmark') {
+                await memoryBenchmarkScreen();
             }
         }
     }

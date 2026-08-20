@@ -151,6 +151,14 @@ async function runTests() {
     var offLogo = themes.renderLogo('matrix', 'off');
     assert(Array.isArray(offLogo) && offLogo.length === 0, 'Режим off возвращает пустой список строк');
 
+    // ТЕСТ 8: Модуль замера оперативной памяти (sysinfo.js)
+    console.log('\n\x1b[36m[8/8] Тестирование модуля замера оперативной памяти (sysinfo.js)\x1b[0m');
+    var sysinfo = require('./lib/sysinfo');
+    var memStats = sysinfo.getMemoryStats();
+    assert(typeof memStats.ktw === 'number' && memStats.ktw > 0, 'Замер памяти KTW RSS успешен (' + memStats.ktw + ' МБ)');
+    assert(typeof memStats.mpv === 'number' && memStats.mpv > 0, 'Замер памяти mpv успешен (' + memStats.mpv + ' МБ)');
+    assert(typeof memStats.total === 'number' && memStats.total >= memStats.ktw, 'Расчет суммарной памяти корректен (' + memStats.total + ' МБ)');
+
     // ИТОГИ
     console.log('\n======================================');
     console.log('Итоги: \x1b[32mУспешно: ' + passed + '\x1b[0m | \x1b[31mОшибок: ' + failed + '\x1b[0m');

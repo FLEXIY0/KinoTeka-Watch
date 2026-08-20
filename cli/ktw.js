@@ -40,6 +40,7 @@ var HELP = [
     '      --resume         продолжить просмотр с сохранённой секунды',
     '      --history        показать историю просмотров',
     '      --stand, --themes интерактивный стенд выбора стиля и ANSI арта',
+    '      --ram, --bench   замер реального потребления памяти KTW + mpv в МБ',
     '      --direct         только прямое извлечение ⚡ (без запуска Chromium)',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
     '      --no-mpv         найти поток, но не запускать mpv',
@@ -175,6 +176,7 @@ function parseArgs(argv) {
         timeout: 40000,
         key: null,
         settings: false,
+        ram: false,
         help: false,
         version: false,
         clean: false,
@@ -195,6 +197,7 @@ function parseArgs(argv) {
         else if (arg === '--clean') options.clean = true;
         else if (arg === '--history') options.history = true;
         else if (arg === '--stand' || arg === '--themes') options.stand = true;
+        else if (arg === '--ram' || arg === '--memory' || arg === '--bench') options.ram = true;
         else if (arg === '--resume') options.resume = true;
         else if (arg === '--settings') options.settings = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
@@ -515,6 +518,22 @@ async function main() {
 
     if (options.stand) {
         return await require('./lib/stand').runStand();
+    }
+
+    if (options.ram) {
+        var sysinfo = require('./lib/sysinfo');
+        var stats = sysinfo.getMemoryStats();
+        ui.info('');
+        ui.info(ui.color.bold('📊 Замер потребления оперативной памяти (RAM):'));
+        ui.info('  • KTW (Node.js TUI процесс): ' + ui.color.cyan(stats.ktw + ' МБ') + ui.color.dim(' (Heap: ' + stats.heap + ' МБ)'));
+        ui.info('  • Видеоплеер mpv:           ' + ui.color.yellow(stats.mpv + ' МБ') + ui.color.dim(stats.mpvActive ? ' (активен сейчас)' : ' (базовый замер)'));
+        if (stats.terminal > 0) {
+            ui.info('  • Терминал / Shell (TTY):   ' + ui.color.dim(stats.terminal + ' МБ'));
+        }
+        ui.info('  ' + ui.color.dim('─────────────────────────────────────────────'));
+        ui.info('  ' + ui.color.bold('Всего используется:         ') + ui.color.green(stats.total + ' МБ'));
+        ui.info('');
+        return 0;
     }
 
     if (options.unknown.length > 0) {

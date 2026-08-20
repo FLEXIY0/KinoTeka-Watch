@@ -4,8 +4,10 @@
   "description": "",
   "main": "kinopoisk-key.js",
   "scripts": {
-    "test": "node cli/test.js",
-    "cli": "node cli/ktw.js"
+    "start": "bun cli/ktw.js",
+    "test": "bun cli/test.js",
+    "build:bin": "bun build --compile --minify cli/ktw.js --outfile ktw",
+    "cli": "bun cli/ktw.js"
   },
   "bin": {
     "ktw": "cli/ktw.js"

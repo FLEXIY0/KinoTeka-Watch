@@ -302,33 +302,45 @@ require_tool() {
 
 # ---------- шаги установки ----------
 
-check_node() {
-    if ! has node; then
-        if [ "$PKG_MGR" = "apt-get" ]; then
-            install_pkg "nodejs npm" || true
-        else
-            install_pkg nodejs || true
+RUNTIME_CMD="node"
+
+check_runtime() {
+    if has bun; then
+        ok "рантайм: $(bun --version 2>&1 | head -n1 | sed 's/^/bun /')"
+        RUNTIME_CMD="bun"
+        return 0
+    fi
+
+    if has node; then
+        _major=$(node -v | sed 's/^v\([0-9][0-9]*\).*/\1/')
+        if [ "$_major" -ge 18 ] 2>/dev/null; then
+            ok "рантайм: node $(node -v)"
+            RUNTIME_CMD="node"
+            return 0
         fi
     fi
 
-    has node || die "нужен Node.js 18+. Поставь его и запусти скрипт заново"
-
-    _major=$(node -v | sed 's/^v\([0-9][0-9]*\).*/\1/')
-
-    if [ "$_major" -lt 18 ] 2>/dev/null; then
-        bad "node $(node -v) — слишком старый, нужен 18+"
-        say ""
-        dim "самый простой способ обновиться без root:"
-        dim "  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash"
-        dim "  nvm install 20"
-        die "обнови Node.js и запусти скрипт заново"
+    say ""
+    dim "ставлю ультра-быстрый рантайм Bun (без root)..."
+    if spin_run "ставлю Bun" sh -c "curl -fsSL https://bun.sh/install | bash"; then
+        export BUN_INSTALL="$HOME/.bun"
+        export PATH="$BUN_INSTALL/bin:$PATH"
+        if has bun; then
+            ok "bun установлен ($(bun --version))"
+            RUNTIME_CMD="bun"
+            return 0
+        fi
     fi
 
-    ok "node $(node -v)"
+    if [ "$PKG_MGR" = "apt-get" ]; then
+        install_pkg "nodejs npm" || true
+    else
+        install_pkg nodejs || true
+    fi
 
-    has npm || install_pkg npm || true
-    has npm || die "нужен npm. Поставь пакет npm и запусти скрипт заново"
-    ok "npm $(npm -v)"
+    has node || die "нужен Bun или Node.js. Поставь Bun: curl -fsSL https://bun.sh/install | bash"
+    RUNTIME_CMD="node"
+    ok "node $(node -v)"
 }
 
 SOURCES_CLONED=0
@@ -364,7 +376,7 @@ fetch_sources() {
 # Записать значение в config.json, не потеряв остальные поля
 write_config() {
     mkdir -p "$CONFIG_DIR"
-    node -e '
+    "$RUNTIME_CMD" -e '
         var fs = require("fs"), file = process.argv[1], key = process.argv[2], value = process.argv[3];
         var config = {};
         try { config = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {}
@@ -374,10 +386,8 @@ write_config() {
 }
 
 # Скачанный puppeteer'ом браузер реально лежит на диске?
-# Проверять код возврата npm недостаточно: если пакет уже стоял или
-# CDN недоступен, установка проходит успешно, а браузера нет.
 browser_ready() {
-    node -e '
+    "$RUNTIME_CMD" -e '
         try {
             var fs = require("fs");
             var file = require("puppeteer").executablePath();
@@ -403,11 +413,18 @@ install_deps() {
     cd "$INSTALL_DIR"
 
     export PUPPETEER_SKIP_DOWNLOAD=true
-    spin_run "ставлю пакеты Node" \
-        npm install --omit=dev --no-audit --no-fund \
-        || warn "npm install завершился с предупреждением"
 
-    ok "пакеты установлены"
+    if [ "$RUNTIME_CMD" = "bun" ] || has bun; then
+        spin_run "ставлю пакеты через bun" \
+            bun install --production --no-progress \
+            || warn "bun install завершился с предупреждением"
+        ok "пакеты установлены через bun"
+    else
+        spin_run "ставлю пакеты Node" \
+            npm install --omit=dev --no-audit --no-fund \
+            || warn "npm install завершился с предупреждением"
+        ok "пакеты установлены"
+    fi
 
     # Проверяем, есть ли уже системный браузер (для Puppeteer-фоллбэка)
     _chromium=$(find_system_chromium 2>/dev/null || echo "")
@@ -483,7 +500,7 @@ link_binary() {
 # Проверка, что клиент реально стартует. Ловит неполное дерево (недокачанный
 # или битый клон) сразу, а не при первом запуске непонятной ошибкой Node.
 verify_install() {
-    _out=$(node "$INSTALL_DIR/cli/ktw.js" --help 2>&1) && {
+    _out=$("$RUNTIME_CMD" "$INSTALL_DIR/cli/ktw.js" --help 2>&1) && {
         ok "клиент запускается"
         return 0
     }
@@ -551,14 +568,14 @@ ensure_root_ready
 
 step "Зависимости"
 require_tool git git yes
-check_node
+check_runtime
 require_tool mpv mpv yes
 require_tool chafa chafa no
 
 step "Исходники"
 fetch_sources
 
-step "Пакеты Node"
+step "Зависимости проекта"
 install_deps
 
 step "Команда ktw"

@@ -1,17 +1,20 @@
 'use strict';
 
-// Замер реального потребления оперативной памяти (RAM в МБ) KTW + mpv + терминала.
+// Замер реального потребления оперативной памяти (RAM в МБ) KTW + mpv + терминала (Bun / Node.js).
 
 var fs = require('fs');
 var child_process = require('child_process');
 
 var cachedMpvMb = null;
 
+var isBun = typeof Bun !== 'undefined' || !!process.isBun;
+var runtimeName = isBun ? ('Bun ' + (typeof Bun !== 'undefined' ? ('v' + Bun.version) : '')) : ('Node.js ' + process.version);
+
 // Чтение RSS памяти процесса в мегабайтах
 function getProcessRssMb(pid) {
     if (!pid || pid <= 0) return 0;
 
-    // 1. Linux /proc filesystem (мгновенно, без вызова подпроцессов)
+    // 1. Linux /proc filesystem (мгновенно, 0ms overhead)
     try {
         if (fs.existsSync('/proc/' + pid + '/status')) {
             var status = fs.readFileSync('/proc/' + pid + '/status', 'utf8');
@@ -86,12 +89,9 @@ function probeMpvRssMb() {
             '--no-config'
         ], { stdio: 'ignore' });
 
-        child.on('error', function () {
-            // mpv не найден или не запустился
-        });
+        child.on('error', function () {});
 
         if (child.pid) {
-            // Короткая пауза для замера RSS
             var start = Date.now();
             while (Date.now() - start < 150) {
                 // wait
@@ -109,7 +109,6 @@ function probeMpvRssMb() {
         }
     } catch (e) {}
 
-    // Стандартная базовая память mpv в TUI
     cachedMpvMb = 82.0;
     return cachedMpvMb;
 }
@@ -139,6 +138,8 @@ function getMemoryStats(activeMpvPid) {
     var totalMb = +(nodeRssMb + mpvRssMb + (termRssMb > 0 ? termRssMb : 0)).toFixed(1);
 
     return {
+        runtime: runtimeName,
+        isBun: isBun,
         ktw: nodeRssMb,
         heap: nodeHeapMb,
         mpv: mpvRssMb,
@@ -149,6 +150,8 @@ function getMemoryStats(activeMpvPid) {
 }
 
 module.exports = {
+    runtimeName: runtimeName,
+    isBun: isBun,
     getMemoryStats: getMemoryStats,
     probeMpvRssMb: probeMpvRssMb,
     getProcessRssMb: getProcessRssMb,

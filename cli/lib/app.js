@@ -27,18 +27,18 @@ var POSTER_COLS = 22;
 var POSTER_ROWS = 13;
 var GAP = 2;
 
-// Размеры карточки под текущий размер терминала
+// Размеры карточки под текущий размер терминала (адаптивная растяжка)
 function metrics() {
     var screen = tui.size();
-    var width = Math.max(48, Math.min(screen.cols - 4, 82));
-    var withPoster = screen.cols >= 68 && screen.rows >= 20;
+    var width = Math.max(50, Math.min(screen.cols - 4, 110));
+    var withPoster = screen.cols >= 66 && screen.rows >= 18;
     var rightWidth = width - 4 - (withPoster ? POSTER_COLS + GAP : 0);
 
     return {
         width: width,
         rightWidth: rightWidth,
         withPoster: withPoster,
-        listRows: Math.max(4, Math.min(screen.rows - 12, 14))
+        listRows: Math.max(5, Math.min(screen.rows - 10, 20))
     };
 }
 

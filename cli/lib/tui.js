@@ -1,10 +1,7 @@
 'use strict';
 
 // Движок полноэкранного интерфейса: альтернативный буфер, очередь клавиш,
-// отрисовка кадра по центру экрана и типовые виджеты (рамка, список, поле ввода).
-//
-// Кадр всегда собирается целиком и пишется одним вызовом write — так нет
-// мерцания и не нужно следить за тем, что осталось от прошлой отрисовки.
+// поддержка мыши (SGR mouse mode, скролл, клики), отрисовка кадра и типовые виджеты.
 
 var readline = require('readline');
 var ansi = require('./ansi');
@@ -29,8 +26,46 @@ function size() {
     };
 }
 
+function dispatchEvent(event) {
+    if (waiters.length > 0) waiters.shift()(event);
+    else pendingKeys.push(event);
+}
+
 function onKeypress(str, key) {
     key = key || {};
+
+    // Разбор SGR последовательностей мыши: \x1b[<btn;col;row;M или m
+    if (str && str.indexOf('\x1b[<') === 0) {
+        var match = str.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
+        if (match) {
+            var btn = parseInt(match[1], 10);
+            var col = parseInt(match[2], 10);
+            var row = parseInt(match[3], 10);
+            var isPress = match[4] === 'M';
+
+            // Колёсико мыши вверх
+            if (btn === 64) {
+                dispatchEvent({ name: 'up', mouse: true });
+                return;
+            }
+            // Колёсико мыши вниз
+            if (btn === 65) {
+                dispatchEvent({ name: 'down', mouse: true });
+                return;
+            }
+            // Левый клик мыши
+            if (btn === 0 && isPress) {
+                dispatchEvent({ name: 'return', mouse: true, col: col, row: row });
+                return;
+            }
+            // Правый клик мыши — возврат назад (Esc)
+            if (btn === 2 && isPress) {
+                dispatchEvent({ name: 'escape', mouse: true, col: col, row: row });
+                return;
+            }
+        }
+        return;
+    }
 
     var event = {
         name: key.name || '',
@@ -46,8 +81,7 @@ function onKeypress(str, key) {
         process.exit(130);
     }
 
-    if (waiters.length > 0) waiters.shift()(event);
-    else pendingKeys.push(event);
+    dispatchEvent(event);
 }
 
 function onResize() {
@@ -59,11 +93,9 @@ function enter() {
     if (active) return;
     active = true;
 
-    // Альтернативный буфер + скрытый курсор
-    write('\x1b[?1049h\x1b[?25l\x1b[2J');
+    // Альтернативный буфер + скрытый курсор + включение мыши (1000h, 1002h, 1006h)
+    write('\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[2J');
 
-    // Без escapeCodeTimeout Node ждёт продолжения последовательности полсекунды,
-    // и одиночный Esc срабатывает с заметной задержкой
     readline.emitKeypressEvents(process.stdin, { escapeCodeTimeout: 60 });
     if (process.stdin.isTTY) process.stdin.setRawMode(true);
     process.stdin.setEncoding('utf8');
@@ -76,15 +108,16 @@ function exit() {
     if (!active) return;
     active = false;
 
+    // Отключение мыши + возврат курсора + возврат буфера
+    write('\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?25h\x1b[?1049l');
+
     process.stdin.removeListener('keypress', onKeypress);
     process.stdout.removeListener('resize', onResize);
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     process.stdin.pause();
-
-    write('\x1b[?25h\x1b[?1049l');
 }
 
-// Следующая клавиша; timeoutMs позволяет параллельно ждать таймер
+// Следующая клавиша / событие мыши; timeoutMs позволяет параллельно ждать таймер
 function readKey(timeoutMs) {
     if (pendingKeys.length > 0) return Promise.resolve(pendingKeys.shift());
 
@@ -137,10 +170,7 @@ function paint(lines) {
     write('\x1b[H' + out.join('\r\n'));
 }
 
-// Рамка вокруг готовых строк содержимого:
-//   ╭─ Заголовок ──────╮
-//   │ содержимое       │
-//   ╰──────────────────╯
+// Рамка вокруг готовых строк содержимого
 function box(title, contentLines, width, footer) {
     var inner = width - 2;
     var lines = [];
@@ -200,7 +230,6 @@ function list(items, selected, maxVisible, width) {
         lines.push('  ' + marker + body + ansi.repeat(' ', Math.max(1, gap)) + style.muted(hint));
     }
 
-    // Указатель на то, что список длиннее экрана
     if (items.length > visible) {
         var above = offset;
         var below = items.length - offset - visible;
@@ -217,8 +246,10 @@ function field(label, value, focused) {
     return style.muted(label) + '  ' + style.bold(value) + caret;
 }
 
-// Обработка клавиш редактирования строки; возвращает новое значение или null
+// Обработка клавиш редактирования строки
 function editText(value, event) {
+    if (event.mouse) return null;
+
     if (event.name === 'backspace') {
         return Array.from(value).slice(0, -1).join('');
     }
@@ -229,7 +260,6 @@ function editText(value, event) {
         return value.replace(/\s*\S+\s*$/, '');
     }
 
-    // Обычный печатный символ (в том числе кириллица)
     if (event.str && !event.ctrl && !event.meta && event.str >= ' ' && event.str !== '\x7f') {
         return value + event.str;
     }
@@ -237,7 +267,7 @@ function editText(value, event) {
     return null;
 }
 
-// Анимация ожидания: крутим спиннер, пока не выполнится промис
+// Анимация ожидания
 async function withSpinner(promise, renderFrame) {
     var frames = ansi.ascii
         ? ['|', '/', '-', '\\']

@@ -27,7 +27,16 @@ function buildArgs(stream, title, extraArgs, socketPath) {
     var args = [
         '--user-agent=' + (stream.userAgent || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'),
         '--referrer=' + stream.referer,
-        '--http-header-fields=Origin: ' + stream.origin
+        '--http-header-fields=Origin: ' + stream.origin,
+        '--cache=yes',
+        '--demuxer-max-bytes=250MiB',
+        '--demuxer-max-back-bytes=100MiB',
+        '--demuxer-readahead-secs=180',
+        '--hr-seek=yes',
+        '--hr-seek-framedrop=yes',
+        '--input-cursor=yes',
+        '--osc=yes',
+        '--script-opts=osc-scalewindowed=1.2,osc-scalefullscreen=1.2,osc-visibility=auto'
     ];
 
     if (title) {

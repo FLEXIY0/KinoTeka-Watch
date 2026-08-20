@@ -341,22 +341,24 @@ fetch_sources() {
         return 0
     fi
 
-    if [ -d "$INSTALL_DIR/.git" ]; then
-        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" remote set-branches origin '*' 2>/dev/null || true; git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -B \"$REPO_BRANCH\" \"origin/$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
+    if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/cli/ktw.js" ]; then
+        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -B \"$REPO_BRANCH\" \"origin/$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
             ok "обновлено до $(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null)"
             return 0
-        else
-            warn "не удалось обновить на месте — перекачиваю начисто в $INSTALL_DIR"
-            rm -rf "$INSTALL_DIR"
         fi
     fi
 
+    # Очищаем перед клонированием, чтобы избежать ошибок 'destination path already exists'
+    rm -rf "$INSTALL_DIR"
     mkdir -p "$(dirname "$INSTALL_DIR")"
+
     spin_run "качаю исходники в $INSTALL_DIR" \
         git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" \
-        || die "не смог склонировать $REPO_URL"
+        || die "не смог склонировать $REPO_URL (ветка $REPO_BRANCH)"
+
+    [ -f "$INSTALL_DIR/cli/ktw.js" ] || die "исходники повреждены: $INSTALL_DIR/cli/ktw.js не найден"
     SOURCES_CLONED=1
-    ok "скачано"
+    ok "скачано в $INSTALL_DIR"
 }
 
 # Записать значение в config.json, не потеряв остальные поля

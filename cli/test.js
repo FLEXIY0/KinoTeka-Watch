@@ -490,6 +490,57 @@ async function testCache() {
     assert(cache.stats().entries > 0, 'кеш умеет отчитаться о размере');
 }
 
+async function testEndToEnd() {
+    group('Сквозной прогон настоящей команды ktw');
+
+    // Запускается реальный ktw, а не собранная в тесте цепочка: только так
+    // ловятся ошибки проводки между ktw.js, stream.js и mpv.js. Сеть подменена
+    // через bun --preload, поэтому регион и провайдер ни при чём.
+    var execFileSync = require('child_process').execFileSync;
+    var raw;
+
+    try {
+        raw = execFileSync('bun', [
+            '--preload', path.join(__dirname, 'fixtures', 'stub-network.js'),
+            path.join(__dirname, 'ktw.js'),
+            '474', '--plain', '--no-mpv', '--json'
+        ], {
+            encoding: 'utf8',
+            env: Object.assign({}, process.env, { KTW_NO_CACHE: '1' }),
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 60000
+        });
+    } catch (err) {
+        assert(false, 'ktw отработал без падения: ' + err.message);
+        return;
+    }
+
+    var result;
+
+    try {
+        result = JSON.parse(raw);
+    } catch (err) {
+        assert(false, 'ktw отдал разбираемый JSON');
+        return;
+    }
+
+    var found = result.stream || {};
+
+    assert(Array.isArray(found.variants) && found.variants.length === 2,
+        'выбор качества доехал до конца: ' + JSON.stringify(found.variants));
+    assert(found.variants && found.variants[0] === '1080p' && found.variants[1] === '720p',
+        'качества названы по плейлисту, а не меткой из ответа Kinobox');
+
+    // В фикстуре DEFAULT=YES стоит у «Оригинал (ENG)» — ровно как у балансера.
+    // Без правки mpv молча брал бы её.
+    assert(found.audioId === 2,
+        'выбрана русская дорожка, хотя английская помечена DEFAULT=YES (--aid=' + found.audioId + ')');
+    assert(/--aid=2/.test(result.command || ''), 'номер дорожки доехал до командной строки mpv');
+    assert(/master\.m3u8/.test(found.url || ''), 'в mpv уходит мастер-плейлист, а не немая видеодорожка');
+    assert(/--hls-bitrate=/.test(result.command || ''), 'качество задано через --hls-bitrate');
+    assert(/--cache-secs=/.test(result.command || ''), 'буфер воспроизведения настроен');
+}
+
 // ---------- офлайн: доктор, конфиг, история ----------
 
 async function testDoctor() {
@@ -645,6 +696,7 @@ var SUITES = [
     ['Честное качество', testQualityHonesty],
     ['Запасной dash', testDashFallback],
     ['Кеш', testCache],
+    ['Сквозной прогон', testEndToEnd],
     ['Регион', testGeoBlock],
     ['Универсальный разбор', testGenericExtractor],
     ['Kodik', testKodikDecode],

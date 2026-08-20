@@ -20,6 +20,7 @@ var cache = require('./cache');
 var http = require('./http');
 var api = require('./api');
 var extractors = require('./extractors');
+var stream = require('./stream');
 
 // Фильм для проверки балансеров: «Матрица», есть у всех
 var PROBE_FILM = 301;
@@ -90,6 +91,77 @@ function checkChromium() {
     }
 
     return check('браузер', 'ok', 'не нужен, всё берётся прямым парсингом');
+}
+
+// Что за копия запущена и есть ли в ней нужные правки.
+//
+// Самая частая причина «я обновился, а ничего не изменилось» — запускается
+// другая ветка или старый клон. Гадать об этом по симптомам бесполезно:
+// «нет выбора качества», «озвучка английская» и «балансеры не работают»
+// выглядят одинаково и при поломке, и при устаревшей копии.
+function checkVersion() {
+    var root = path.join(__dirname, '..', '..');
+
+    function git(args) {
+        try {
+            return execFileSync('git', ['-C', root].concat(args), {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'ignore']
+            }).trim();
+        } catch (err) {
+            return '';
+        }
+    }
+
+    var branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+    var commit = git(['rev-parse', '--short', 'HEAD']);
+    var when = git(['log', '-1', '--format=%cd', '--date=short']);
+
+    if (!commit) {
+        return check('версия', 'warn', 'не git-копия — не понять, что установлено',
+            'переустанови через install.sh, чтобы обновления доезжали');
+    }
+
+    var detail = (branch || 'HEAD') + ' ' + commit + (when ? ' от ' + when : '');
+    var behind = git(['rev-list', '--count', 'HEAD..@{upstream}']);
+
+    if (behind && behind !== '0') {
+        return check('версия', 'warn', detail + ', отстаёт на ' + behind + ' коммитов',
+            'обнови: запусти install.sh ещё раз (той же ветки) или git -C ' + root + ' pull');
+    }
+
+    return check('версия', 'ok', detail);
+}
+
+// Проверка не по номеру версии, а по наличию самих функций: так видно, что
+// запущенная копия действительно содержит правки, а не просто свежую дату.
+function checkFixes() {
+    var missing = [];
+
+    if (typeof stream.resolveAudioId !== 'function') missing.push('выбор русской озвучки');
+    if (typeof stream.applyVariant !== 'function') missing.push('звук при выборе качества');
+    if (typeof extractors.languageOf !== 'function') missing.push('язык звуковой дорожки');
+
+    var mpvArgs = [];
+
+    try {
+        mpvArgs = require('./mpv').buildArgs({ url: 'u', referer: 'r', origin: 'o' }, 'T');
+    } catch (err) {
+        mpvArgs = [];
+    }
+
+    if (!mpvArgs.some(function (a) { return a.indexOf('--cache-secs=') === 0; })) {
+        missing.push('буфер воспроизведения');
+    }
+
+    if (missing.length > 0) {
+        return check('правки на месте', 'fail', 'запущена старая копия — нет: ' + missing.join(', '),
+            'обнови до ветки с правками: curl -fsSL ' +
+            'https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/claude/direct-tui-bun-install-d9bhfq/cli/install.sh' +
+            ' | KTW_BRANCH=claude/direct-tui-bun-install-d9bhfq sh');
+    }
+
+    return check('правки на месте', 'ok', 'звук, язык дорожки, качество и буфер');
 }
 
 function checkApiKey() {
@@ -249,6 +321,8 @@ async function run(mode) {
     mode = mode || 'full';
 
     var checks = [
+        checkVersion(),
+        checkFixes(),
         checkRuntime(),
         checkMpv(),
         checkChromium(),

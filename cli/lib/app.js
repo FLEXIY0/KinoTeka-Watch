@@ -172,15 +172,8 @@ async function settingsScreen() {
     var modeOptions = [false, true];
     var modeLabels = ['Гибридный ⚡ (прямой + браузер)', 'Только прямой ⚡ (без запуска Chromium)'];
 
-    var themeOptions = ['classic_bw', 'monument', 'cyberpunk', 'cinema', 'matrix', 'nordic'];
-    var themeLabels = [
-        'Classic Monochrome (Классическая Ч/Б)',
-        'Monument Dark (Монументальный Графит)',
-        'Neon Cyberpunk (Неон / Киберпанк)',
-        'Cinema Noir & Gold (Тёмное Золото / Премиум)',
-        'Matrix Hacker (Матрица / Зелёный)',
-        'Nordic Frost (Северный Ледник / Минимал)'
-    ];
+    var themeOptions = Object.keys(themes.THEMES);
+    var themeLabels = themeOptions.map(function (k) { return themes.THEMES[k].name; });
 
     var bannerOptions = themes.FONT_KEYS;
     var sizeOptions = ['auto', 'full', 'compact', 'mini'];
@@ -198,7 +191,7 @@ async function settingsScreen() {
             {
                 key: 'theme',
                 label: t('theme_label'),
-                valueText: themeLabels[themeOptions.indexOf(cfg.theme || 'classic_bw')] || (cfg.theme || 'classic_bw')
+                valueText: themes.THEMES[cfg.theme || 'classic_bw'] ? themes.THEMES[cfg.theme || 'classic_bw'].name : (cfg.theme || 'Classic Monochrome')
             },
             {
                 key: 'bannerStyle',

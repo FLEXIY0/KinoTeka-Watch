@@ -1,6 +1,6 @@
 'use strict';
 
-// Коллекция тем оформления и продвинутый адаптивный ANSI/ASCII генератор на 27 шрифтах.
+// Коллекция 16 тем оформления и адаптивный ANSI/ASCII генератор на 26 шрифтах.
 
 var ansi = require('./ansi');
 var figlet;
@@ -50,20 +50,6 @@ var BUILTIN_LOGOS = {
             '╠╩╗  ║  ║║║',
             '╩ ╩  ╩  ╚╩╝'
         ]
-    },
-    gothic: {
-        full: [
-            '  ▄▄▄  ▄ ▄▄   ▄  ▄▄▄  ▄▄▄▄▄ ▄▄▄▄ ▄▄▄  ▄   ▄ ',
-            '  █  █ █ █ █  █ █   █   █   █    █  █ █   █ ',
-            '  █▀▀▄ █ █  █ █ █   █   █   █▀▀  █▀▀▄ █▀▀▀█ ',
-            '  █  █ █ █   ██  ▀▄▄▀   █   █▄▄▄ █  █ █   █ '
-        ],
-        short: [
-            ' ▄▄▄ ▄▄▄▄▄ ▄   ▄ ',
-            ' █  █  █   █ █ █ ',
-            ' █▀▀▄  █   █▀▄▀█ ',
-            ' █  █  █   █   █ '
-        ]
     }
 };
 
@@ -93,7 +79,6 @@ var FIGLET_FONT_MAP = {
 };
 
 var FONT_KEYS = [
-    'auto',
     'ansi_shadow',
     'slant',
     'doom',
@@ -119,22 +104,20 @@ var FONT_KEYS = [
     'lineart',
     'monument',
     'cyber',
-    'gothic',
     'off'
 ];
 
 var FONT_LABELS = {
-    auto: 'Авто (из темы)',
     ansi_shadow: 'ANSI Shadow (3D Блоки)',
     slant: 'Slant (Наклонный 3D)',
-    doom: 'Doom (Игровой)',
+    doom: 'Doom (Игровой Doom)',
     standard: 'Standard (ASCII)',
     big: 'Big (Крупный жирный)',
     small: 'Small (Компактный)',
     graffiti: 'Graffiti (Стрит-арт)',
     sub_zero: 'Sub-Zero (Кибер-изометрик)',
     speed: 'Speed (Скоростной)',
-    ghost: 'Ghost (Призрачный)',
+    ghost: 'Ghost (Призрачный 3D)',
     larry3d: 'Larry 3D (3D Ретро)',
     ogre: 'Ogre (Готический)',
     rectangles: 'Rectangles (Блоки)',
@@ -150,7 +133,6 @@ var FONT_LABELS = {
     lineart: 'Line-Art (Тонкие рамки)',
     monument: 'Monument (Монолит)',
     cyber: 'Cyber (Двойной контур)',
-    gothic: 'Gothic (Готика)',
     off: 'Выключить (без баннера)'
 };
 
@@ -177,33 +159,11 @@ var THEMES = {
             arrow: '>', caret: '█', dot: '·', up: '^', down: 'v', star: '★'
         }
     },
-    monument: {
-        id: 'monument',
-        name: 'Monument Dark',
-        tagline: 'Монументальные блоки, глубокий графит',
-        logoStyle: 'monument',
-        colors: {
-            accent: [235, 240, 245],
-            secondary: [160, 175, 190],
-            highlight: [255, 255, 255],
-            muted: [100, 110, 125],
-            border: [70, 80, 95],
-            good: [180, 220, 190],
-            warn: [220, 200, 150],
-            bad: [200, 110, 110],
-            titleBg: [20, 24, 30],
-            cardBg: [12, 15, 20]
-        },
-        glyphs: {
-            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
-            arrow: '■', caret: '▌', dot: '·', up: '▲', down: '▼', star: '★'
-        }
-    },
     cyberpunk: {
         id: 'cyberpunk',
         name: 'Neon Cyberpunk',
-        tagline: 'Электрический циан, неоновый пурпур',
-        logoStyle: 'slant',
+        tagline: 'Электрический циан и неоновый пурпур',
+        logoStyle: 'ansi_shadow',
         colors: {
             accent: [0, 240, 255],
             secondary: [255, 0, 127],
@@ -224,8 +184,8 @@ var THEMES = {
     cinema: {
         id: 'cinema',
         name: 'Cinema Noir & Gold',
-        tagline: 'Обсидиан и бархатное золото',
-        logoStyle: 'doom',
+        tagline: 'Обсидиан и бархатное теплое золото',
+        logoStyle: 'ansi_shadow',
         colors: {
             accent: [245, 185, 65],
             secondary: [255, 220, 130],
@@ -246,8 +206,8 @@ var THEMES = {
     matrix: {
         id: 'matrix',
         name: 'Matrix Hacker',
-        tagline: 'Фосфорный монохром, кибернетика',
-        logoStyle: 'cyber',
+        tagline: 'Фосфорный монохром и изумрудная консоль',
+        logoStyle: 'ansi_shadow',
         colors: {
             accent: [0, 255, 110],
             secondary: [140, 255, 180],
@@ -265,11 +225,77 @@ var THEMES = {
             arrow: '»', caret: '█', dot: '▪', up: '▲', down: '▼', star: '★'
         }
     },
+    dracula: {
+        id: 'dracula',
+        name: 'Dracula Vampire',
+        tagline: 'Фиолетовый неон, фуксия и циан',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [189, 147, 249],
+            secondary: [255, 121, 198],
+            highlight: [139, 233, 253],
+            muted: [98, 114, 164],
+            border: [110, 80, 180],
+            good: [80, 250, 123],
+            warn: [241, 250, 140],
+            bad: [255, 85, 85],
+            titleBg: [40, 42, 54],
+            cardBg: [25, 26, 36]
+        },
+        glyphs: {
+            tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
+            arrow: '›', caret: '█', dot: '•', up: '▲', down: '▼', star: '★'
+        }
+    },
+    tokyo: {
+        id: 'tokyo',
+        name: 'Tokyo Night',
+        tagline: 'Глубокий индиго, лаванда и лазурь',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [122, 162, 247],
+            secondary: [187, 154, 247],
+            highlight: [125, 207, 255],
+            muted: [86, 95, 137],
+            border: [61, 89, 161],
+            good: [158, 206, 106],
+            warn: [224, 175, 104],
+            bad: [247, 118, 142],
+            titleBg: [26, 27, 38],
+            cardBg: [18, 19, 28]
+        },
+        glyphs: {
+            tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
+            arrow: '❯', caret: '▋', dot: '·', up: '↑', down: '↓', star: '★'
+        }
+    },
+    synthwave: {
+        id: 'synthwave',
+        name: 'Synthwave 84',
+        tagline: 'Закатный градиент 80-х: маджента и апельсин',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [255, 75, 160],
+            secondary: [254, 154, 46],
+            highlight: [255, 230, 109],
+            muted: [120, 80, 130],
+            border: [180, 40, 120],
+            good: [114, 241, 184],
+            warn: [254, 218, 106],
+            bad: [254, 68, 68],
+            titleBg: [38, 20, 48],
+            cardBg: [22, 10, 30]
+        },
+        glyphs: {
+            tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║',
+            arrow: '▶', caret: '█', dot: '◆', up: '▲', down: '▼', star: '★'
+        }
+    },
     nordic: {
         id: 'nordic',
         name: 'Nordic Frost',
         tagline: 'Арктический синий и белый ледник',
-        logoStyle: 'small',
+        logoStyle: 'ansi_shadow',
         colors: {
             accent: [136, 192, 208],
             secondary: [129, 161, 193],
@@ -286,6 +312,182 @@ var THEMES = {
             tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
             arrow: '›', caret: '▌', dot: '·', up: '↑', down: '↓', star: '★'
         }
+    },
+    monokai: {
+        id: 'monokai',
+        name: 'Monokai Pro',
+        tagline: 'Сочный желтый, фуксия и зеленый нефрит',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [255, 216, 102],
+            secondary: [255, 97, 136],
+            highlight: [120, 220, 232],
+            muted: [114, 112, 114],
+            border: [147, 146, 147],
+            good: [169, 220, 105],
+            warn: [252, 152, 103],
+            bad: [255, 97, 136],
+            titleBg: [45, 42, 46],
+            cardBg: [34, 31, 34]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '❯', caret: '█', dot: '·', up: '▲', down: '▼', star: '★'
+        }
+    },
+    gruvbox: {
+        id: 'gruvbox',
+        name: 'Gruvbox Dark',
+        tagline: 'Теплый ретро-терракот, охра и песок',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [250, 189, 47],
+            secondary: [254, 128, 25],
+            highlight: [235, 219, 178],
+            muted: [146, 131, 116],
+            border: [102, 92, 84],
+            good: [184, 187, 38],
+            warn: [250, 189, 47],
+            bad: [251, 73, 52],
+            titleBg: [40, 40, 40],
+            cardBg: [29, 32, 33]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '>', caret: '▌', dot: '·', up: '^', down: 'v', star: '★'
+        }
+    },
+    catppuccin: {
+        id: 'catppuccin',
+        name: 'Catppuccin Mocha',
+        tagline: 'Мягкий пастельный мокко, лаванда и персик',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [203, 166, 247],
+            secondary: [245, 194, 231],
+            highlight: [137, 220, 235],
+            muted: [108, 112, 134],
+            border: [88, 91, 112],
+            good: [166, 227, 161],
+            warn: [249, 226, 175],
+            bad: [243, 139, 168],
+            titleBg: [30, 30, 46],
+            cardBg: [24, 24, 37]
+        },
+        glyphs: {
+            tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
+            arrow: '›', caret: '█', dot: '·', up: '↑', down: '↓', star: '★'
+        }
+    },
+    blood: {
+        id: 'blood',
+        name: 'Blood Moon',
+        tagline: 'Кровавый рубин, алый огонь и угли',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [255, 45, 75],
+            secondary: [255, 110, 50],
+            highlight: [255, 200, 180],
+            muted: [125, 60, 70],
+            border: [160, 30, 45],
+            good: [255, 150, 100],
+            warn: [255, 190, 50],
+            bad: [255, 20, 40],
+            titleBg: [35, 10, 15],
+            cardBg: [20, 5, 8]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '▶', caret: '█', dot: '◆', up: '▲', down: '▼', star: '★'
+        }
+    },
+    emerald: {
+        id: 'emerald',
+        name: 'Emerald Jade',
+        tagline: 'Глубокий хвойный нефрит и мятная свежесть',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [46, 213, 115],
+            secondary: [85, 239, 196],
+            highlight: [200, 255, 230],
+            muted: [50, 110, 85],
+            border: [30, 130, 80],
+            good: [46, 213, 115],
+            warn: [254, 211, 48],
+            bad: [255, 71, 87],
+            titleBg: [10, 32, 20],
+            cardBg: [5, 18, 12]
+        },
+        glyphs: {
+            tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
+            arrow: '❯', caret: '▌', dot: '·', up: '↑', down: '↓', star: '★'
+        }
+    },
+    solarized: {
+        id: 'solarized',
+        name: 'Solarized Dark',
+        tagline: 'Глубокий морской циан и солнечный янтарь',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [42, 161, 152],
+            secondary: [181, 137, 0],
+            highlight: [147, 161, 161],
+            muted: [88, 110, 117],
+            border: [7, 54, 66],
+            good: [133, 153, 0],
+            warn: [181, 137, 0],
+            bad: [220, 50, 47],
+            titleBg: [0, 43, 54],
+            cardBg: [0, 27, 34]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '>', caret: '█', dot: '·', up: '^', down: 'v', star: '★'
+        }
+    },
+    sunset: {
+        id: 'sunset',
+        name: 'Miami Sunset',
+        tagline: 'Майами: тропический коралл и пурпурные сумерки',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [255, 107, 107],
+            secondary: [165, 94, 234],
+            highlight: [254, 211, 48],
+            muted: [120, 85, 125],
+            border: [170, 70, 160],
+            good: [38, 222, 129],
+            warn: [254, 211, 48],
+            bad: [235, 59, 90],
+            titleBg: [32, 15, 38],
+            cardBg: [18, 8, 22]
+        },
+        glyphs: {
+            tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
+            arrow: '❯', caret: '▋', dot: '·', up: '↑', down: '↓', star: '★'
+        }
+    },
+    monument: {
+        id: 'monument',
+        name: 'Monument Dark',
+        tagline: 'Монументальные блоки, глубокий графит',
+        logoStyle: 'ansi_shadow',
+        colors: {
+            accent: [235, 240, 245],
+            secondary: [160, 175, 190],
+            highlight: [255, 255, 255],
+            muted: [100, 110, 125],
+            border: [70, 80, 95],
+            good: [180, 220, 190],
+            warn: [220, 200, 150],
+            bad: [200, 110, 110],
+            titleBg: [20, 24, 30],
+            cardBg: [12, 15, 20]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '■', caret: '▌', dot: '·', up: '▲', down: '▼', star: '★'
+        }
     }
 };
 
@@ -295,14 +497,14 @@ function renderLogo(themeId, bannerStyle, maxWidth, bannerSize) {
         return [];
     }
 
-    var theme = THEMES[themeId] || THEMES.classic_bw;
-    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'slant');
+    var theme = THEMES[themeId] || THEMES.cyberpunk;
+    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'ansi_shadow');
     var maxW = (maxWidth && maxWidth > 20) ? (maxWidth - 2) : 80;
     var sizeMode = bannerSize || 'auto';
 
     var rawLines = null;
 
-    // Вспомогательная функция для получения сырых строк через figlet
+    // Вспомогательная функция для получения строк через figlet
     function getFigletRaw(text, fontKey) {
         if (!figlet) return null;
         var fontName = FIGLET_FONT_MAP[fontKey];
@@ -333,7 +535,6 @@ function renderLogo(themeId, bannerStyle, maxWidth, bannerSize) {
                 if (candidateW <= maxW) {
                     rawLines = fullCandidate;
                 } else {
-                    // Переключаемся на компактный KTW
                     rawLines = getFigletRaw('KTW', styleKey);
                 }
             }
@@ -353,9 +554,9 @@ function renderLogo(themeId, bannerStyle, maxWidth, bannerSize) {
         }
     }
 
-    // Фоллбэк, если ничего не найдено
+    // Фоллбэк
     if (!rawLines) {
-        rawLines = BUILTIN_LOGOS.lineart.full;
+        rawLines = getFigletRaw('KTW', 'ansi_shadow') || BUILTIN_LOGOS.lineart.full;
     }
 
     // 3. Обрезаем строки, если они всё же превышают maxW (гарантия неломания рамок)

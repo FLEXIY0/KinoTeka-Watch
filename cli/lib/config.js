@@ -1,7 +1,7 @@
 'use strict';
 
-// Настройки ktw: ключ API и путь к Chromium.
-// Живут в ~/.config/ktw/config.json, но переменные окружения важнее.
+// Настройки ktw: постоянные предпочтения пользователя.
+// Живут в ~/.config/ktw/config.json, но переменные окружения и аргументы CLI приоритетнее.
 
 var fs = require('fs');
 var os = require('os');
@@ -10,20 +10,41 @@ var path = require('path');
 var CONFIG_DIR = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'ktw');
 var CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
+// Значения по умолчанию
+var DEFAULTS = {
+    kinopoiskApiKey: '',
+    kinoboxApiUrl: '',
+    preferredPlayer: '',       // 'Collaps', 'Alloha', 'Kodik', 'Veoveo' или пусто (Авто)
+    preferredTranslation: '',  // 'Дублированный', 'LostFilm', 'Кубик в кубе', 'Оригинал'...
+    preferredQuality: '',      // '1080', '720', 'max', 'min' или пусто
+    mpvFullscreen: false,
+    mpvHardwareDec: 'auto-safe',
+    mpvCustomArgs: [],
+    directOnly: false,         // режим только прямого парсинга без запуска браузера
+    posterMode: 'auto',        // 'auto', 'ascii', 'off'
+    timeout: 40000
+};
+
 function read() {
     try {
-        return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+        var raw = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+        return Object.assign({}, DEFAULTS, raw);
     } catch (err) {
-        return {};
+        return Object.assign({}, DEFAULTS);
     }
 }
 
 function save(patch) {
-    var config = Object.assign(read(), patch);
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+    var current = read();
+    var updated = Object.assign({}, current, patch);
+    try {
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2) + '\n', { mode: 0o600 });
+    } catch (err) {
+        // При ошибке прав записи просто возвращаем объект
+    }
 
-    return config;
+    return updated;
 }
 
 // Ключ API: аргумент -> окружение -> локальный kinopoisk-key.js -> конфиг
@@ -34,11 +55,21 @@ function resolveApiKey(explicitKey) {
     var localKeyFile = path.join(__dirname, '..', '..', 'kinopoisk-key.js');
 
     if (fs.existsSync(localKeyFile)) {
-        var match = fs.readFileSync(localKeyFile, 'utf8').match(/KINOPOISK_API_KEY\s*=\s*['"]([^'"]+)['"]/);
-        if (match) return match[1];
+        try {
+            var match = fs.readFileSync(localKeyFile, 'utf8').match(/KINOPOISK_API_KEY\s*=\s*['"]([^'"]+)['"]/);
+            if (match) return match[1];
+        } catch (err) { }
     }
 
     return read().kinopoiskApiKey || null;
+}
+
+// Зеркало Kinobox API
+function resolveKinoboxApi(explicitMirror) {
+    if (explicitMirror) return explicitMirror;
+    if (process.env.KTW_KINOBOX_API) return process.env.KTW_KINOBOX_API;
+    var conf = read().kinoboxApiUrl;
+    return conf && conf.trim() ? conf.trim() : null;
 }
 
 // Путь к Chromium: если в конфиге записан свой, отдаём его puppeteer
@@ -53,8 +84,10 @@ function applyChromiumPath() {
 
 module.exports = {
     file: CONFIG_FILE,
+    DEFAULTS: DEFAULTS,
     read: read,
     save: save,
     resolveApiKey: resolveApiKey,
+    resolveKinoboxApi: resolveKinoboxApi,
     applyChromiumPath: applyChromiumPath
 };

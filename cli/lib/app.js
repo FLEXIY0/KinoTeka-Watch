@@ -2,8 +2,9 @@
 
 // Экраны интерфейса и переходы между ними:
 //
-//   поиск ─► фильм ─┬─► плееры ────────────────► просмотр
-//                   └─► сезоны ─► серии ─► плееры ─► просмотр
+//   поиск ─► фильм ─┬─► плееры ─► озвучка ─► качество ─► mpv
+//                   └─► сезоны ─► серии ─► плееры ─► озвучка ─► качество ─► mpv
+//                   └─► настройки (Ctrl+S)
 //
 // Esc всегда возвращает на шаг назад, после выхода из mpv возвращаемся
 // на тот же экран — чтобы сразу включить следующую серию.
@@ -26,15 +27,15 @@ var GAP = 2;
 // Размеры карточки под текущий размер терминала
 function metrics() {
     var screen = tui.size();
-    var width = Math.max(44, Math.min(screen.cols - 4, 78));
-    var withPoster = screen.cols >= 66 && screen.rows >= 20;
+    var width = Math.max(48, Math.min(screen.cols - 4, 82));
+    var withPoster = screen.cols >= 68 && screen.rows >= 20;
     var rightWidth = width - 4 - (withPoster ? POSTER_COLS + GAP : 0);
 
     return {
         width: width,
         rightWidth: rightWidth,
         withPoster: withPoster,
-        listRows: Math.max(4, Math.min(screen.rows - 12, 12))
+        listRows: Math.max(4, Math.min(screen.rows - 12, 14))
     };
 }
 
@@ -89,7 +90,7 @@ function filmHeader(film, width, descriptionLines) {
     return lines;
 }
 
-// Экран ввода одной строки (используется для ключа API)
+// Экран ввода одной строки (для ключа API или URL)
 async function inputScreen(title, label, hintLines, initial) {
     var value = initial || '';
 
@@ -126,7 +127,7 @@ async function messageScreen(title, lines, hint) {
     var content = [''];
 
     lines.forEach(function (line) {
-        ansi.wrap(line, size.width - 6, 6).forEach(function (wrapped) {
+        ansi.wrap(line, size.width - 6, 8).forEach(function (wrapped) {
             content.push('  ' + wrapped);
         });
     });
@@ -137,8 +138,160 @@ async function messageScreen(title, lines, hint) {
     await tui.readKey();
 }
 
-// Экран 1 — поиск с живыми подсказками, как на сайте.
-// Без ключа Кинопоиска подсказок нет: там мы идём сразу в Kinobox по названию.
+// Экран настроек (Settings)
+async function settingsScreen() {
+    var cfg = config.read();
+    var selected = 0;
+
+    var playerOptions = ['', 'Collaps', 'Alloha', 'Kodik', 'Veoveo', 'Turbo'];
+    var playerLabels = ['Авто (первый лучший)', 'Collaps ⚡ (прямой поток)', 'Alloha', 'Kodik ⚡', 'Veoveo', 'Turbo'];
+
+    var qualityOptions = ['', '1080', '720', '480', 'max', 'min'];
+    var qualityLabels = ['Спрашивать всегда', '1080p (FHD)', '720p (HD)', '480p (SD)', 'Максимальное (4K/FHD)', 'Минимальное (трафик)'];
+
+    var hwdecOptions = ['auto-safe', 'no', 'nvdec', 'vaapi', 'd3d11va'];
+    var hwdecLabels = ['Авто (auto-safe)', 'Выкл (no)', 'NVIDIA (nvdec)', 'Intel/AMD Linux (vaapi)', 'Windows (d3d11va)'];
+
+    var modeOptions = [false, true];
+    var modeLabels = ['Гибридный ⚡ (прямой + браузер)', 'Только прямой ⚡ (без запуска Chromium)'];
+
+    while (true) {
+        var size = metrics();
+
+        var items = [
+            {
+                key: 'preferredPlayer',
+                label: 'Плеер по умолчанию',
+                valueText: playerLabels[playerOptions.indexOf(cfg.preferredPlayer || '')] || (cfg.preferredPlayer || 'Авто')
+            },
+            {
+                key: 'preferredTranslation',
+                label: 'Любимая озвучка',
+                valueText: cfg.preferredTranslation ? ('«' + cfg.preferredTranslation + '»') : 'Выбирать вручную'
+            },
+            {
+                key: 'preferredQuality',
+                label: 'Качество по умолчанию',
+                valueText: qualityLabels[qualityOptions.indexOf(cfg.preferredQuality || '')] || (cfg.preferredQuality || 'Спрашивать')
+            },
+            {
+                key: 'directOnly',
+                label: 'Режим извлечения',
+                valueText: modeLabels[cfg.directOnly ? 1 : 0]
+            },
+            {
+                key: 'mpvFullscreen',
+                label: 'MPV на весь экран',
+                valueText: cfg.mpvFullscreen ? 'Включено (--fs)' : 'В окне'
+            },
+            {
+                key: 'mpvHardwareDec',
+                label: 'MPV декодирование',
+                valueText: hwdecLabels[hwdecOptions.indexOf(cfg.mpvHardwareDec || 'auto-safe')] || (cfg.mpvHardwareDec || 'auto-safe')
+            },
+            {
+                key: 'kinoboxApiUrl',
+                label: 'Зеркало Kinobox API',
+                valueText: cfg.kinoboxApiUrl ? ansi.truncate(cfg.kinoboxApiUrl, 26) : 'По умолчанию (fbphdplay.top)'
+            },
+            {
+                key: 'kinopoiskApiKey',
+                label: 'Ключ Кинопоиска',
+                valueText: cfg.kinopoiskApiKey ? (cfg.kinopoiskApiKey.slice(0, 8) + '…' + cfg.kinopoiskApiKey.slice(-4)) : 'Не задан (Ctrl+K)'
+            }
+        ];
+
+        var content = [
+            '',
+            '  ' + style.bold('Тонкая настройка KTW'),
+            '  ' + style.muted('Параметры сохраняются в ~/.config/ktw/config.json'),
+            ''
+        ];
+
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var isActive = i === selected;
+            var marker = isActive ? style.accent(glyph.arrow + ' ') : '  ';
+            var line = marker + style.bold(item.label) + ': ' + style.accent(item.valueText);
+            content.push('  ' + line);
+        }
+
+        content.push('');
+
+        tui.paint(tui.box('Настройки', content, size.width,
+            footer([glyph.up + glyph.down + ' выбор', 'Enter / Пробел изменить', 'Esc назад'])));
+
+        var key = await tui.readKey();
+
+        if (key.name === 'escape') break;
+
+        if (key.name === 'up') {
+            selected = (selected - 1 + items.length) % items.length;
+            continue;
+        }
+
+        if (key.name === 'down') {
+            selected = (selected + 1) % items.length;
+            continue;
+        }
+
+        if (key.name === 'return' || key.name === 'space' || key.name === 'right' || key.name === 'left') {
+            var cur = items[selected];
+
+            if (cur.key === 'preferredPlayer') {
+                var curPIdx = playerOptions.indexOf(cfg.preferredPlayer || '');
+                var nextPIdx = (curPIdx + (key.name === 'left' ? -1 : 1) + playerOptions.length) % playerOptions.length;
+                cfg.preferredPlayer = playerOptions[nextPIdx];
+                config.save({ preferredPlayer: cfg.preferredPlayer });
+            } else if (cur.key === 'preferredTranslation') {
+                var newTr = await inputScreen('Любимая озвучка', 'Озвучка', [
+                    'Название студии или переводчика (например: LostFilm, Дублированный, Goblin, Кубик в кубе).',
+                    'Если поле пустое — озвучка будет выбираться вручную из списка.'
+                ], cfg.preferredTranslation || '');
+                if (newTr !== null) {
+                    cfg.preferredTranslation = newTr;
+                    config.save({ preferredTranslation: newTr });
+                }
+            } else if (cur.key === 'preferredQuality') {
+                var curQIdx = qualityOptions.indexOf(cfg.preferredQuality || '');
+                var nextQIdx = (curQIdx + (key.name === 'left' ? -1 : 1) + qualityOptions.length) % qualityOptions.length;
+                cfg.preferredQuality = qualityOptions[nextQIdx];
+                config.save({ preferredQuality: cfg.preferredQuality });
+            } else if (cur.key === 'directOnly') {
+                cfg.directOnly = !cfg.directOnly;
+                config.save({ directOnly: cfg.directOnly });
+            } else if (cur.key === 'mpvFullscreen') {
+                cfg.mpvFullscreen = !cfg.mpvFullscreen;
+                config.save({ mpvFullscreen: cfg.mpvFullscreen });
+            } else if (cur.key === 'mpvHardwareDec') {
+                var curHIdx = hwdecOptions.indexOf(cfg.mpvHardwareDec || 'auto-safe');
+                var nextHIdx = (curHIdx + (key.name === 'left' ? -1 : 1) + hwdecOptions.length) % hwdecOptions.length;
+                cfg.mpvHardwareDec = hwdecOptions[nextHIdx];
+                config.save({ mpvHardwareDec: cfg.mpvHardwareDec });
+            } else if (cur.key === 'kinoboxApiUrl') {
+                var newMirror = await inputScreen('Зеркало Kinobox API', 'URL', [
+                    'Базовый URL зеркала Kinobox API (например: https://fbphdplay.top/api/players).',
+                    'Оставь пустым для использования стандартных зеркал.'
+                ], cfg.kinoboxApiUrl || '');
+                if (newMirror !== null) {
+                    cfg.kinoboxApiUrl = newMirror;
+                    config.save({ kinoboxApiUrl: newMirror });
+                }
+            } else if (cur.key === 'kinopoiskApiKey') {
+                var newKey = await inputScreen('Ключ Кинопоиска', 'Ключ', [
+                    'Ключ с сайта kinopoiskapiunofficial.tech',
+                    'Даёт поиск с подсказками, обложки, описания и серии.'
+                ], cfg.kinopoiskApiKey || '');
+                if (newKey !== null) {
+                    cfg.kinopoiskApiKey = newKey;
+                    config.save({ kinopoiskApiKey: newKey });
+                }
+            }
+        }
+    }
+}
+
+// Экран 1 — поиск с живыми подсказками
 async function searchScreen(state, apiKey) {
     var query = state.query || '';
     var results = state.results || [];
@@ -158,8 +311,8 @@ async function searchScreen(state, apiKey) {
         } else if (status) {
             content.push('  ' + style.muted(ansi.truncate(status, size.width - 6)));
         } else if (!apiKey) {
-            content.push('  ' + style.muted('без ключа: ищу сразу по названию, без постеров'));
-            content.push('  ' + style.muted('и списка серий — Ctrl+K, чтобы вставить ключ'));
+            content.push('  ' + style.muted('без ключа: ищу сразу по названию через Kinobox'));
+            content.push('  ' + style.muted('Ctrl+K: вставить ключ  ·  Ctrl+S: настройки'));
         } else if (results.length > 0) {
             var items = results.map(function (film) {
                 var hint = [film.year, film.rating ? (ansi.ascii ? '*' : '★') + ' ' + film.rating : '']
@@ -177,8 +330,8 @@ async function searchScreen(state, apiKey) {
         content.push('');
 
         var hints = apiKey
-            ? [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Ctrl+K ключ', 'Esc выход']
-            : ['Enter искать', 'Ctrl+K ключ', 'Esc выход'];
+            ? [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Ctrl+S настройки', 'Esc выход']
+            : ['Enter искать', 'Ctrl+S настройки', 'Esc выход'];
 
         return tui.box('ktw', content, size.width, footer(hints));
     }
@@ -205,7 +358,6 @@ async function searchScreen(state, apiKey) {
     while (true) {
         tui.paint(render());
 
-        // Пауза перед поиском, чтобы не дёргать API на каждую букву
         var key = await tui.readKey(pendingSearch ? 400 : 0);
 
         if (key === null) {
@@ -216,14 +368,19 @@ async function searchScreen(state, apiKey) {
 
         if (key.name === 'escape') return null;
 
-        // Ctrl+K — вставить ключ Кинопоиска, не выходя из программы
+        // Ctrl+S — открыть настройки
+        if (key.ctrl && key.name === 's') {
+            state.query = query;
+            return 'settings';
+        }
+
+        // Ctrl+K — вставить ключ Кинопоиска
         if (key.ctrl && key.name === 'k') {
             state.query = query;
             return 'key';
         }
 
         if (key.name === 'return') {
-            // Без ключа искать нечем: отдаём название сразу в Kinobox
             if (!apiKey) {
                 if (query.trim().length < 2) continue;
                 state.query = query;
@@ -290,6 +447,7 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
         var key = await tui.readKey();
 
         if (key.name === 'escape') return 'back';
+        if (key.ctrl && key.name === 's') return 'settings';
         if (key.name === 'return' && items.length > 0) return selected;
         if (key.name === 'up') selected = (selected - 1 + items.length) % items.length;
         if (key.name === 'down') selected = (selected + 1) % items.length;
@@ -300,13 +458,11 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
     }
 }
 
-// Выбор качества из мастер-плейлиста. Балансер отдаёт один адрес, внутри
-// которого несколько дорожек — mpv по умолчанию берёт самую жирную.
-// variants приходят уже загруженными: сеть отдельно, интерактив отдельно,
-// иначе спиннер затирал бы экран выбора.
+// Выбор качества из мастер-плейлиста
 async function pickQuality(film, posterLines, found, variants, options, state, player) {
-    // Флагом качество можно задать заранее и экран не показывать
-    var chosen = options.quality ? stream.pickVariant(variants, options.quality) : null;
+    var userConfig = config.read();
+    var wanted = options.quality || userConfig.preferredQuality;
+    var chosen = wanted ? stream.pickVariant(variants, wanted) : null;
 
     if (!chosen) {
         var items = variants.map(function (item) {
@@ -316,8 +472,6 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
             };
         });
 
-        // Экран показываем всегда, даже когда дорожка одна: пропуская его,
-        // клиент решал за пользователя и выглядел сломанным
         if (items.length === 0) {
             items = [{
                 label: 'как есть',
@@ -327,7 +481,6 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
             }];
         }
 
-        // Прошлый выбор подставляем заранее — обычно качество не меняют
         var preselect = 0;
         variants.forEach(function (item, index) {
             if (state.quality && item.height === state.quality) preselect = index;
@@ -337,6 +490,7 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
             [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], 0, preselect);
 
         if (index === 'back') return null;
+        if (index === 'settings') return 'settings';
         if (variants.length === 0) return found;
 
         chosen = variants[index];
@@ -351,26 +505,29 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
         referer: found.referer,
         origin: found.origin,
         userAgent: found.userAgent,
-        label: chosen.label
+        label: chosen.label,
+        audioId: found.audioId,
+        subtitles: found.subtitles,
+        direct: found.direct
     };
 }
 
-// Извлечение потока и передача его в mpv
+// Извлечение потока и воспроизведение в mpv
 async function playStream(film, player, translation, season, episode, options, state, posterLines) {
+    var userConfig = config.read();
     var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
     var iframeUrl = api.withEpisode(source, season, episode);
     var label = film.title + (season ? ' · S' + season + 'E' + episode : '');
     var found;
 
-    // Что происходит прямо сейчас: «жму play», «пропустил рекламный ролик»…
-    var progress = '';
+    var progress = 'проверяю прямое извлечение ⚡';
 
     function render(frame) {
         var size = metrics();
 
         return tui.box(null, [
             '',
-            '  ' + style.accent(frame || '') + ' ' + style.bold('Достаю поток'),
+            '  ' + style.accent(frame || '⚡') + ' ' + style.bold('Достаю поток'),
             '',
             '  ' + style.muted(ansi.truncate(label, size.width - 6)),
             '  ' + style.muted(ansi.truncate('плеер ' + player.source +
@@ -378,13 +535,16 @@ async function playStream(film, player, translation, season, episode, options, s
             '',
             '  ' + style.muted(ansi.truncate(progress, size.width - 6)),
             ''
-        ], size.width, footer(['реклама пропускается автоматически']));
+        ], size.width, footer(['прямой парсинг ⚡ или защита от рекламы']));
     }
 
     try {
         found = await tui.withSpinner(stream.resolveStream(iframeUrl, {
-            timeout: options.timeout,
+            season: season,
+            episode: episode,
+            timeout: options.timeout || userConfig.timeout,
             headful: options.headful,
+            directOnly: userConfig.directOnly,
             onProgress: function (message) { progress = message; }
         }), render);
     } catch (err) {
@@ -394,46 +554,62 @@ async function playStream(film, player, translation, season, episode, options, s
 
     if (!found) {
         await messageScreen('Поток не найден', [
-            'Плеер ' + player.source + ' не отдал поток за ' + Math.round(options.timeout / 1000) + ' с.',
+            'Плеер ' + player.source + ' не отдал поток.',
             '',
-            'Попробуй другой плеер, подними ожидание через --timeout',
-            'или запусти с --headful, чтобы увидеть, на чём всё встало.'
+            'Попробуй другой балансер (например, Collaps ⚡)',
+            'или открой Настройки по Ctrl+S.'
         ], 'любая клавиша — к списку плееров');
         return false;
     }
 
-    // Контента не дождались — отдаём что поймали, но предупреждаем
     if (found.suspicious) {
         await messageScreen('Похоже, это реклама', [
-            'За ' + Math.round(options.timeout / 1000) + ' с плеер ' + player.source +
-            ' так и не отдал сам фильм — поймался только рекламный ролик.',
+            'Плеер ' + player.source + ' вернул только рекламный ролик.',
             '',
-            'Надёжнее выбрать другой балансер: Esc вернёт к списку.',
-            'Если хочется всё же попробовать — можно продолжить.'
+            'Надёжнее выбрать другой балансер (например, Collaps ⚡).'
         ], 'любая клавиша — продолжить');
     }
 
-    // Сначала тянем мастер-плейлист под спиннером, потом уже спрашиваем
+    // Привязываем конкретную звуковую дорожку
+    if (translation && translation.audioId !== undefined) {
+        found.audioId = translation.audioId;
+    }
+
+    // Если экстрактор вернул список дорожек, ищем выбранную по названию
+    if (found.audioTracks && found.audioTracks.length > 0 && translation && translation.name) {
+        var wantedAudio = translation.name.toLowerCase();
+        var matchedTrack = found.audioTracks.find(function (t) {
+            return t.name.toLowerCase().indexOf(wantedAudio) >= 0 ||
+                wantedAudio.indexOf(t.name.toLowerCase()) >= 0;
+        });
+        if (matchedTrack) {
+            found.audioId = matchedTrack.audioId;
+        }
+    }
+
+    // Загружаем мастер-плейлист для выбора качества
     var variants = await tui.withSpinner(stream.readVariants(found), function (frame) {
         var size = metrics();
-        return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('смотрю, какие есть качества…'), ''],
+        return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('проверяю доступные качества…'), ''],
             size.width, footer(['почти всё']));
     });
 
-    var selected = await pickQuality(film, posterLines, found, variants, options, state, player);
-    if (!selected) return false;
+    var selectedQuality = await pickQuality(film, posterLines, found, variants, options, state, player);
+    if (!selectedQuality) return false;
+    if (selectedQuality === 'settings') return 'settings';
 
-    found = selected;
+    found = selectedQuality;
 
-    var title = film.title + (film.year ? ' (' + film.year + ')' : '') +
+    var streamTitle = film.title + (film.year ? ' (' + film.year + ')' : '') +
         (season ? ' · S' + season + 'E' + episode : '') +
+        (translation && translation.name ? ' · ' + translation.name : '') +
         (found.label ? ' · ' + found.label : '');
 
-    // На время просмотра отдаём терминал mpv
+    // Запуск mpv
     tui.exit();
 
     try {
-        await mpv.play(found, title, options.mpvArgs);
+        await mpv.play(found, streamTitle, options.mpvArgs);
     } catch (err) {
         tui.enter();
         await messageScreen('mpv не запустился', [
@@ -449,7 +625,7 @@ async function playStream(film, player, translation, season, episode, options, s
     return true;
 }
 
-// Главный цикл: переходы между экранами
+// Главный цикл приложения
 async function run(options) {
     var apiKey = config.resolveApiKey(options.key);
     config.applyChromiumPath();
@@ -465,9 +641,7 @@ async function run(options) {
     var autoUsed = false;
     var screen = 'search';
 
-    // Фильм передали id или ссылкой — поиск не нужен
     var directId = api.parseFilmId(options.query);
-
     if (directId) {
         film = { id: directId, title: 'Кинопоиск #' + directId };
         state.query = '';
@@ -478,16 +652,23 @@ async function run(options) {
 
     try {
         while (true) {
+            var userConfig = config.read();
+
             if (screen === 'search') {
                 film = await searchScreen(state, apiKey);
                 if (!film) return 0;
+
+                if (film === 'settings') {
+                    await settingsScreen();
+                    apiKey = config.resolveApiKey(options.key);
+                    continue;
+                }
 
                 if (film === 'key') {
                     screen = 'apikey';
                     continue;
                 }
 
-                // Без ключа карточку загружать нечем — сразу к плеерам
                 screen = film.keyless ? 'players' : 'load';
                 players = [];
                 posterLines = [];
@@ -495,54 +676,36 @@ async function run(options) {
                 continue;
             }
 
-            // Ввод ключа Кинопоиска с сохранением в конфиг
             if (screen === 'apikey') {
                 var enteredKey = await inputScreen('Ключ Кинопоиска', 'Ключ', [
                     'Бесплатный ключ выдают на kinopoiskapiunofficial.tech —',
                     'регистрация занимает минуту.',
                     '',
-                    'С ключом появятся выбор среди похожих фильмов, обложки,',
+                    'С ключом появятся поиск с подсказками, обложки,',
                     'описания и список сезонов с сериями.'
-                ], '');
+                ], apiKey || '');
 
-                // Ключ уезжает в HTTP-заголовок, а туда нельзя ничего,
-                // кроме латиницы: иначе Node ругается про ByteString
                 if (enteredKey && !/^[\x20-\x7E]+$/.test(enteredKey)) {
-                    await messageScreen('Так не годится', [
-                        'В ключе есть символы вне латиницы — скорее всего,',
-                        'скопировалось лишнее. Ключ выглядит примерно так:',
-                        '',
-                        'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-                    ], 'любая клавиша — ввести заново');
-
-                    screen = 'apikey';
+                    await messageScreen('Некорректный ключ', [
+                        'В ключе присутствуют недопустимые символы.'
+                    ], 'любая клавиша — повторить');
                     continue;
                 }
 
                 if (enteredKey) {
                     apiKey = enteredKey;
-
-                    try {
-                        config.save({ kinopoiskApiKey: enteredKey });
-                    } catch (err) {
-                        await messageScreen('Не сохранилось', [
-                            'Ключ приняли на этот запуск, но записать в конфиг не вышло:',
-                            err.message
-                        ], 'любая клавиша — дальше');
-                    }
+                    config.save({ kinopoiskApiKey: enteredKey });
                 }
 
                 screen = 'search';
                 continue;
             }
 
-            // Догружаем карточку, обложку и сезоны
             if (screen === 'load') {
                 var size = metrics();
 
                 try {
                     var loaded = await tui.withSpinner((async function () {
-                        // Карточка из поиска беднее полной: нет хронометража и большого постера
                         var details = await api.getFilm(film.id, apiKey).catch(function () { return film; });
                         var art = size.withPoster
                             ? await poster.render(details.poster, details.title, POSTER_COLS, POSTER_ROWS)
@@ -577,10 +740,15 @@ async function run(options) {
                 });
 
                 var seasonIndex = await pickerScreen(film, posterLines, 'Сезоны', seasonItems,
-                    [glyph.up + glyph.down + ' выбор', 'Enter дальше', 'Esc назад'], 3);
+                    [glyph.up + glyph.down + ' выбор', 'Enter дальше', 'Ctrl+S настройки', 'Esc назад'], 3);
 
                 if (seasonIndex === 'back') {
                     screen = 'search';
+                    continue;
+                }
+
+                if (seasonIndex === 'settings') {
+                    await settingsScreen();
                     continue;
                 }
 
@@ -599,10 +767,15 @@ async function run(options) {
                 });
 
                 var episodeIndex = await pickerScreen(film, posterLines, 'Серии', episodeItems,
-                    [glyph.up + glyph.down + ' выбор', 'Enter дальше', 'Esc назад'], 0);
+                    [glyph.up + glyph.down + ' выбор', 'Enter дальше', 'Ctrl+S настройки', 'Esc назад'], 0);
 
                 if (episodeIndex === 'back') {
                     screen = 'seasons';
+                    continue;
+                }
+
+                if (episodeIndex === 'settings') {
+                    await settingsScreen();
                     continue;
                 }
 
@@ -614,9 +787,6 @@ async function run(options) {
             if (screen === 'players') {
                 if (players.length === 0) {
                     var playersSize = metrics();
-
-                    // Пока пользователь выбирает плеер и озвучку, поднимаем
-                    // браузер: его старт — самая долгая часть извлечения
                     stream.warmup(options.headful);
 
                     var playersRequest = film.id
@@ -625,7 +795,7 @@ async function run(options) {
 
                     try {
                         players = await tui.withSpinner(playersRequest, function (frame) {
-                            return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('ищу плееры…'), ''],
+                            return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('ищу доступные плееры…'), ''],
                                 playersSize.width, footer(['Esc — назад']));
                         });
                     } catch (err) {
@@ -642,28 +812,29 @@ async function run(options) {
                     continue;
                 }
 
-                // --player выбирает балансер без участия пользователя,
-                // но только в первый раз — иначе после просмотра начнётся круг
-                var chosen = null;
+                var chosenPlayer = null;
 
-                if (options.player && !autoUsed) {
-                    var wanted = options.player.toLowerCase();
-                    chosen = players.filter(function (item) {
-                        return item.source.toLowerCase().indexOf(wanted) === 0;
-                    })[0] || null;
+                // Проверка флага --player или настройки preferredPlayer
+                var preferredP = options.player || (!autoUsed ? userConfig.preferredPlayer : null);
+                if (preferredP) {
+                    var wantedP = preferredP.toLowerCase();
+                    chosenPlayer = players.find(function (item) {
+                        return item.source.toLowerCase().indexOf(wantedP) === 0;
+                    }) || null;
                 }
 
-                if (!chosen) {
+                if (!chosenPlayer) {
                     var playerItems = players.map(function (item) {
+                        var directBadge = item.direct ? ' ⚡[прямой]' : '';
                         return {
-                            label: item.source,
+                            label: item.source + directBadge,
                             hint: ansi.truncate(item.translation, 22) + ' ' + glyph.dot + ' ' + item.quality
                         };
                     });
 
                     var heading = season ? 'Плееры · S' + season + 'E' + episode : 'Плееры';
                     var playerIndex = await pickerScreen(film, posterLines, heading, playerItems,
-                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], season ? 0 : 3);
+                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Ctrl+S настройки', 'Esc назад'], season ? 0 : 3);
 
                     if (playerIndex === 'back') {
                         screen = seasons.length > 0 ? 'episodes' : 'search';
@@ -674,32 +845,39 @@ async function run(options) {
                         continue;
                     }
 
-                    chosen = players[playerIndex];
+                    if (playerIndex === 'settings') {
+                        await settingsScreen();
+                        continue;
+                    }
+
+                    chosenPlayer = players[playerIndex];
                 }
 
-                player = chosen;
+                player = chosenPlayer;
                 screen = 'translations';
                 continue;
             }
 
-            // Озвучки спрашиваем, только если есть из чего выбирать
             if (screen === 'translations') {
                 var variants = player.translations || [];
                 var translation = null;
 
-                if (options.translation && !autoUsed) {
-                    var wantedTranslation = options.translation.toLowerCase();
-                    translation = variants.filter(function (item) {
-                        return item.name.toLowerCase().indexOf(wantedTranslation) >= 0;
-                    })[0] || null;
+                var preferredTr = options.translation || (!autoUsed ? userConfig.preferredTranslation : null);
+                if (preferredTr && variants.length > 0) {
+                    var wantedTr = preferredTr.toLowerCase();
+                    translation = variants.find(function (item) {
+                        return item.name.toLowerCase().indexOf(wantedTr) >= 0;
+                    }) || null;
                 }
 
                 if (!translation) {
-                    var translationItems = variants.map(function (item) {
-                        return { label: item.name, hint: item.quality };
+                    var translationItems = variants.map(function (item, idx) {
+                        return {
+                            label: item.name,
+                            hint: item.quality || ''
+                        };
                     });
 
-                    // Как и с качеством: не решаем за пользователя молча
                     if (translationItems.length === 0) {
                         translationItems = [{
                             label: 'по умолчанию',
@@ -708,21 +886,30 @@ async function run(options) {
                     }
 
                     var translationIndex = await pickerScreen(film, posterLines,
-                        'Озвучка · ' + player.source, translationItems,
-                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], 0);
+                        'Озвучка · ' + player.source + (player.direct ? ' ⚡' : ''), translationItems,
+                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Ctrl+S настройки', 'Esc назад'], 0);
 
                     if (translationIndex === 'back') {
                         screen = 'players';
                         continue;
                     }
 
+                    if (translationIndex === 'settings') {
+                        await settingsScreen();
+                        continue;
+                    }
+
                     translation = variants[translationIndex] || null;
                 }
 
-                await playStream(film, player, translation, season, episode, options, state, posterLines);
+                var playResult = await playStream(film, player, translation, season, episode, options, state, posterLines);
                 autoUsed = true;
 
-                // После просмотра логичнее всего вернуться к выбору серии
+                if (playResult === 'settings') {
+                    await settingsScreen();
+                    continue;
+                }
+
                 screen = seasons.length > 0 ? 'episodes' : 'players';
                 continue;
             }

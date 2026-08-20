@@ -11,7 +11,6 @@
 
 var path = require('path');
 var execFileSync = require('child_process').execFileSync;
-
 var fs = require('fs');
 
 var api = require('./lib/api');
@@ -32,11 +31,12 @@ var HELP = [
     '  ktw <ссылка на кинопоиск> открыть фильм по ссылке',
     '',
     ui.color.bold('Опции:'),
-    '  -p, --player <тип>   взять плеер по имени (alloha, collaps, turbo, …)',
-    '  -t, --translation <имя>  взять озвучку по части названия',
-    '  -q, --quality <n>    качество: 1080, 720, max, min',
+    '  -p, --player <тип>   взять плеер по имени (collaps, alloha, kodik, …)',
+    '  -t, --translation <имя>  взять озвучку по части названия (lostfilm, goblin, …)',
+    '  -q, --quality <n>    качество: 1080, 720, 480, max, min',
     '  -s, --season <n>     номер сезона',
     '  -e, --episode <n>    номер серии',
+    '      --direct         только прямое извлечение ⚡ (без запуска Chromium)',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
     '      --no-mpv         найти поток, но не запускать mpv',
     '      --json           вывести результат в JSON (для скриптов)',
@@ -44,31 +44,29 @@ var HELP = [
     '      --headful        показать окно браузера (отладка извлечения)',
     '      --timeout <мс>   сколько ждать поток, по умолчанию 40000',
     '      --key <ключ>     ключ API Кинопоиска',
+    '      --settings       открыть меню тонких настроек',
     '  -h, --help           эта справка',
     '  -V, --version        какая версия и откуда запускается',
     '      --clean          очистить кэш и показать состояние установки',
     '',
     ui.color.bold('Управление в интерфейсе:'),
-    '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+C — выход',
+    '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+S — настройки, Ctrl+K — ключ',
     '',
     ui.color.bold('Ключ API:'),
     '  Без ключа тоже работает: поиск идёт сразу по названию через Kinobox,',
     '  но без обложек, описаний и списка серий. Ключ добавляет их — вставить',
-    '  можно прямо в интерфейсе по Ctrl+K.',
-    '  Берётся из --key, переменной KINOPOISK_API_KEY, файла kinopoisk-key.js',
-    '  в корне проекта или из ~/.config/ktw/config.json.',
+    '  можно прямо в интерфейсе по Ctrl+K или через меню настроек Ctrl+S.',
     '',
     ui.color.bold('Примеры:'),
     '  ktw',
     '  ktw матрица',
     '  ktw "во все тяжкие" -s 1 -e 3',
-    '  ktw 301 --player alloha --no-mpv',
-    '  ktw матрица -- --fs --sub-file=ru.srt',
+    '  ktw 301 --player collaps --no-mpv',
+    '  ktw матрица -- --fs --hwdec=auto-safe',
     ''
 ].join('\n');
 
-// Какая версия исходников запущена. Нужно, чтобы отличить «не работает»
-// от «запускается старая копия» — вопрос, который возникает первым.
+// Какая версия исходников запущена
 function version() {
     var root = path.join(__dirname, '..');
 
@@ -84,8 +82,7 @@ function version() {
     }
 }
 
-// Очистка кэшей и отчёт о состоянии установки.
-// Первое, что стоит сделать, когда «не работает» после обновления.
+// Очистка кэшей и отчёт о состоянии установки
 function clean() {
     var root = path.join(__dirname, '..');
 
@@ -93,7 +90,6 @@ function clean() {
     ui.info(ui.color.bold('Установка'));
     ui.info('  ' + version().split('\n').join('\n  '));
 
-    // Свежесть исходников: чаще всего «не работает» — это старая копия
     try {
         execFileSync('git', ['-C', root, 'fetch', '--quiet', 'origin'],
             { stdio: 'ignore', timeout: 20000 });
@@ -117,8 +113,6 @@ function clean() {
     var removed = poster.clearCache();
     ui.info('  ' + (removed ? '✓ обложки: ' + removed : '✗ обложки удалить не вышло'));
 
-    // Профиль браузера puppeteer создаёт временный на каждый запуск,
-    // но за ним могли остаться каталоги от аварийных завершений
     var tmp = process.env.TMPDIR || '/tmp';
     var leftovers = 0;
 
@@ -128,9 +122,9 @@ function clean() {
             try {
                 fs.rmSync(path.join(tmp, name), { recursive: true, force: true });
                 leftovers++;
-            } catch (err) { /* чужой процесс мог держать каталог */ }
+            } catch (err) { }
         });
-    } catch (err) { /* нет доступа к каталогу — не страшно */ }
+    } catch (err) { }
 
     ui.info('  ✓ временные профили браузера: ' + leftovers);
     ui.info('  ' + ui.color.dim('куки и кэш страниц живут только внутри запуска — чистить нечего'));
@@ -148,6 +142,7 @@ function parseArgs(argv) {
         quality: null,
         season: null,
         episode: null,
+        direct: false,
         iframe: false,
         noMpv: false,
         json: false,
@@ -155,6 +150,7 @@ function parseArgs(argv) {
         headful: false,
         timeout: 40000,
         key: null,
+        settings: false,
         help: false,
         version: false,
         clean: false,
@@ -165,7 +161,6 @@ function parseArgs(argv) {
     for (var i = 0; i < argv.length; i++) {
         var arg = argv[i];
 
-        // Всё после -- уходит напрямую в mpv
         if (arg === '--') {
             options.mpvArgs = argv.slice(i + 1);
             break;
@@ -174,11 +169,13 @@ function parseArgs(argv) {
         if (arg === '-h' || arg === '--help') options.help = true;
         else if (arg === '-V' || arg === '--version') options.version = true;
         else if (arg === '--clean') options.clean = true;
+        else if (arg === '--settings') options.settings = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
         else if (arg === '-t' || arg === '--translation') options.translation = argv[++i];
         else if (arg === '-q' || arg === '--quality') options.quality = argv[++i];
         else if (arg === '-s' || arg === '--season') options.season = argv[++i];
         else if (arg === '-e' || arg === '--episode') options.episode = argv[++i];
+        else if (arg === '--direct') options.direct = true;
         else if (arg === '--iframe') options.iframe = true;
         else if (arg === '--no-mpv') options.noMpv = true;
         else if (arg === '--json') options.json = true;
@@ -195,7 +192,7 @@ function parseArgs(argv) {
     return options;
 }
 
-// Выбор фильма в построчном режиме: по id напрямую или через поиск
+// Выбор фильма в построчном режиме
 async function pickFilm(options, apiKey) {
     var directId = api.parseFilmId(options.query);
     if (directId) {
@@ -208,7 +205,6 @@ async function pickFilm(options, apiKey) {
         if (!query) return null;
     }
 
-    // Без ключа Кинопоиска ищем сразу в Kinobox по названию
     if (!apiKey) {
         return { id: null, title: query, year: '', keyless: true };
     }
@@ -254,24 +250,28 @@ async function pickPlayer(film, options) {
         return null;
     }
 
-    if (options.player) {
-        var wanted = options.player.toLowerCase();
+    var userConfig = config.read();
+    var wantedPlayer = options.player || userConfig.preferredPlayer;
+
+    if (wantedPlayer) {
+        var wanted = wantedPlayer.toLowerCase();
         var match = players.filter(function (player) {
             return player.source.toLowerCase().indexOf(wanted) === 0;
         })[0];
 
-        if (!match) {
+        if (match) return match;
+
+        if (options.player) {
             ui.error('Плеер «' + options.player + '» недоступен. Есть: ' +
                 players.map(function (p) { return p.source; }).join(', '));
             return null;
         }
-
-        return match;
     }
 
     var items = players.map(function (player) {
+        var directMark = player.direct ? ' ⚡' : '';
         return {
-            label: player.source,
+            label: player.source + directMark,
             hint: player.translations.length + ' озв. · ' + player.quality
         };
     });
@@ -280,24 +280,27 @@ async function pickPlayer(film, options) {
     return index < 0 ? null : players[index];
 }
 
-// Выбор озвучки в построчном режиме: по --translation или первая доступная
+// Выбор озвучки в построчном режиме
 async function pickTranslation(player, options) {
     var variants = player.translations || [];
     if (variants.length === 0) return null;
 
-    if (options.translation) {
-        var wanted = options.translation.toLowerCase();
+    var userConfig = config.read();
+    var wantedTranslation = options.translation || userConfig.preferredTranslation;
+
+    if (wantedTranslation) {
+        var wanted = wantedTranslation.toLowerCase();
         var match = variants.filter(function (item) {
             return item.name.toLowerCase().indexOf(wanted) >= 0;
         })[0];
 
-        if (!match) {
+        if (match) return match;
+
+        if (options.translation) {
             ui.error('Озвучка «' + options.translation + '» не найдена. Есть: ' +
                 variants.map(function (item) { return item.name; }).join(', '));
             return undefined;
         }
-
-        return match;
     }
 
     if (variants.length === 1 || !process.stdin.isTTY) return variants[0];
@@ -314,6 +317,7 @@ async function pickTranslation(player, options) {
 async function runPlain(options) {
     var apiKey = config.resolveApiKey(options.key);
     config.applyChromiumPath();
+    var userConfig = config.read();
 
     var film = await pickFilm(options, apiKey);
     if (!film) return 1;
@@ -327,7 +331,6 @@ async function runPlain(options) {
     var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
     var iframeUrl = api.withEpisode(source, options.season, options.episode);
 
-    // Режим --iframe: поток не ищем, отдаём ссылку на плеер как есть
     if (options.iframe) {
         if (options.json) {
             process.stdout.write(JSON.stringify({
@@ -341,13 +344,16 @@ async function runPlain(options) {
         return 0;
     }
 
-    var streamSpinner = ui.spinner('Достаю поток из ' + player.source);
+    var streamSpinner = ui.spinner('Достаю поток из ' + player.source + (player.direct ? ' ⚡' : ''));
     var found;
 
     try {
         found = await stream.resolveStream(iframeUrl, {
-            timeout: options.timeout,
+            season: options.season,
+            episode: options.episode,
+            timeout: options.timeout || userConfig.timeout,
             headful: options.headful,
+            directOnly: options.direct || userConfig.directOnly,
             onProgress: function (message) { streamSpinner.update(message); }
         });
     } finally {
@@ -355,8 +361,8 @@ async function runPlain(options) {
     }
 
     if (!found) {
-        ui.error('Поток не найден за ' + Math.round(options.timeout / 1000) + ' с.');
-        ui.info(ui.color.dim('  Попробуй другой плеер, --timeout побольше или --headful для отладки.'));
+        ui.error('Поток не найден за ' + Math.round((options.timeout || userConfig.timeout) / 1000) + ' с.');
+        ui.info(ui.color.dim('  Попробуй другой плеер (например, collaps ⚡) или --headful для отладки.'));
         ui.info(ui.color.dim('  Ссылка на плеер: ' + iframeUrl));
         return 1;
     }
@@ -366,16 +372,28 @@ async function runPlain(options) {
         ui.info(ui.color.dim('  Попробуй другой балансер: --player collaps'));
     }
 
-    // Мастер-плейлист содержит несколько дорожек — даём выбрать нужную
+    // Сопоставление аудиодорожки
+    if (translation && translation.audioId !== undefined) {
+        found.audioId = translation.audioId;
+    } else if (found.audioTracks && found.audioTracks.length > 0 && translation && translation.name) {
+        var wantedAudio = translation.name.toLowerCase();
+        var matched = found.audioTracks.find(function (t) {
+            return t.name.toLowerCase().indexOf(wantedAudio) >= 0 ||
+                wantedAudio.indexOf(t.name.toLowerCase()) >= 0;
+        });
+        if (matched) found.audioId = matched.audioId;
+    }
+
     var variants = await stream.readVariants(found);
+    var wantedQuality = options.quality || userConfig.preferredQuality;
 
     if (variants.length > 1) {
-        var variant = options.quality
-            ? stream.pickVariant(variants, options.quality)
+        var variant = wantedQuality
+            ? stream.pickVariant(variants, wantedQuality)
             : variants[0];
 
         if (!variant) {
-            ui.error('Качество «' + options.quality + '» недоступно. Есть: ' +
+            ui.error('Качество «' + wantedQuality + '» недоступно. Есть: ' +
                 variants.map(function (item) { return item.label; }).join(', '));
             return 1;
         }
@@ -386,11 +404,16 @@ async function runPlain(options) {
             origin: found.origin,
             userAgent: found.userAgent,
             label: variant.label,
+            audioId: found.audioId,
+            subtitles: found.subtitles,
+            direct: found.direct,
             variants: variants.map(function (item) { return item.label; })
         };
     }
 
     var title = film.title + (film.year ? ' (' + film.year + ')' : '') +
+        (options.season ? ' · S' + options.season + 'E' + options.episode : '') +
+        (translation && translation.name ? ' · ' + translation.name : '') +
         (found.label ? ' · ' + found.label : '');
 
     if (options.json) {
@@ -404,7 +427,8 @@ async function runPlain(options) {
         return 0;
     }
 
-    ui.info(ui.color.green('▸ ') + title + ' · ' + player.source +
+    var directBadge = found.direct ? ui.color.green(' [прямой ⚡]') : '';
+    ui.info(ui.color.green('▸ ') + title + ' · ' + player.source + directBadge +
         (translation ? ' · ' + translation.name : '') + ' · ' + player.quality);
 
     if (options.noMpv) {
@@ -423,7 +447,6 @@ async function runPlain(options) {
     }
 }
 
-// Полноэкранный интерфейс имеет смысл только в живом терминале
 function wantsTui(options) {
     if (options.plain || options.json || options.iframe || options.noMpv) return false;
     return process.stdin.isTTY && process.stdout.isTTY;
@@ -446,8 +469,6 @@ async function main() {
         return clean();
     }
 
-    // Молча считать флаг названием фильма нельзя: именно так выглядит
-    // запуск новой команды на старой копии
     if (options.unknown.length > 0) {
         ui.error('Неизвестный флаг: ' + options.unknown.join(', '));
         ui.info(ui.color.dim('  Список флагов: ktw --help'));
@@ -468,7 +489,6 @@ async function main() {
 }
 
 main().then(async function (code) {
-    // Браузер переиспользуется между извлечениями, поэтому закрываем его сами
     await stream.shutdown();
     process.exit(code);
 });

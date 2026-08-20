@@ -25,8 +25,8 @@ curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/main/cli/ins
 > Пока ветка не влита в `main`, ставить надо с неё:
 >
 > ```sh
-> curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/claude/site-player-cli-9ly8ks/cli/install.sh \
->   | KTW_BRANCH=claude/site-player-cli-9ly8ks sh
+> curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/feature/direct-kinobox-tui/cli/install.sh \
+>   | KTW_BRANCH=feature/direct-kinobox-tui sh
 > ```
 
 Скрипт сам поставит недостающее (Node.js, mpv, chafa, puppeteer с Chromium),

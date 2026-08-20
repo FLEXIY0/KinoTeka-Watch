@@ -2,20 +2,13 @@
 
 // Извлечение прямой ссылки на поток из iframe балансера.
 //
-// Балансеры не отдают ссылку на плейлист в открытом виде: она собирается их
-// обфусцированным JS уже в браузере. Разбирать каждый по отдельности
-// бессмысленно — они постоянно меняются. Поэтому открываем iframe в headless
-// Chromium и слушаем сетевые запросы.
-//
-// Главная сложность не в том, чтобы поймать медиа-адрес, а в том, чтобы не
-// принять за фильм рекламный ролик: преролл всегда идёт первым, и наивный
-// «берём первое попавшееся» отдавал именно его. Поэтому:
-//   - реклама режется на уровне сети, чтобы вообще не проигрывалась;
-//   - каждый пойманный плейлист проверяется по содержимому — короткий
-//     ролик с ENDLIST это реклама, а не серия;
-//   - ждём дальше, пока не придёт что-то похожее на настоящий контент.
+// 1. Сначала пробуем прямое извлечение (extractors.js) — для Collaps, Kodik и др.
+//    это даёт ссылку на плейлист, звуковые дорожки и субтитры за <100 мс без браузера.
+// 2. Если прямой экстрактор не поддерживается, открываем iframe в headless Chromium
+//    через Puppeteer и слушаем сетевые запросы, фильтруя рекламу.
 
 var api = require('./api');
+var extractors = require('./extractors');
 
 // Медиа по расширению; на случай, если content-type не пришёл
 var MEDIA_RE = /\.(m3u8|mpd|mp4)(\?|$)/i;
@@ -25,8 +18,7 @@ var SEGMENT_RE = /\.(ts|m4s|aac|vtt)(\?|$)/i;
 // Явно рекламные адреса
 var JUNK_RE = /(vast|vmap|vpaid|advert|\/ads?\/|adsby|preroll|midroll|postroll|banner|promo|trailer|thumb|sprite|preview)/i;
 
-// Рекламные сети, счётчики и SDK. Если их не пустить, плеер обычно
-// переходит сразу к контенту, не проигрывая ролик.
+// Рекламные сети, счётчики и SDK.
 var AD_HOST_RE = new RegExp([
     'doubleclick', 'googlesyndication', 'googletagservices', 'googletagmanager',
     'google-analytics', 'imasdk\\.googleapis', 'adservice\\.google', 'adsbygoogle',
@@ -58,9 +50,9 @@ function loadPuppeteer() {
         return require('puppeteer');
     } catch (err) {
         throw new Error(
-            'Не найден puppeteer — он нужен для извлечения потока.\n' +
+            'Не найден puppeteer — он нужен для браузерного извлечения потока.\n' +
             '  Установи его: npm install puppeteer\n' +
-            '  Либо запусти с --iframe, чтобы просто получить ссылку на плеер.'
+            '  Либо выбери плеер с прямым извлечением ⚡ (например, Collaps).'
         );
     }
 }
@@ -149,7 +141,7 @@ async function getBrowser(headful) {
     return sharedBrowser;
 }
 
-// Прогрев: старт браузера — самая долгая часть, начинаем заранее
+// Прогрев: старт браузера заранее
 function warmup(headful) {
     getBrowser(!!headful).catch(function () { });
 }
@@ -162,8 +154,7 @@ async function shutdown() {
     }
 }
 
-// Пробуем запустить воспроизведение во всех фреймах: часть плееров
-// начинает грузить манифест только после клика пользователя
+// Запуск воспроизведения во всех фреймах
 async function pokePlayers(page) {
     var frames = page.frames();
 
@@ -183,7 +174,7 @@ async function pokePlayers(page) {
                 });
             }, PLAY_SELECTORS);
         } catch (err) {
-            // Фрейм мог отвалиться или быть cross-origin без доступа — это норма
+            // Фрейм мог отвалиться или быть cross-origin без доступа
         }
     }
 
@@ -195,16 +186,45 @@ async function pokePlayers(page) {
     }
 }
 
-// Основная функция: iframeUrl -> { url, referer, origin, userAgent }
+// Основная функция извлечения потока
 async function resolveStream(iframeUrl, options) {
     options = options || {};
-
-    var timeoutMs = options.timeout || 40000;
     var report = options.onProgress || function () { };
 
-    var candidates = [];      // всё, что похоже на контент
-    var rejected = [];        // отбракованная реклама
-    var fallbacks = [];       // медиа, которое не удалось проверить
+    // ШАГ 1: Попытка прямого быстрого извлечения (<100мс)
+    report('проверяю прямое извлечение ⚡');
+    var directResult = await extractors.extractDirectStream(iframeUrl, {
+        season: options.season,
+        episode: options.episode,
+        timeout: 6000
+    }).catch(function () { return null; });
+
+    if (directResult && directResult.url) {
+        report('поток получен напрямую ⚡');
+        return {
+            url: directResult.url,
+            referer: directResult.referer,
+            origin: directResult.origin,
+            userAgent: directResult.userAgent || api.USER_AGENT,
+            audioTracks: directResult.audioTracks || [],
+            subtitles: directResult.subtitles || [],
+            duration: directResult.duration || 0,
+            direct: true,
+            suspicious: false
+        };
+    }
+
+    if (options.directOnly) {
+        throw new Error('Прямое извлечение для этого плеера не удалось, а запуск браузера отключен в настройках.');
+    }
+
+    // ШАГ 2: Браузерное извлечение через Puppeteer
+    report('запускаю браузер для извлечения');
+
+    var timeoutMs = options.timeout || 40000;
+    var candidates = [];
+    var rejected = [];
+    var fallbacks = [];
     var seen = {};
     var page = null;
     var settled = false;
@@ -214,9 +234,6 @@ async function resolveStream(iframeUrl, options) {
     var context = null;
 
     try {
-        // Каждое извлечение — в своей песочнице: браузер переиспользуется, но
-        // куки, localStorage и HTTP-кэш от прошлой попытки не должны влиять
-        // на следующую, иначе балансер отдаёт залежавшуюся страницу
         context = browser.createBrowserContext
             ? await browser.createBrowserContext()
             : await browser.createIncognitoBrowserContext();
@@ -237,12 +254,10 @@ async function resolveStream(iframeUrl, options) {
 
         function refererOf(request) {
             var frame = null;
-            try { frame = request.frame(); } catch (err) { /* фрейм уже мёртв */ }
+            try { frame = request.frame(); } catch (err) { }
             return frame && frame.url() && frame.url() !== 'about:blank' ? frame.url() : iframeUrl;
         }
 
-        // Режем всё, что не приближает к манифесту: картинки, шрифты,
-        // сегменты и рекламу целиком — чтобы преролл вообще не играл
         await page.setRequestInterception(true);
 
         page.on('request', function (request) {
@@ -262,14 +277,10 @@ async function resolveStream(iframeUrl, options) {
             request.continue().catch(function () { });
         });
 
-        // Манифесты пропускаем внутрь и читаем их тело: так видно,
-        // сколько длится дорожка, и рекламу можно отсеять
         page.on('response', function (response) {
             var url = response.url();
             if (seen[url]) return;
 
-            // Ошибочный ответ манифестом быть не может: иначе за поток
-            // принимается страница вида «токен уже использован»
             var status = response.status();
             if (status >= 400) return;
 
@@ -279,7 +290,6 @@ async function resolveStream(iframeUrl, options) {
                 /mpegurl|dash\+xml/.test(contentType);
 
             if (!isManifest) {
-                // mp4 держим про запас: вдруг ничего лучше не будет
                 if (MEDIA_RE.test(url) && !JUNK_RE.test(url)) {
                     seen[url] = true;
                     fallbacks.push({ url: url, referer: refererOf(response.request()) });
@@ -292,7 +302,6 @@ async function resolveStream(iframeUrl, options) {
             response.text().then(function (text) {
                 if (!text) return;
 
-                // Тело должно быть настоящим плейлистом, а не сообщением об ошибке
                 if (text.indexOf('#EXTM3U') < 0 && !/\.mpd(\?|$)/i.test(url)) return;
 
                 var info = analyzeHls(text);
@@ -307,12 +316,9 @@ async function resolveStream(iframeUrl, options) {
                     candidates.push(entry);
 
                     if (info.kind === 'master') {
-                        // Мастер-плейлист — лучшее, что может быть: в нём качества
                         report('нашёл поток с выбором качества');
                         finish();
                     } else {
-                        // Медиа-плейлист берём, но даём мастеру шанс появиться:
-                        // иначе выбор качества теряется на ровном месте
                         report('нашёл поток' + (info.duration ? ' на ' + describeDuration(info.duration) : '') +
                             ', проверяю, есть ли другие качества');
                         if (!graceTimer) graceTimer = setTimeout(finish, 1500);
@@ -322,7 +328,7 @@ async function resolveStream(iframeUrl, options) {
                     report('пропустил рекламный ролик' +
                         (info.duration ? ' на ' + describeDuration(info.duration) : '') + ', жду дальше');
                 }
-            }).catch(function () { /* тело не отдали — не страшно */ });
+            }).catch(function () { });
         });
 
         report('открываю плеер');
@@ -332,8 +338,8 @@ async function resolveStream(iframeUrl, options) {
             waitUntil: 'domcontentloaded',
             timeout: Math.min(timeoutMs, 30000)
         }).then(function () {
-            if (!accepted) report('жму play');
-        }).catch(function () { /* часть страниц не досылает load */ });
+            report('жму play');
+        }).catch(function () { });
 
         var poking = false;
 
@@ -355,7 +361,6 @@ async function resolveStream(iframeUrl, options) {
     }
 
     if (candidates.length > 0) {
-        // Мастер предпочтительнее: только он даёт выбор качества
         var master = candidates.filter(function (item) {
             return item.info && item.info.kind === 'master';
         })[0];
@@ -363,8 +368,6 @@ async function resolveStream(iframeUrl, options) {
         return buildResult(master || candidates[0], false);
     }
 
-    // Контента не дождались. Отдаём хоть что-то, но честно помечаем:
-    // пусть интерфейс посоветует другой балансер
     var spare = fallbacks[0] || rejected[0];
     if (!spare) return null;
 
@@ -381,23 +384,19 @@ function buildResult(entry, suspicious) {
         userAgent: api.USER_AGENT,
         suspicious: suspicious,
         duration: entry.info ? entry.info.duration : 0,
-        // Тело плейлиста браузер уже получил. Перечитывать его из Node нельзя:
-        // у балансеров токены часто одноразовые, и второй запрос даёт 403 —
-        // именно из-за этого выбор качества мог не появляться.
-        manifest: entry.manifest || null
+        manifest: entry.manifest || null,
+        audioTracks: [],
+        subtitles: [],
+        direct: false
     };
 }
 
 // Разбор мастер-плейлиста HLS: какие качества вообще предлагает балансер.
-// Возвращает пустой массив, если это уже медиа-плейлист или не HLS.
 async function readVariants(stream) {
-    // Тело, прочитанное браузером, надёжнее повторного запроса
     if (stream.manifest) {
         return parseMaster(stream.manifest, stream.url);
     }
 
-    // По расширению не отсеиваем: часть балансеров отдаёт плейлист по адресу
-    // без .m3u8, и такой поток раньше молча оставался без выбора качества
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 12000);
     var text;
@@ -405,7 +404,7 @@ async function readVariants(stream) {
     try {
         var res = await fetch(stream.url, {
             headers: {
-                'User-Agent': stream.userAgent,
+                'User-Agent': stream.userAgent || api.USER_AGENT,
                 'Referer': stream.referer,
                 'Origin': stream.origin
             },
@@ -425,15 +424,34 @@ async function readVariants(stream) {
 
 // Разбор мастер-плейлиста в список дорожек
 function parseMaster(text, baseUrl) {
-    if (text.indexOf('#EXT-X-STREAM-INF') < 0) return [];
+    if (!text || text.indexOf('#EXTM3U') < 0) return [];
 
     var lines = text.split(/\r?\n/);
     var variants = [];
+    var audioTracks = [];
 
+    // 1. Поиск аудиодорожек: #EXT-X-MEDIA:TYPE=AUDIO
+    for (var a = 0; a < lines.length; a++) {
+        if (lines[a].indexOf('#EXT-X-MEDIA:TYPE=AUDIO') === 0) {
+            var aName = /NAME="([^"]+)"/i.exec(lines[a]);
+            var aLang = /LANGUAGE="([^"]+)"/i.exec(lines[a]);
+            var aUri = /URI="([^"]+)"/i.exec(lines[a]);
+            var aDef = /DEFAULT=YES/i.test(lines[a]);
+
+            audioTracks.push({
+                name: aName ? aName[1] : ('Аудио ' + (audioTracks.length + 1)),
+                lang: aLang ? aLang[1] : '',
+                url: aUri ? new URL(aUri[1], baseUrl).toString() : null,
+                default: aDef,
+                index: audioTracks.length
+            });
+        }
+    }
+
+    // 2. Поиск вариантов видео
     for (var i = 0; i < lines.length; i++) {
         if (lines[i].indexOf('#EXT-X-STREAM-INF') !== 0) continue;
 
-        // Следующая непустая строка без решётки — адрес варианта
         var target = '';
         for (var j = i + 1; j < lines.length; j++) {
             if (lines[j] && lines[j][0] !== '#') { target = lines[j].trim(); break; }
@@ -445,13 +463,34 @@ function parseMaster(text, baseUrl) {
         var bandwidth = /BANDWIDTH=(\d+)/i.exec(lines[i]);
         var name = /NAME="([^"]+)"/i.exec(lines[i]);
         var height = resolution ? parseInt(resolution[2], 10) : 0;
+        var width = resolution ? parseInt(resolution[1], 10) : 0;
 
-        variants.push({
-            height: height,
-            bandwidth: bandwidth ? parseInt(bandwidth[1], 10) : 0,
-            label: name ? name[1] : (height ? height + 'p' : 'вариант ' + (variants.length + 1)),
-            url: new URL(target, baseUrl).toString()
-        });
+        // Формирование красивого лейбла (например, 1080p, 720p, 480p)
+        var label = name ? name[1] : '';
+        if (!label) {
+            if (height >= 2100) label = '4K (2160p)';
+            else if (height >= 1400) label = '2K (1440p)';
+            else if (height >= 1000 || width >= 1900) label = '1080p';
+            else if (height >= 700 || width >= 1200) label = '720p';
+            else if (height >= 450 || width >= 800) label = '480p';
+            else if (height >= 300) label = '360p';
+            else if (height) label = height + 'p';
+            else label = 'вариант ' + (variants.length + 1);
+        }
+
+        // Предотвращаем дублирование вариантов с одинаковым разрешением
+        var targetUrl = new URL(target, baseUrl).toString();
+        var existing = variants.find(function (v) { return v.url === targetUrl; });
+        if (!existing) {
+            variants.push({
+                height: height,
+                width: width,
+                bandwidth: bandwidth ? parseInt(bandwidth[1], 10) : 0,
+                label: label,
+                url: targetUrl,
+                audioTracks: audioTracks
+            });
+        }
     }
 
     variants.sort(function (a, b) {
@@ -461,20 +500,25 @@ function parseMaster(text, baseUrl) {
     return variants;
 }
 
-// Выбор варианта по желаемой высоте: 720 -> ближайший не выше, иначе худший
+// Выбор варианта по желаемой высоте / параметру: 1080 -> 1080p, max, min
 function pickVariant(variants, wanted) {
-    if (variants.length === 0) return null;
+    if (!variants || variants.length === 0) return null;
     if (!wanted) return null;
 
     var normalized = String(wanted).toLowerCase().replace(/p$/, '');
 
-    if (normalized === 'max' || normalized === 'best') return variants[0];
+    if (normalized === 'max' || normalized === 'best' || normalized === '4k' || normalized === '1080') {
+        var fhd = variants.find(function (item) { return item.height >= 1000 || item.width >= 1900; });
+        if (fhd) return fhd;
+        return variants[0];
+    }
+
     if (normalized === 'min' || normalized === 'worst') return variants[variants.length - 1];
 
     var height = parseInt(normalized, 10);
     if (!height) return null;
 
-    var suitable = variants.filter(function (item) { return item.height <= height; });
+    var suitable = variants.filter(function (item) { return item.height <= height || item.width <= (height * 16 / 9); });
 
     return suitable.length > 0 ? suitable[0] : variants[variants.length - 1];
 }

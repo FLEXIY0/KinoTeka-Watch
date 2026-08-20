@@ -29,8 +29,8 @@
 `main` пока без `cli/`, поэтому ставить надо именно с ветки:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/claude/site-player-cli-9ly8ks/cli/install.sh \
-  | KTW_BRANCH=claude/site-player-cli-9ly8ks sh
+curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/feature/direct-kinobox-tui/cli/install.sh \
+  | KTW_BRANCH=feature/direct-kinobox-tui sh
 ```
 
 Скрипт поставит недостающее (Node.js 18+, mpv, chafa, puppeteer с Chromium),

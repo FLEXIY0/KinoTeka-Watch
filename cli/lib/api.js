@@ -5,18 +5,22 @@
 //   - script-search.js  -> kinopoiskapiunofficial.tech
 //   - kinobox.js        -> api.kinobox.tv/api/players
 
+var extractors = require('./extractors');
+var config = require('./config');
+
 var KINOPOISK_SEARCH = 'https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword';
 var KINOPOISK_FILMS = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
+
 // Зеркала списка плееров. Первым идёт то, которое использует сам сайт:
 // api.kinobox.tv отвечает не отовсюду, а fbphdplay.top отдаёт тот же JSON.
-// Своё зеркало можно подставить через KTW_KINOBOX_API.
+// Своё зеркало можно подставить через KTW_KINOBOX_API или в настройках TUI.
 var KINOBOX_MIRRORS = [
     'https://fbphdplay.top/api/players',
     'https://api.kinobox.tv/api/players'
 ];
 
-// Браузерный UA — балансеры отдают поток только «настоящим» клиентам
-var USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// Браузерный UA
+var USER_AGENT = extractors.USER_AGENT || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // Node прячет причину сетевой ошибки в err.cause, наружу отдавая
 // бесполезное «fetch failed». Достаём и переводим на человеческий.
@@ -76,7 +80,6 @@ async function fetchJson(url, headers, timeoutMs) {
             throw new Error('Таймаут запроса к ' + new URL(url).host);
         }
 
-        // Сетевые ошибки Node приходят как безликое «fetch failed»
         if (err.name === 'TypeError' || /fetch failed/i.test(err.message)) {
             throw new Error(new URL(url).host + ': ' + describeNetworkError(err));
         }
@@ -90,7 +93,7 @@ async function fetchJson(url, headers, timeoutMs) {
 // Поиск фильмов по названию
 async function searchFilms(query, apiKey) {
     if (!apiKey) {
-        throw new Error('Нет ключа Кинопоиска. Задай KINOPOISK_API_KEY или запусти с --key');
+        throw new Error('Нет ключа Кинопоиска. Задай KINOPOISK_API_KEY или введи по Ctrl+K / в Настройках');
     }
 
     var url = KINOPOISK_SEARCH + '?keyword=' + encodeURIComponent(query);
@@ -116,10 +119,10 @@ async function searchFilms(query, apiKey) {
     });
 }
 
-// Карточка фильма по id (нужна, когда фильм открыт напрямую, без поиска)
+// Карточка фильма по id
 async function getFilm(kinopoiskId, apiKey) {
     if (!apiKey) {
-        throw new Error('Нет ключа Кинопоиска. Задай KINOPOISK_API_KEY или запусти с --key');
+        throw new Error('Нет ключа Кинопоиска. Задай KINOPOISK_API_KEY или введи по Ctrl+K / в Настройках');
     }
 
     var data = await fetchJson(KINOPOISK_FILMS + '/' + kinopoiskId, { 'X-API-KEY': apiKey });
@@ -141,7 +144,7 @@ async function getFilm(kinopoiskId, apiKey) {
     };
 }
 
-// Сезоны и серии; для не-сериалов вернётся пустой список
+// Сезоны и серии
 async function getSeasons(kinopoiskId, apiKey) {
     var data = await fetchJson(KINOPOISK_FILMS + '/' + kinopoiskId + '/seasons', { 'X-API-KEY': apiKey });
     var items = data && data.items ? data.items : [];
@@ -160,10 +163,9 @@ async function getSeasons(kinopoiskId, apiKey) {
     });
 }
 
-// Разбор ответа Kinobox. У каждого балансера свой набор озвучек,
-// и у части из них — отдельная ссылка на iframe под каждую озвучку.
+// Разбор ответа Kinobox
 function normalizePlayers(list) {
-    return list
+    var players = list
         .filter(function (item) { return item && item.iframeUrl; })
         .map(function (item) {
             var seen = {};
@@ -171,6 +173,7 @@ function normalizePlayers(list) {
                 .filter(function (translation) { return translation && translation.name; })
                 .map(function (translation) {
                     return {
+                        id: translation.id !== undefined ? translation.id : null,
                         name: translation.name,
                         quality: translation.quality || '',
                         iframeUrl: normalizeUrl(translation.iframeUrl || item.iframeUrl)
@@ -186,29 +189,38 @@ function normalizePlayers(list) {
             var quality = translations.map(function (translation) { return translation.quality; })
                 .filter(Boolean)[0] || '-';
 
+            var directFast = extractors.isDirectSupported(item.type, item.iframeUrl);
+
             return {
                 source: item.type || 'unknown',
                 translation: translations.length > 0 ? translations[0].name : 'Не указано',
                 quality: quality,
                 translations: translations,
-                iframeUrl: normalizeUrl(item.iframeUrl)
+                iframeUrl: normalizeUrl(item.iframeUrl),
+                direct: directFast
             };
         });
+
+    // Прямые быстрые плееры (Collaps, Kodik) ставим первыми для мгновенного отклика
+    players.sort(function (a, b) {
+        return (b.direct ? 1 : 0) - (a.direct ? 1 : 0);
+    });
+
+    return players;
 }
 
-// Список доступных плееров (балансеров).
-// Kinobox ищет и по id Кинопоиска, и просто по названию — второе не требует
-// никакого ключа, на этом держится работа «из коробки».
-// Зеркала перебираются по очереди: первое ответившее и выигрывает.
+// Список доступных плееров
 async function requestPlayers(param, value) {
-    var mirrors = process.env.KTW_KINOBOX_API
-        ? [process.env.KTW_KINOBOX_API].concat(KINOBOX_MIRRORS)
+    var configuredMirror = config.resolveKinoboxApi();
+    var mirrors = configuredMirror
+        ? [configuredMirror].concat(KINOBOX_MIRRORS.filter(function (m) { return m !== configuredMirror; }))
         : KINOBOX_MIRRORS.slice();
 
     var lastError = null;
 
     for (var i = 0; i < mirrors.length; i++) {
-        var url = mirrors[i] + '?' + param + '=' + encodeURIComponent(value);
+        var mirrorBase = mirrors[i];
+        var url = mirrorBase + (mirrorBase.indexOf('?') >= 0 ? '&' : '?') + param + '=' + encodeURIComponent(value);
 
         try {
             var data = await fetchJson(url, {
@@ -236,12 +248,10 @@ function getPlayers(kinopoiskId) {
     return requestPlayers('kinopoisk', kinopoiskId);
 }
 
-// Поиск сразу по названию, без Кинопоиска и без ключа
 function getPlayersByTitle(title) {
     return requestPlayers('title', title);
 }
 
-// id Кинопоиска из аргумента: число или ссылка вида kinopoisk.ru/film/301/
 function parseFilmId(query) {
     if (/^\d+$/.test(String(query || '').trim())) return String(query).trim();
 
@@ -249,13 +259,11 @@ function parseFilmId(query) {
     return match ? match[1] : null;
 }
 
-// У Kinobox часть ссылок приходит протокол-относительными (//host/...)
 function normalizeUrl(url) {
     if (url.indexOf('//') === 0) return 'https:' + url;
     return url;
 }
 
-// Добавление номера сезона/серии в адрес iframe (понимают Alloha, Collaps, Videocdn, Kodik)
 function withEpisode(iframeUrl, season, episode) {
     if (!season && !episode) return iframeUrl;
 

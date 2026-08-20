@@ -192,6 +192,13 @@ async function testMpvArgs() {
     var external = mpv.buildArgs({ url: 'u', referer: 'r', origin: 'o', audioUrl: 'https://cdn/a.m3u8' }, 'T');
     assert(external.indexOf('--audio-file=https://cdn/a.m3u8') >= 0,
         'отдельный звук цепляется через --audio-file');
+
+    // --cache-secs перебивает --demuxer-readahead-secs и по умолчанию равен 10 с:
+    // без него буфер стоял пустым и видео замирало на каждом сегменте
+    var secs = args.find(function (a) { return a.indexOf('--cache-secs=') === 0; });
+    assert(!!secs && parseInt(secs.split('=')[1], 10) >= 120,
+        'буфер набирается на минуты вперёд: ' + secs);
+    assert(args.indexOf('--alang=rus,ru,russian') >= 0, 'русская дорожка запрошена и по языку');
 }
 
 // ---------- офлайн: балансеры ----------
@@ -315,6 +322,172 @@ async function testRouting() {
         'Turbo распознан — раньше он вообще не считался поддерживаемым');
     assert(extractors.isDirectSupported('Kodik', 'https://kodik.info/seria/1/abc/720p'), 'Kodik распознан');
     assert(!extractors.isDirectSupported('Неизвестный', 'https://example.com/embed'), 'чужой хост не помечается ⚡');
+}
+
+async function testEnglishAudioRegression() {
+    group('Регрессия: из балансера приезжала английская озвучка');
+
+    var original = globalThis.fetch;
+    globalThis.fetch = async function () {
+        return new Response(fixture('collaps-movie.html'), { status: 200 });
+    };
+
+    var found;
+
+    try {
+        found = await extractors.extractDirectStream('https://api.ortified.ws/embed/movie/474', {});
+    } finally {
+        globalThis.fetch = original;
+    }
+
+    assert(!!found && found.audioTracks.length === 3, 'дорожки Collaps разобраны');
+
+    // order: [1, 2, 0] — у «Оригинал (ENG)» order 0, то есть дорожка номер 1.
+    // Именно её mpv и брал, когда --aid не передавался вовсе.
+    var english = found.audioTracks.find(function (t) { return t.lang === 'eng'; });
+    assert(english && english.audioId === 1,
+        'английский оригинал стоит первой дорожкой — mpv без --aid играл именно его');
+
+    var dub = found.audioTracks.find(function (t) { return t.name === 'Дубляж'; });
+    assert(dub && dub.audioId === 2, 'audio.order привязал «Дубляж» к --aid=2');
+
+    var resolved = stream.resolveAudioId({ audioTracks: [], playerTracks: found.audioTracks }, '');
+    assert(resolved === 2, 'без выбранной озвучки берётся русская дорожка, а не первая (' + resolved + ')');
+
+    var picked = stream.resolveAudioId({ audioTracks: [], playerTracks: found.audioTracks }, 'LostFilm');
+    assert(picked === 3, 'выбранная озвучка доезжает до mpv как --aid=3');
+
+    var missing = stream.resolveAudioId({ audioTracks: [], playerTracks: found.audioTracks }, 'Такой озвучки нет');
+    assert(missing === 2, 'когда название не совпало, берётся русская дорожка, а не английская');
+}
+
+async function testLanguageDetection() {
+    group('Язык звуковой дорожки');
+
+    assert(extractors.languageOf('02. Дубляж (RUS)') === 'rus', '(RUS) распознан');
+    assert(extractors.languageOf('17. Оригинал (ENG)') === 'eng', '(ENG) распознан');
+    assert(extractors.languageOf('16. Многоголосый. 1+1 (UKR)') === 'ukr', '(UKR) распознан');
+    assert(extractors.languageOf('Дубляж') === 'rus', 'кириллица без пометки — русская дорожка');
+
+    var variants = stream.parseMaster(fixture('master-multiaudio.m3u8'), 'https://cdn/m.m3u8');
+    var tracks = variants[0].audioTracks;
+
+    // Раньше normalizeName вырезал «(ENG)», и «Оригинал» совпадал с русским
+    var eng = stream.matchAudioTrack(tracks, 'Оригинал (ENG)');
+    assert(!eng || extractors.languageOf(eng.name) === 'eng',
+        'английская озвучка не подменяется русской и наоборот');
+
+    var rus = stream.matchAudioTrack(tracks, 'Дубляж');
+    assert(rus && extractors.languageOf(rus.name) === 'rus', 'русская озвучка находится по названию');
+
+    assert(extractors.isRussian({ name: '03. Многоголосый (RUS)' }) === true, 'isRussian: русская дорожка');
+    assert(extractors.isRussian({ name: '17. Оригинал (ENG)' }) === false, 'isRussian: английская — нет');
+    assert(extractors.isRussian({ name: '16. Многоголосый. 1+1 (UKR)' }) === false, 'isRussian: украинская — нет');
+}
+
+async function testQualityHonesty() {
+    group('Регрессия: качество всегда показывалось как 1080p');
+
+    var variants = stream.parseMaster(fixture('master-multiaudio.m3u8'), 'https://cdn/m.m3u8');
+
+    // Раньше «1080» отдавало первый вариант всегда, даже когда 1080p нет.
+    // Теперь просьба про 1080p при наличии только 480p честно даёт 480p…
+    var lowOnly = variants.filter(function (v) { return v.label === '480p'; });
+    var down = stream.pickVariant(lowOnly, '1080');
+    assert(down && down.label === '480p',
+        '1080p нет — берётся лучшее из доступного снизу (' + (down && down.label) + ')');
+
+    // …а когда снизу нет ничего, возвращается null и показывается экран выбора,
+    // вместо молчаливой подстановки первого попавшегося варианта
+    var highOnly = variants.filter(function (v) { return v.label === '1080p'; });
+    assert(stream.pickVariant(highOnly, '360') === null,
+        'ниже запрошенного ничего нет — null, а не «что-нибудь сверху»');
+
+    assert(stream.pickVariant(variants, 'max').label === '1080p', 'max по-прежнему берёт лучшее');
+
+    var original = globalThis.fetch;
+    globalThis.fetch = async function () { return new Response('нет доступа', { status: 403 }); };
+
+    var empty;
+
+    try {
+        empty = await stream.readVariants({ url: 'https://cdn/master.m3u8', referer: 'https://h/' });
+    } finally {
+        globalThis.fetch = original;
+    }
+
+    assert(empty.length === 0, 'недоступный плейлист даёт пустой список качеств');
+    assert(!!empty.reason && /403|балансер/i.test(empty.reason),
+        'причина названа вслух: ' + empty.reason);
+}
+
+async function testDashFallback() {
+    group('Запасной dash, когда hls закрыт');
+
+    var master = fixture('master-multiaudio.m3u8');
+    var seen = [];
+    var original = globalThis.fetch;
+
+    globalThis.fetch = async function (url) {
+        seen.push(String(url));
+        if (String(url).indexOf('.m3u8') >= 0) return new Response('нет', { status: 403 });
+        return new Response(master, { status: 200 });
+    };
+
+    var variants;
+
+    try {
+        variants = await stream.readVariants({
+            url: 'https://cdn/master.m3u8',
+            dashUrl: 'https://cdn/manifest.mpd',
+            referer: 'https://h/'
+        });
+    } finally {
+        globalThis.fetch = original;
+    }
+
+    assert(seen.length === 2, 'после отказа hls запрашивается dash');
+    assert(variants.length === 3, 'качества взяты из запасного манифеста');
+}
+
+async function testCache() {
+    group('Кеш ответов API');
+
+    var cache = require('./lib/cache');
+    var calls = 0;
+
+    var load = function () {
+        calls++;
+        return Promise.resolve([{ id: 1, title: 'Фильм' }]);
+    };
+
+    var key = 'test-' + Date.now();
+
+    var first = await cache.through('film', key, load);
+    var second = await cache.through('film', key, load);
+
+    assert(calls === 1, 'второй запрос берётся из кеша, а не из сети');
+    assert(JSON.stringify(first) === JSON.stringify(second), 'из кеша приходит тот же ответ');
+
+    var emptyCalls = 0;
+    var emptyKey = 'empty-' + Date.now();
+    var loadEmpty = function () { emptyCalls++; return Promise.resolve([]); };
+
+    await cache.through('players', emptyKey, loadEmpty);
+    await cache.through('players', emptyKey, loadEmpty);
+    assert(emptyCalls === 2, 'пустой ответ не кешируется — иначе одна неудача залипала бы надолго');
+
+    // Протухшая запись не используется
+    cache.write('players', key, [{ stale: true }]);
+    var file = require('path').join(cache.CACHE_DIR,
+        'players-' + require('crypto').createHash('sha1').update(key).digest('hex').slice(0, 16) + '.json');
+    var raw = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+    raw.savedAt = Date.now() - cache.TTL.players - 1000;
+    require('fs').writeFileSync(file, JSON.stringify(raw));
+
+    assert(cache.read('players', key) === null, 'запись старше своего срока игнорируется');
+
+    assert(cache.stats().entries > 0, 'кеш умеет отчитаться о размере');
 }
 
 // ---------- офлайн: доктор, конфиг, история ----------
@@ -467,6 +640,11 @@ var SUITES = [
     ['Озвучки', testAudioMatching],
     ['mpv', testMpvArgs],
     ['Veoveo', testVeoveoOffline],
+    ['Английская озвучка', testEnglishAudioRegression],
+    ['Язык дорожки', testLanguageDetection],
+    ['Честное качество', testQualityHonesty],
+    ['Запасной dash', testDashFallback],
+    ['Кеш', testCache],
     ['Регион', testGeoBlock],
     ['Универсальный разбор', testGenericExtractor],
     ['Kodik', testKodikDecode],

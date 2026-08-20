@@ -113,6 +113,13 @@ function clean() {
     var removed = poster.clearCache();
     ui.info('  ' + (removed ? '✓ обложки: ' + removed : '✗ обложки удалить не вышло'));
 
+    var cache = require('./lib/cache');
+    var cacheStats = cache.stats();
+    var cacheDir = cache.clear();
+    ui.info('  ' + (cacheDir
+        ? '✓ кеш ответов API: ' + cacheStats.entries + ' записей, ' + Math.round(cacheStats.bytes / 1024) + ' КБ'
+        : '✗ кеш ответов API удалить не вышло'));
+
     ui.info('  ' + ui.color.dim('браузер не используется — временных профилей не бывает'));
     ui.info('');
 
@@ -415,13 +422,13 @@ async function runPlain(options) {
 
         found = stream.applyVariant(found, variant);
         found.variants = variants.map(function (item) { return item.label; });
+    } else if (variants.reason) {
+        ui.info(ui.color.dim('  Список качеств недоступен — ' + variants.reason));
     }
 
-    // Озвучку выбираем уже по дорожкам мастер-плейлиста: их номера и есть --aid
-    if (translation && translation.name) {
-        var matched = stream.matchAudioTrack(found.audioTracks, translation.name);
-        if (matched && matched.audioId) found.audioId = matched.audioId;
-    }
+    // Номер озвучки: сперва по дорожкам мастер-плейлиста, затем по конфигу
+    // балансера, и только потом — русская дорожка по умолчанию
+    found.audioId = stream.resolveAudioId(found, translation ? translation.name : '');
 
     if (options.resume && film.id) {
         var savedProg = history.getProgress(film.id, options.season, options.episode);

@@ -38,9 +38,17 @@ function buildArgs(stream, title, extraArgs, socketPath) {
         '--msg-level=all=no',
         '--terminal=no',
         '--cache=yes',
+        // --cache-secs перебивает --demuxer-readahead-secs, когда кеш включён,
+        // а по умолчанию он равен 10 секундам. Из-за этого буфер в 250 МиБ
+        // стоял почти пустым и на медленном канале видео постоянно замирало.
+        '--cache-secs=300',
         '--demuxer-max-bytes=250MiB',
         '--demuxer-max-back-bytes=100MiB',
-        '--demuxer-readahead-secs=180',
+        '--demuxer-readahead-secs=300',
+        // Сегменты HLS качаются пачкой, а не по одному
+        '--stream-buffer-size=8MiB',
+        // Подсказка для потоков, где язык дорожки всё-таки размечен
+        '--alang=rus,ru,russian',
         '--hr-seek=yes',
         '--hr-seek-framedrop=yes',
         '--input-cursor=yes',

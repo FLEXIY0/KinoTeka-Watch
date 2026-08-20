@@ -16,6 +16,7 @@ var path = require('path');
 var execFileSync = require('child_process').execFileSync;
 
 var config = require('./config');
+var cache = require('./cache');
 var http = require('./http');
 var api = require('./api');
 var extractors = require('./extractors');
@@ -112,6 +113,26 @@ function checkConfig() {
     }
 
     return check('настройки', 'ok', config.file);
+}
+
+function checkCache() {
+    if (process.env.KTW_NO_CACHE === '1') {
+        return check('кеш ответов', 'warn', 'выключен через KTW_NO_CACHE=1',
+            'убери KTW_NO_CACHE, если хочешь, чтобы поиск и список плееров не ходили в сеть каждый раз');
+    }
+
+    try {
+        fs.mkdirSync(cache.CACHE_DIR, { recursive: true });
+        fs.accessSync(cache.CACHE_DIR, fs.constants.W_OK);
+    } catch (err) {
+        return check('кеш ответов', 'warn', cache.CACHE_DIR + ' недоступен на запись',
+            'без кеша всё работает, но каждый экран снова ходит в сеть');
+    }
+
+    var stats = cache.stats();
+
+    return check('кеш ответов', 'ok', stats.entries + ' записей, ' +
+        Math.round(stats.bytes / 1024) + ' КБ в ' + cache.CACHE_DIR);
 }
 
 function checkPath() {
@@ -233,6 +254,7 @@ async function run(mode) {
         checkChromium(),
         checkApiKey(),
         checkConfig(),
+        checkCache(),
         checkPath()
     ];
 

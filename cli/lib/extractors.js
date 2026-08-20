@@ -149,9 +149,25 @@ async function extractCollaps(iframeUrl, options) {
             duration = source.duration || 0;
             if (source.title) title = source.title;
 
+            // audio.order — это номер рендиции в мастер-плейлисте: order 0
+            // соответствует index-a1.m3u8, то есть mpv --aid=1. Без этой
+            // привязки выбранная озвучка не доезжала до плеера и mpv брал
+            // дорожку по умолчанию — у Collaps это часто оригинал (ENG).
             if (source.audio && source.audio.names) {
                 audioTracks = source.audio.names.map(function (name, idx) {
-                    return { name: name, index: idx, lang: '' };
+                    var order = (source.audio.order && source.audio.order[idx] !== undefined)
+                        ? parseInt(source.audio.order[idx], 10)
+                        : idx;
+
+                    if (isNaN(order)) order = idx;
+
+                    return {
+                        name: name,
+                        index: idx,
+                        order: order,
+                        audioId: order + 1,
+                        lang: languageOf(name)
+                    };
                 });
             }
 
@@ -572,14 +588,38 @@ function normalizeName(name) {
     return String(name || '')
         .toLowerCase()
         .replace(/^\s*\d+[.)]\s*/, '')      // «01. Дубляж» -> «дубляж»
-        .replace(/\((?:rus|eng|ukr)\)/gi, '')
+        .replace(/\((?:rus|eng|ukr|ua|en|ru)\)/gi, '')
+        .replace(/\bac3\b|\bdts\b|\baac\b/gi, '')
         .replace(/[^\wа-яё]+/gi, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 }
 
 function namesMatch(a, b) {
     if (!a || !b) return false;
     return a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+}
+
+// Язык дорожки. Атрибута LANGUAGE у балансеров нет вовсе — язык зашит в само
+// название: «02. Дубляж (RUS)», «17. Оригинал (ENG)», «16. Многоголосый (UKR)».
+// Раньше суффикс просто вырезался, и «Оригинал (ENG)» совпадал с русским
+// «Оригинал» — так в плеер и приезжала английская дорожка.
+function languageOf(name) {
+    var text = String(name || '');
+
+    if (/\((?:rus|ru)\)|\bрус/i.test(text)) return 'rus';
+    if (/\((?:ukr|ua)\)|\bукр/i.test(text)) return 'ukr';
+    if (/\((?:eng|en)\)|\bengl|оригинал|original/i.test(text)) return 'eng';
+
+    // Кириллица в названии озвучки — почти всегда русская дорожка
+    if (/[а-яё]/i.test(text)) return 'rus';
+
+    return '';
+}
+
+// Русская ли дорожка. Украинская и оригинальная — нет.
+function isRussian(track) {
+    return languageOf(track && track.name) === 'rus';
 }
 
 module.exports = {
@@ -595,5 +635,7 @@ module.exports = {
     scanPlaylists: scanPlaylists,
     parseVeoveoConfig: parseVeoveoConfig,
     normalizeName: normalizeName,
-    namesMatch: namesMatch
+    namesMatch: namesMatch,
+    languageOf: languageOf,
+    isRussian: isRussian
 };

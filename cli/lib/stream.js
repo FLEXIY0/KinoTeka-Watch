@@ -92,7 +92,11 @@ async function resolveStream(iframeUrl, options) {
         origin: found.origin,
         userAgent: found.userAgent || api.USER_AGENT,
         audioTracks: found.audioTracks || [],
+        // Дорожки из конфига балансера остаются рядом: если мастер-плейлист
+        // не прочитается, номер озвучки возьмётся отсюда
+        playerTracks: found.audioTracks || [],
         variantTracks: found.variantTracks || [],
+        dashUrl: found.dashUrl || '',
         subtitles: found.subtitles || [],
         duration: found.duration || 0,
         title: found.title || '',
@@ -101,29 +105,57 @@ async function resolveStream(iframeUrl, options) {
     };
 }
 
-// Разбор мастер-плейлиста HLS: какие качества предлагает балансер
+// Разбор мастер-плейлиста HLS: какие качества предлагает балансер.
+//
+// Причина отказа кладётся в variants.reason: пустой список без объяснения
+// выглядел на экране как «качество: как есть · 1080p» — то есть поломка
+// маскировалась под честный выбор, и всегда именно под 1080p, потому что
+// подпись бралась из ответа Kinobox, а не из плейлиста.
 async function readVariants(stream) {
     if (stream.manifest) {
         return parseMaster(stream.manifest, stream.url);
     }
 
-    var res;
+    var sources = [stream.url];
 
-    try {
-        res = await http.request(stream.url, {
-            userAgent: stream.userAgent || api.USER_AGENT,
-            referer: stream.referer,
-            origin: stream.origin,
-            accept: 'application/vnd.apple.mpegurl,*/*',
-            timeout: 15000
-        });
-    } catch (err) {
-        return [];
+    // У Collaps рядом с hls всегда лежит dash — пробуем его, если hls закрыт
+    if (stream.dashUrl && stream.dashUrl !== stream.url) sources.push(stream.dashUrl);
+
+    var reason = '';
+
+    for (var i = 0; i < sources.length; i++) {
+        var res;
+
+        try {
+            res = await http.request(sources[i], {
+                userAgent: stream.userAgent || api.USER_AGENT,
+                referer: stream.referer,
+                origin: stream.origin,
+                accept: 'application/vnd.apple.mpegurl,application/dash+xml,*/*',
+                timeout: 15000
+            });
+        } catch (err) {
+            reason = err.message;
+            continue;
+        }
+
+        if (!res.ok) {
+            var code = http.detectRefusal(res.status, res.body) || 'http';
+            reason = http.refusalMessage(code, res.status, http.hostOf(sources[i]));
+            continue;
+        }
+
+        var variants = parseMaster(res.body, res.url);
+
+        if (variants.length > 0) return variants;
+
+        reason = http.hostOf(sources[i]) + ': в плейлисте нет списка качеств';
     }
 
-    if (!res.ok) return [];
+    var empty = [];
+    empty.reason = reason;
 
-    return parseMaster(res.body, res.url);
+    return empty;
 }
 
 // Разбор атрибутов строки #EXT-X-...
@@ -243,21 +275,19 @@ function pickVariant(variants, wanted) {
 
     var normalized = String(wanted).toLowerCase().replace(/p$/, '');
 
-    if (normalized === 'max' || normalized === 'best' || normalized === '4k' || normalized === '1080') {
-        var fhd = variants.find(function (item) { return item.height >= 1000 || item.width >= 1900; });
-        return fhd || variants[0];
-    }
-
+    if (normalized === 'max' || normalized === 'best' || normalized === '4k') return variants[0];
     if (normalized === 'min' || normalized === 'worst') return variants[variants.length - 1];
 
     var height = parseInt(normalized, 10);
     if (!height) return null;
 
+    // Точное качество, а не «что-нибудь сверху»: раньше 1080 отдавало первый
+    // вариант всегда, даже когда 1080p у балансера нет вовсе
     var suitable = variants.filter(function (item) {
-        return item.height <= height || item.width <= (height * 16 / 9);
+        return item.height <= height || item.width <= Math.round(height * 16 / 9);
     });
 
-    return suitable.length > 0 ? suitable[0] : variants[variants.length - 1];
+    return suitable.length > 0 ? suitable[0] : null;
 }
 
 // Собрать поток под выбранное качество.
@@ -289,21 +319,66 @@ function applyVariant(stream, variant) {
     return next;
 }
 
-// Подобрать номер звуковой дорожки под название озвучки
+// Подобрать номер звуковой дорожки под название озвучки.
+//
+// Язык проверяется отдельно от названия: у «Оригинал (ENG)» и русского
+// «Оригинал» одинаковые названия, и без этой проверки в плеер уезжала
+// английская дорожка.
 function matchAudioTrack(tracks, wantedName) {
     if (!tracks || tracks.length === 0 || !wantedName) return null;
 
     var wanted = extractors.normalizeName(wantedName);
+    var wantedLang = extractors.languageOf(wantedName);
 
-    var exact = tracks.find(function (track) {
+    function sameLanguage(track) {
+        var lang = extractors.languageOf(track.name);
+        return !wantedLang || !lang || lang === wantedLang;
+    }
+
+    var candidates = tracks.filter(sameLanguage);
+
+    var exact = candidates.find(function (track) {
         return extractors.normalizeName(track.name) === wanted;
     });
 
     if (exact) return exact;
 
-    return tracks.find(function (track) {
+    return candidates.find(function (track) {
         return extractors.namesMatch(extractors.normalizeName(track.name), wanted);
     }) || null;
+}
+
+// Дорожка по умолчанию, когда озвучку не выбрали или название не совпало.
+//
+// Просто отдать выбор mpv нельзя: DEFAULT=YES у балансеров стоит как попало, а
+// в списке легко оказывается «17. Оригинал (ENG)» — именно так и получался
+// английский звук на русском фильме.
+function pickDefaultAudio(tracks) {
+    if (!tracks || tracks.length === 0) return null;
+
+    var russian = tracks.filter(extractors.isRussian);
+    var pool = russian.length > 0 ? russian : tracks;
+
+    return pool.find(function (track) { return track.default; }) || pool[0];
+}
+
+// Итоговый номер дорожки для mpv.
+//
+// Сначала дорожки самого мастер-плейлиста — их порядок и есть --aid. Если
+// плейлист прочитать не вышло, берём номер из конфига балансера: у Collaps это
+// audio.order, документированная привязка к index-aN.m3u8.
+function resolveAudioId(found, wantedName) {
+    var matched = matchAudioTrack(found.audioTracks, wantedName);
+
+    if (matched && matched.audioId) return matched.audioId;
+
+    var fromPlayer = matchAudioTrack(found.playerTracks, wantedName);
+
+    if (fromPlayer && fromPlayer.audioId) return fromPlayer.audioId;
+
+    var fallback = pickDefaultAudio(found.audioTracks) || pickDefaultAudio(found.playerTracks);
+
+    return fallback && fallback.audioId ? fallback.audioId : null;
 }
 
 module.exports = {
@@ -313,6 +388,8 @@ module.exports = {
     pickVariant: pickVariant,
     applyVariant: applyVariant,
     matchAudioTrack: matchAudioTrack,
+    pickDefaultAudio: pickDefaultAudio,
+    resolveAudioId: resolveAudioId,
     analyzeHls: analyzeHls,
     looksLikeContent: looksLikeContent,
     describeFailure: describeFailure,

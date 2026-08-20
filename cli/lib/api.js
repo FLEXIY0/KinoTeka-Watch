@@ -8,6 +8,7 @@
 var extractors = require('./extractors');
 var config = require('./config');
 var http = require('./http');
+var cache = require('./cache');
 
 var KINOPOISK_SEARCH = 'https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword';
 var KINOPOISK_FILMS = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
@@ -60,10 +61,12 @@ async function searchFilms(query, apiKey) {
     }
 
     var url = KINOPOISK_SEARCH + '?keyword=' + encodeURIComponent(query);
-    var data = await fetchJson(url, { 'X-API-KEY': apiKey });
-    var films = data && data.films ? data.films : [];
 
-    return films.map(function (film) {
+    return await cache.through('search', query, async function () {
+        var data = await fetchJson(url, { 'X-API-KEY': apiKey });
+        var films = data && data.films ? data.films : [];
+
+        return films.map(function (film) {
         var isSerial = film.type === 'TV_SERIES' || film.type === 'MINI_SERIES';
 
         return {
@@ -77,8 +80,9 @@ async function searchFilms(query, apiKey) {
             description: film.description || '',
             poster: film.posterUrlPreview || film.posterUrl || '',
             genres: (film.genres || []).map(function (genre) { return genre.genre; }),
-            countries: (film.countries || []).map(function (country) { return country.country; })
-        };
+                countries: (film.countries || []).map(function (country) { return country.country; })
+            };
+        });
     });
 }
 
@@ -88,10 +92,11 @@ async function getFilm(kinopoiskId, apiKey) {
         throw new Error('Нет ключа Кинопоиска. Задай KINOPOISK_API_KEY или введи по Ctrl+K / в Настройках');
     }
 
-    var data = await fetchJson(KINOPOISK_FILMS + '/' + kinopoiskId, { 'X-API-KEY': apiKey });
-    var isSerial = data.serial || data.type === 'TV_SERIES' || data.type === 'MINI_SERIES';
+    return await cache.through('film', kinopoiskId, async function () {
+        var data = await fetchJson(KINOPOISK_FILMS + '/' + kinopoiskId, { 'X-API-KEY': apiKey });
+        var isSerial = data.serial || data.type === 'TV_SERIES' || data.type === 'MINI_SERIES';
 
-    return {
+        return {
         id: data.kinopoiskId || kinopoiskId,
         title: data.nameRu || data.nameEn || data.nameOriginal || 'Без названия',
         original: data.nameOriginal || data.nameEn || '',
@@ -103,26 +108,29 @@ async function getFilm(kinopoiskId, apiKey) {
         poster: data.posterUrlPreview || data.posterUrl || '',
         length: data.filmLength || null,
         genres: (data.genres || []).map(function (genre) { return genre.genre; }),
-        countries: (data.countries || []).map(function (country) { return country.country; })
-    };
+            countries: (data.countries || []).map(function (country) { return country.country; })
+        };
+    });
 }
 
 // Сезоны и серии
 async function getSeasons(kinopoiskId, apiKey) {
-    var data = await fetchJson(KINOPOISK_FILMS + '/' + kinopoiskId + '/seasons', { 'X-API-KEY': apiKey });
-    var items = data && data.items ? data.items : [];
+    return await cache.through('seasons', kinopoiskId, async function () {
+        var data = await fetchJson(KINOPOISK_FILMS + '/' + kinopoiskId + '/seasons', { 'X-API-KEY': apiKey });
+        var items = data && data.items ? data.items : [];
 
-    return items.map(function (season) {
-        return {
-            number: season.number,
-            episodes: (season.episodes || []).map(function (episode) {
-                return {
-                    number: episode.episodeNumber,
-                    title: episode.nameRu || episode.nameEn || '',
-                    date: episode.releaseDate || ''
-                };
-            })
-        };
+        return items.map(function (season) {
+            return {
+                number: season.number,
+                episodes: (season.episodes || []).map(function (episode) {
+                    return {
+                        number: episode.episodeNumber,
+                        title: episode.nameRu || episode.nameEn || '',
+                        date: episode.releaseDate || ''
+                    };
+                })
+            };
+        });
     });
 }
 
@@ -217,12 +225,18 @@ async function requestPlayers(param, value) {
     throw new Error('Плееры не получены: ' + (lastError ? lastError.message : 'нет ответа'));
 }
 
+// Ссылки на iframe живут недолго, поэтому кеш здесь короткий — четверть часа.
+// Этого хватает, чтобы переход «серия → назад → другая серия» не ходил в сеть.
 function getPlayers(kinopoiskId) {
-    return requestPlayers('kinopoisk', kinopoiskId);
+    return cache.through('players', 'kp:' + kinopoiskId, function () {
+        return requestPlayers('kinopoisk', kinopoiskId);
+    });
 }
 
 function getPlayersByTitle(title) {
-    return requestPlayers('title', title);
+    return cache.through('players', 'title:' + title, function () {
+        return requestPlayers('title', title);
+    });
 }
 
 function parseFilmId(query) {

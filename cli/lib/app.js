@@ -755,12 +755,13 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
             };
         });
 
+        // Список пуст — значит мастер-плейлист не прочитался. Показываем
+        // настоящую причину: раньше сюда подставлялась метка из ответа
+        // Kinobox, и поломка выглядела как «качество 1080p» на любом фильме.
         if (items.length === 0) {
             items = [{
                 label: 'как есть',
-                hint: player && player.quality && player.quality !== '-'
-                    ? player.quality
-                    : 'балансер отдал одну дорожку'
+                hint: variants.reason || 'балансер отдал одну дорожку'
             }];
         }
 
@@ -899,11 +900,9 @@ async function playStream(film, player, translation, season, episode, options, s
 
     found = selectedQuality;
 
-    // Озвучку выбираем по дорожкам мастер-плейлиста: их порядок и есть --aid
-    if (translation && translation.name) {
-        var matchedTrack = stream.matchAudioTrack(found.audioTracks, translation.name);
-        if (matchedTrack && matchedTrack.audioId) found.audioId = matchedTrack.audioId;
-    }
+    // Номер озвучки: сперва по дорожкам мастер-плейлиста, затем по конфигу
+    // балансера, и только потом — русская дорожка по умолчанию
+    found.audioId = stream.resolveAudioId(found, translation ? translation.name : '');
 
     found.startTime = startTime || 0;
     found.filmInfo = film;

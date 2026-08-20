@@ -9,9 +9,9 @@ var config = require('./config');
 
 var style = ansi.style;
 
-function renderStand(themeId) {
+function renderStand(themeId, bannerStyle) {
     var theme = themes.THEMES[themeId] || themes.THEMES.classic_bw;
-    var logoLines = themes.renderLogo(themeId);
+    var logoLines = themes.renderLogo(themeId, bannerStyle);
     var g = theme.glyphs;
     var c = theme.colors;
 
@@ -40,10 +40,12 @@ function renderStand(themeId) {
         addRow(indent + l);
     });
 
-    addRow('');
-    var tagline = style.muted(theme.tagline);
-    var tagIndent = ansi.repeat(' ', Math.max(0, Math.floor((inner - ansi.visibleWidth(tagline)) / 2)));
-    addRow(tagIndent + tagline);
+    if (logoLines.length > 0) {
+        addRow('');
+        var tagline = style.muted(theme.tagline);
+        var tagIndent = ansi.repeat(' ', Math.max(0, Math.floor((inner - ansi.visibleWidth(tagline)) / 2)));
+        addRow(tagIndent + tagline);
+    }
     addRow('');
 
     // 2. Палитра цветов
@@ -74,7 +76,7 @@ function renderStand(themeId) {
     addRow('  ' + style.bold('Озвучка: ') + colorFg(c.secondary, 'Кубик в кубе') +
         style.muted('  ·  ') + style.bold('Качество: ') + colorFg(c.warn, '1080p') +
         style.muted(' (4200 кбит/с)'));
-    addRow('  ' + style.bold('Прогресс: ') + colorFg(c.good, '54%') + style.muted(' · 01:14:20 / 02:16:00'));
+    addRow('  ' + style.bold('Прогресс: ') + colorFg(c.good, '▰▰▰▰▰▰▰▱▱▱▱▱ 54%') + style.muted(' · 01:14:20 / 02:16:00'));
     addRow('');
 
     // 5. Нижняя рамка
@@ -83,7 +85,7 @@ function renderStand(themeId) {
     // Навигация
     var themeKeys = Object.keys(themes.THEMES);
     var currentIndex = themeKeys.indexOf(themeId);
-    var navStr = '←/→ стиль (' + (currentIndex + 1) + '/' + themeKeys.length + ') · Enter применить · Esc назад';
+    var navStr = '←/→ тема (' + (currentIndex + 1) + '/' + themeKeys.length + ') · Tab шрифт · Enter применить · Esc назад';
     var navCentered = Math.max(0, Math.floor((width - ansi.visibleWidth(navStr)) / 2));
     lines.push('');
     lines.push(ansi.repeat(' ', navCentered) + style.muted(navStr));
@@ -93,20 +95,28 @@ function renderStand(themeId) {
 
 async function runStand() {
     var themeKeys = Object.keys(themes.THEMES);
+    var fontKeys = ['auto', 'slant', 'monument', 'cyber', 'gothic', 'lineart', 'classic_figlet'];
     var currentConfig = config.read();
     var currentIndex = Math.max(0, themeKeys.indexOf(currentConfig.theme || 'classic_bw'));
+    var fontIndex = Math.max(0, fontKeys.indexOf(currentConfig.bannerStyle || 'auto'));
 
     tui.enter();
 
     try {
         while (true) {
             var activeThemeId = themeKeys[currentIndex];
-            tui.paint(renderStand(activeThemeId));
+            var activeBanner = fontKeys[fontIndex];
+            tui.paint(renderStand(activeThemeId, activeBanner));
 
             var key = await tui.readKey();
 
             if (key.name === 'escape') {
                 return null;
+            }
+
+            if (key.name === 'tab') {
+                fontIndex = (fontIndex + 1) % fontKeys.length;
+                continue;
             }
 
             if (key.name === 'left' || key.name === 'up') {
@@ -121,7 +131,8 @@ async function runStand() {
 
             if (key.name === 'return' || key.name === 'space') {
                 var selectedTheme = themeKeys[currentIndex];
-                config.save({ theme: selectedTheme });
+                var selectedFont = fontKeys[fontIndex];
+                config.save({ theme: selectedTheme, bannerStyle: selectedFont });
                 return selectedTheme;
             }
         }

@@ -72,8 +72,18 @@ function onKeypress(str, key) {
         ctrl: !!key.ctrl,
         shift: !!key.shift,
         meta: !!key.meta,
+        sequence: key.sequence || '',
         str: str || ''
     };
+
+    // Точное распознавание Ctrl+H (в терминале ASCII 8 '\x08' или '\b')
+    if (str === '\x08' || str === '\b' || (event.ctrl && (event.name === 'h' || event.name === 'backspace'))) {
+        event.name = 'h';
+        event.ctrl = true;
+    } else if (str === '\x7f' || event.name === 'backspace') {
+        event.name = 'backspace';
+        event.ctrl = false;
+    }
 
     // Ctrl+C прерывает работу в любой момент
     if (event.ctrl && event.name === 'c') {

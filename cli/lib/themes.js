@@ -1,11 +1,11 @@
 'use strict';
 
-// Коллекция визуальных стилей, цветовых палитр и художественного ANSI арта для KTW.
+// Коллекция визуальных тем оформления и генерации ANSI/ASCII логотипов для KTW.
 
 var ansi = require('./ansi');
 
 var LOGOS = {
-    // 1. Line-Art: чистая терминальная типографика из тонких рамок (минимализм)
+    // 1. Line-Art: чистая терминальная типографика из тонких рамок
     lineart: [
         '┌─┐ ┬ ┌┐┌ ┌─┐ ┌┬┐ ┌─┐ ┬┌─ ┌─┐',
         '├┴┐ │ │││ │ │  │  ├┤  ├┴┐ ├─┤',
@@ -33,11 +33,19 @@ var LOGOS = {
         '  █▀▀▄ █ █  █ █ █   █   █   █▀▀  █▀▀▄ █▀▀▀█ ',
         '  █  █ █ █   ██  ▀▄▄▀   █   █▄▄▄ █  █ █   █ '
     ],
-    // 5. Cyber: кибернетический геометрический контур
+    // 5. Cyber: кибернетический контур
     cyber: [
-        '█  █ ▀█▀ █▄  █ ▄▀▀▄ ▀█▀ █▀▀ █  █ ▄▀▀▄',
-        '█▄▀   █  █ ▀▄█ █  █  █  █▀▀ █▄▀  █▄▄█',
-        '█ ▀▄ ▄█▄ █  ▀█ ▀▄▄▀  █  █▄▄ █ ▀▄ █  █'
+        '╦╔═ ╦ ╔╗╔ ╔═╗ ╔╦╗ ╔═╗ ╦╔═ ╔═╗',
+        '╠╩╗ ║ ║║║ ║ ║  ║  ║╣  ╠╩╗ ╠═╣',
+        '╩ ╩ ╩ ╝╚╝ ╚═╝  ╩  ╚═╝ ╩ ╩ ╩ ╩'
+    ],
+    // 6. Classic Figlet: классическая ASCII типографика
+    classic_figlet: [
+        ' _  _____ _   _  ___ _____ _____ _  __    _   ',
+        '| |/ /_ _| \\ | |/ _ \\_   _| ____| |/ /   / \\  ',
+        '| \' / | ||  \\| | | | || | |  _| | \' /   / _ \\ ',
+        '| . \\ | || |\\  | |_| || | | |___| . \\  / ___ \\',
+        '|_|\\_\\___|_| \\_|\\___/ |_| |_____|_|\\_\\/_/   \\_\\'
     ]
 };
 
@@ -176,10 +184,15 @@ var THEMES = {
     }
 };
 
-// Генерация цветного ANSI логотипа с горизонтальным градиентом
-function renderLogo(themeId) {
+// Генерация цветного ANSI логотипа с горизонтальным градиентом и выбором шрифта
+function renderLogo(themeId, bannerStyle) {
+    if (bannerStyle === 'off') {
+        return [];
+    }
+
     var theme = THEMES[themeId] || THEMES.classic_bw;
-    var rawLines = LOGOS[theme.logoStyle] || LOGOS.lineart;
+    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'lineart');
+    var rawLines = LOGOS[styleKey] || LOGOS.lineart;
     var c1 = theme.colors.accent;
     var c2 = theme.colors.secondary || theme.colors.highlight;
 

@@ -182,6 +182,18 @@ async function settingsScreen() {
         'Nordic Frost (Северный Ледник / Минимал)'
     ];
 
+    var bannerOptions = ['auto', 'slant', 'monument', 'cyber', 'gothic', 'lineart', 'classic_figlet', 'off'];
+    var bannerLabels = [
+        'Авто (из темы)',
+        'Slant (3D Наклонный)',
+        'Monument (Монолитные блоки)',
+        'Cyber (Кибернетика)',
+        'Gothic (Готика)',
+        'Line-Art (Тонкие рамки)',
+        'Classic Figlet (ASCII)',
+        'Выключить (без баннера)'
+    ];
+
     while (true) {
         var size = metrics();
 
@@ -195,6 +207,11 @@ async function settingsScreen() {
                 key: 'theme',
                 label: t('theme_label'),
                 valueText: themeLabels[themeOptions.indexOf(cfg.theme || 'classic_bw')] || (cfg.theme || 'classic_bw')
+            },
+            {
+                key: 'bannerStyle',
+                label: 'Стиль ANSI логотипа',
+                valueText: bannerLabels[bannerOptions.indexOf(cfg.bannerStyle || 'auto')] || (cfg.bannerStyle || 'Авто')
             },
             {
                 key: 'openStand',
@@ -290,6 +307,11 @@ async function settingsScreen() {
                 var nextTIdx = (curTIdx + (key.name === 'left' ? -1 : 1) + themeOptions.length) % themeOptions.length;
                 cfg.theme = themeOptions[nextTIdx];
                 config.save({ theme: cfg.theme });
+            } else if (cur.key === 'bannerStyle') {
+                var curBIdx = bannerOptions.indexOf(cfg.bannerStyle || 'auto');
+                var nextBIdx = (curBIdx + (key.name === 'left' ? -1 : 1) + bannerOptions.length) % bannerOptions.length;
+                cfg.bannerStyle = bannerOptions[nextBIdx];
+                config.save({ bannerStyle: cfg.bannerStyle });
             } else if (cur.key === 'openStand') {
                 var standTheme = await require('./stand').runStand();
                 if (standTheme) {
@@ -484,13 +506,13 @@ async function searchScreen(state, apiKey) {
 
         if (query.trim().length === 0 && !spinnerFrame) {
             var cfg = config.read();
-            var logoLines = themes.renderLogo(cfg.theme || 'classic_bw');
+            var logoLines = themes.renderLogo(cfg.theme || 'classic_bw', cfg.bannerStyle || 'auto');
             logoLines.forEach(function (l) {
                 var len = ansi.visibleWidth(l);
                 var indent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - len) / 2)));
                 content.push('  ' + indent + l);
             });
-            content.push('');
+            if (logoLines.length > 0) content.push('');
         }
 
         content.push('  ' + tui.field('Поиск', query, true));
@@ -522,9 +544,11 @@ async function searchScreen(state, apiKey) {
                 var label = item.title + epTag;
                 var prog = '';
                 if (item.timePos > 0 && item.duration > 0) {
-                    prog = style.good(item.percentage + '%') + ' · ' + history.formatTime(item.timePos);
+                    var filled = Math.min(5, Math.max(1, Math.round(item.percentage / 20)));
+                    var bar = ansi.repeat('▰', filled) + ansi.repeat('▱', 5 - filled);
+                    prog = style.good(bar + ' ' + item.percentage + '%') + ' · ' + history.formatTime(item.timePos);
                 } else if (item.watched) {
-                    prog = style.good('просмотрено');
+                    prog = style.good('✓ ' + t('watched'));
                 }
                 return { label: label, hint: prog };
             });
@@ -539,7 +563,7 @@ async function searchScreen(state, apiKey) {
 
         content.push('');
 
-        var hints = [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Ctrl+S настройки', 'Ctrl+H история', 'Esc выход'];
+        var hints = [glyph.up + glyph.down + ' ' + t('key_nav'), 'Enter ' + t('key_open'), 'Ctrl+S ' + t('key_settings'), 'Ctrl+H ' + t('key_history'), 'Esc ' + t('key_exit')];
         return tui.box('ktw', content, size.width, footer(hints));
     }
 
@@ -575,20 +599,20 @@ async function searchScreen(state, apiKey) {
 
         if (key.name === 'escape') return null;
 
-        // Ctrl+S — открыть настройки
-        if (key.ctrl && key.name === 's') {
+        // Ctrl+S / F1 — открыть настройки
+        if ((key.ctrl && key.name === 's') || key.name === 'f1') {
             state.query = query;
             return 'settings';
         }
 
-        // Ctrl+H — открыть историю
-        if (key.ctrl && key.name === 'h') {
+        // Ctrl+H / F2 / Ctrl+Y / \x08 — открыть историю
+        if ((key.ctrl && key.name === 'h') || key.name === 'f2' || (key.ctrl && key.name === 'y') || key.str === '\x08' || key.str === '\b') {
             state.query = query;
             return 'history';
         }
 
-        // Ctrl+K — вставить ключ Кинопоиска
-        if (key.ctrl && key.name === 'k') {
+        // Ctrl+K / F3 — вставить ключ Кинопоиска
+        if ((key.ctrl && key.name === 'k') || key.name === 'f3') {
             state.query = query;
             return 'key';
         }
@@ -1140,9 +1164,11 @@ async function run(options) {
                     var titleStr = item.title ? (' ' + item.title) : '';
                     var hint = '';
                     if (isWatched) {
-                        hint = style.good('просмотрено');
+                        hint = style.good('✓ ' + t('watched'));
                     } else if (epProg && epProg.timePos > 0) {
-                        hint = style.accent(history.formatTime(epProg.timePos) + ' (' + epProg.percentage + '%)');
+                        var filled = Math.min(5, Math.max(1, Math.round(epProg.percentage / 20)));
+                        var bar = ansi.repeat('▰', filled) + ansi.repeat('▱', 5 - filled);
+                        hint = style.good(bar + ' ' + epProg.percentage + '%') + ' · ' + history.formatTime(epProg.timePos);
                     } else if (item.date) {
                         hint = String(item.date).slice(0, 10);
                     }

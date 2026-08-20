@@ -19,13 +19,14 @@ var stream = require('./lib/stream');
 var mpv = require('./lib/mpv');
 var config = require('./lib/config');
 var poster = require('./lib/poster');
+var history = require('./lib/history');
 
 var HELP = [
     '',
     ui.color.bold('ktw') + ' — смотреть фильмы из KinoTeka Watch в mpv',
     '',
     ui.color.bold('Использование:'),
-    '  ktw                       полноэкранный интерфейс',
+    '  ktw                       полноэкранный интерфейс с историей',
     '  ktw <запрос>              сразу с этим запросом в поле поиска',
     '  ktw <id кинопоиска>       открыть фильм по id',
     '  ktw <ссылка на кинопоиск> открыть фильм по ссылке',
@@ -36,6 +37,8 @@ var HELP = [
     '  -q, --quality <n>    качество: 1080, 720, 480, max, min',
     '  -s, --season <n>     номер сезона',
     '  -e, --episode <n>    номер серии',
+    '      --resume         продолжить просмотр с сохранённой секунды',
+    '      --history        показать историю просмотров',
     '      --direct         только прямое извлечение ⚡ (без запуска Chromium)',
     '      --iframe         не искать поток, просто показать ссылку на плеер',
     '      --no-mpv         найти поток, но не запускать mpv',
@@ -50,17 +53,12 @@ var HELP = [
     '      --clean          очистить кэш и показать состояние установки',
     '',
     ui.color.bold('Управление в интерфейсе:'),
-    '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+S — настройки, Ctrl+K — ключ',
-    '',
-    ui.color.bold('Ключ API:'),
-    '  Без ключа тоже работает: поиск идёт сразу по названию через Kinobox,',
-    '  но без обложек, описаний и списка серий. Ключ добавляет их — вставить',
-    '  можно прямо в интерфейсе по Ctrl+K или через меню настроек Ctrl+S.',
+    '  ↑/↓ — выбор, Enter — дальше, Esc — назад, Ctrl+S — настройки, Ctrl+H — история, Ctrl+K — ключ',
     '',
     ui.color.bold('Примеры:'),
     '  ktw',
     '  ktw матрица',
-    '  ktw "во все тяжкие" -s 1 -e 3',
+    '  ktw "во все тяжкие" -s 1 -e 3 --resume',
     '  ktw 301 --player collaps --no-mpv',
     '  ktw матрица -- --fs --hwdec=auto-safe',
     ''
@@ -133,6 +131,27 @@ function clean() {
     return 0;
 }
 
+// Печать истории в терминал
+function printHistory() {
+    var items = history.getRecent(30);
+    if (items.length === 0) {
+        ui.info('История просмотров пуста.');
+        return 0;
+    }
+
+    ui.info(ui.color.bold('\nИстория просмотров:'));
+    items.forEach(function (item, idx) {
+        var label = (idx + 1) + '. ' + item.title + (item.year ? ' (' + item.year + ')' : '');
+        if (item.season && item.episode) label += ' · S' + item.season + 'E' + item.episode;
+        var progress = item.timePos > 0 && item.duration > 0
+            ? history.formatTime(item.timePos) + ' / ' + history.formatTime(item.duration) + ' (' + item.percentage + '%)'
+            : (item.watched ? '✓ Просмотрено' : '');
+        ui.info('  ' + ui.color.green(label) + (progress ? ' — ' + ui.color.dim(progress) : ''));
+    });
+    ui.info('');
+    return 0;
+}
+
 // Разбор аргументов командной строки
 function parseArgs(argv) {
     var options = {
@@ -142,6 +161,8 @@ function parseArgs(argv) {
         quality: null,
         season: null,
         episode: null,
+        resume: false,
+        history: false,
         direct: false,
         iframe: false,
         noMpv: false,
@@ -169,6 +190,8 @@ function parseArgs(argv) {
         if (arg === '-h' || arg === '--help') options.help = true;
         else if (arg === '-V' || arg === '--version') options.version = true;
         else if (arg === '--clean') options.clean = true;
+        else if (arg === '--history') options.history = true;
+        else if (arg === '--resume') options.resume = true;
         else if (arg === '--settings') options.settings = true;
         else if (arg === '-p' || arg === '--player') options.player = argv[++i];
         else if (arg === '-t' || arg === '--translation') options.translation = argv[++i];
@@ -372,7 +395,6 @@ async function runPlain(options) {
         ui.info(ui.color.dim('  Попробуй другой балансер: --player collaps'));
     }
 
-    // Сопоставление аудиодорожки
     if (translation && translation.audioId !== undefined) {
         found.audioId = translation.audioId;
     } else if (found.audioTracks && found.audioTracks.length > 0 && translation && translation.name) {
@@ -411,6 +433,19 @@ async function runPlain(options) {
         };
     }
 
+    if (options.resume && film.id) {
+        var savedProg = history.getProgress(film.id, options.season, options.episode);
+        if (savedProg && savedProg.timePos > 0) {
+            found.startTime = savedProg.timePos;
+        }
+    }
+
+    found.filmInfo = film;
+    found.season = options.season;
+    found.episode = options.episode;
+    found.player = player.source;
+    found.translation = translation ? translation.name : '';
+
     var title = film.title + (film.year ? ' (' + film.year + ')' : '') +
         (options.season ? ' · S' + options.season + 'E' + options.episode : '') +
         (translation && translation.name ? ' · ' + translation.name : '') +
@@ -439,7 +474,8 @@ async function runPlain(options) {
     }
 
     try {
-        return await mpv.play(found, title, options.mpvArgs);
+        var result = await mpv.play(found, title, options.mpvArgs);
+        return result.code;
     } catch (err) {
         ui.error(err.message);
         ui.info(ui.color.dim('  ' + mpv.buildCommand(found, title, options.mpvArgs)));
@@ -448,7 +484,7 @@ async function runPlain(options) {
 }
 
 function wantsTui(options) {
-    if (options.plain || options.json || options.iframe || options.noMpv) return false;
+    if (options.plain || options.json || options.iframe || options.noMpv || options.history) return false;
     return process.stdin.isTTY && process.stdout.isTTY;
 }
 
@@ -467,6 +503,10 @@ async function main() {
 
     if (options.clean) {
         return clean();
+    }
+
+    if (options.history) {
+        return printHistory();
     }
 
     if (options.unknown.length > 0) {

@@ -83,8 +83,10 @@ function applyChromiumPath() {
 }
 
 module.exports = {
+    CONFIG_DIR: CONFIG_DIR,
     file: CONFIG_FILE,
     DEFAULTS: DEFAULTS,
+    ensureDir: function () { fs.mkdirSync(CONFIG_DIR, { recursive: true }); },
     read: read,
     save: save,
     resolveApiKey: resolveApiKey,

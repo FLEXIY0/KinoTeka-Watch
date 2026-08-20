@@ -2,12 +2,13 @@
 
 // Экраны интерфейса и переходы между ними:
 //
-//   поиск ─► фильм ─┬─► плееры ─► озвучка ─► качество ─► mpv
-//                   └─► сезоны ─► серии ─► плееры ─► озвучка ─► качество ─► mpv
-//                   └─► настройки (Ctrl+S)
+//   поиск (с историей) ─► фильм ─┬─► плееры ─► озвучка ─► качество ─► mpv ─► [след. серия]
+//                                └─► сезоны ─► серии (с ✓) ─► плееры ─► озвучка ─► качество ─► mpv
+//                                └─► настройки (Ctrl+S)
+//                                └─► история (Ctrl+H)
 //
-// Esc всегда возвращает на шаг назад, после выхода из mpv возвращаемся
-// на тот же экран — чтобы сразу включить следующую серию.
+// Esc всегда возвращает на шаг назад. При завершении серии сериала
+// автоматически предлагается и запускается следующая (Binge-Watching).
 
 var ansi = require('./ansi');
 var tui = require('./tui');
@@ -16,6 +17,7 @@ var poster = require('./poster');
 var stream = require('./stream');
 var mpv = require('./mpv');
 var config = require('./config');
+var history = require('./history');
 
 var style = ansi.style;
 var glyph = ansi.glyph;
@@ -69,7 +71,7 @@ function metaLine(film) {
     return parts.join(' ' + glyph.dot + ' ');
 }
 
-// Шапка правой колонки: название, мета, описание
+// Шапка правой колонки
 function filmHeader(film, width, descriptionLines) {
     var lines = [style.bold(ansi.truncate(film.title, width))];
 
@@ -90,7 +92,7 @@ function filmHeader(film, width, descriptionLines) {
     return lines;
 }
 
-// Экран ввода одной строки (для ключа API или URL)
+// Экран ввода одной строки
 async function inputScreen(title, label, hintLines, initial) {
     var value = initial || '';
 
@@ -121,7 +123,7 @@ async function inputScreen(title, label, hintLines, initial) {
     }
 }
 
-// Экран с сообщением; ждёт любую клавишу
+// Экран с сообщением
 async function messageScreen(title, lines, hint) {
     var size = metrics();
     var content = [''];
@@ -144,7 +146,7 @@ async function settingsScreen() {
     var selected = 0;
 
     var playerOptions = ['', 'Collaps', 'Alloha', 'Kodik', 'Veoveo', 'Turbo'];
-    var playerLabels = ['Авто (первый лучший)', 'Collaps ⚡ (прямой поток)', 'Alloha', 'Kodik ⚡', 'Veoveo', 'Turbo'];
+    var playerLabels = ['Авто (первый лучший)', 'Collaps ⚡ (прямой поток)', 'Alloha ⚡', 'Kodik ⚡', 'Veoveo ⚡', 'Turbo'];
 
     var qualityOptions = ['', '1080', '720', '480', 'max', 'min'];
     var qualityLabels = ['Спрашивать всегда', '1080p (FHD)', '720p (HD)', '480p (SD)', 'Максимальное (4K/FHD)', 'Минимальное (трафик)'];
@@ -291,13 +293,102 @@ async function settingsScreen() {
     }
 }
 
-// Экран 1 — поиск с живыми подсказками
+// Экран истории просмотров (History)
+async function historyScreen() {
+    var selected = 0;
+
+    while (true) {
+        var size = metrics();
+        var items = history.getRecent(20);
+
+        if (items.length === 0) {
+            await messageScreen('История просмотров', [
+                'История пока пуста.',
+                '',
+                'Здесь будут появляться просмотренные фильмы и сериалы с возможностью продолжить просмотр.'
+            ], 'любая клавиша — назад');
+            return null;
+        }
+
+        selected = Math.max(0, Math.min(selected, items.length - 1));
+
+        var listItems = items.map(function (item) {
+            var label = item.title + (item.year ? ' (' + item.year + ')' : '');
+            var metaParts = [];
+            if (item.season && item.episode) metaParts.push('S' + item.season + 'E' + item.episode);
+            if (item.timePos > 0 && item.duration > 0) {
+                metaParts.push(history.formatTime(item.timePos) + ' / ' + history.formatTime(item.duration) + ' (' + item.percentage + '%)');
+            } else if (item.watched) {
+                metaParts.push('✓ Просмотрено');
+            }
+            return {
+                label: label,
+                hint: metaParts.join(' · ')
+            };
+        });
+
+        var content = [
+            '',
+            '  ' + style.bold('История просмотров (выбери для продолжения):'),
+            ''
+        ];
+
+        tui.list(listItems, selected, size.listRows, size.width - 4).forEach(function (line) {
+            content.push(line);
+        });
+
+        content.push('');
+
+        tui.paint(tui.box('История', content, size.width,
+            footer([glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'd удалить', 'Esc назад'])));
+
+        var key = await tui.readKey();
+
+        if (key.name === 'escape') return null;
+
+        if (key.name === 'up') {
+            selected = (selected - 1 + items.length) % items.length;
+            continue;
+        }
+
+        if (key.name === 'down') {
+            selected = (selected + 1) % items.length;
+            continue;
+        }
+
+        if (key.name === 'd' || key.name === 'delete') {
+            var toDel = items[selected];
+            if (toDel) history.remove(toDel.filmId);
+            continue;
+        }
+
+        if (key.name === 'return' && items.length > 0) {
+            var chosen = items[selected];
+            return {
+                id: chosen.filmId,
+                title: chosen.title,
+                year: chosen.year,
+                poster: chosen.poster,
+                serial: chosen.serial,
+                resumeSeason: chosen.season,
+                resumeEpisode: chosen.episode,
+                resumeTime: chosen.timePos,
+                resumePlayer: chosen.player,
+                resumeTranslation: chosen.translation
+            };
+        }
+    }
+}
+
+// Экран 1 — поиск с живыми подсказками и блоком «Продолжить просмотр»
 async function searchScreen(state, apiKey) {
     var query = state.query || '';
     var results = state.results || [];
     var selected = 0;
     var status = null;
     var pendingSearch = !!apiKey && query.length >= 2 && results.length === 0;
+
+    var recentHistory = history.getRecent(4);
 
     function render(spinnerFrame) {
         var size = metrics();
@@ -310,9 +401,6 @@ async function searchScreen(state, apiKey) {
             content.push('  ' + style.accent(spinnerFrame) + ' ' + style.muted('ищу…'));
         } else if (status) {
             content.push('  ' + style.muted(ansi.truncate(status, size.width - 6)));
-        } else if (!apiKey) {
-            content.push('  ' + style.muted('без ключа: ищу сразу по названию через Kinobox'));
-            content.push('  ' + style.muted('Ctrl+K: вставить ключ  ·  Ctrl+S: настройки'));
         } else if (results.length > 0) {
             var items = results.map(function (film) {
                 var hint = [film.year, film.rating ? (ansi.ascii ? '*' : '★') + ' ' + film.rating : '']
@@ -323,16 +411,29 @@ async function searchScreen(state, apiKey) {
             tui.list(items, selected, size.listRows, size.width - 4).forEach(function (line) {
                 content.push(line);
             });
+        } else if (query.trim().length === 0 && recentHistory.length > 0) {
+            content.push('  ' + style.bold('Продолжить просмотр:'));
+            var hItems = recentHistory.map(function (item) {
+                var label = item.title + (item.season && item.episode ? ' (S' + item.season + 'E' + item.episode + ')' : '');
+                var prog = item.timePos > 0 && item.duration > 0
+                    ? history.formatTime(item.timePos) + ' (' + item.percentage + '%)'
+                    : (item.watched ? '✓' : '');
+                return { label: label, hint: prog };
+            });
+            tui.list(hItems, selected, Math.min(4, size.listRows), size.width - 4).forEach(function (line) {
+                content.push(line);
+            });
+        } else if (!apiKey) {
+            content.push('  ' + style.muted('без ключа: поиск сразу по названию через Kinobox'));
+            content.push('  ' + style.muted('Ctrl+K: вставить ключ  ·  Ctrl+S: настройки  ·  Ctrl+H: история'));
         } else {
             content.push('  ' + style.muted('начни печатать название и нажми Enter'));
+            content.push('  ' + style.muted('Ctrl+S: настройки  ·  Ctrl+H: история просмотров'));
         }
 
         content.push('');
 
-        var hints = apiKey
-            ? [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Ctrl+S настройки', 'Esc выход']
-            : ['Enter искать', 'Ctrl+S настройки', 'Esc выход'];
-
+        var hints = [glyph.up + glyph.down + ' выбор', 'Enter открыть', 'Ctrl+S настройки', 'Ctrl+H история', 'Esc выход'];
         return tui.box('ktw', content, size.width, footer(hints));
     }
 
@@ -374,6 +475,12 @@ async function searchScreen(state, apiKey) {
             return 'settings';
         }
 
+        // Ctrl+H — открыть историю
+        if (key.ctrl && key.name === 'h') {
+            state.query = query;
+            return 'history';
+        }
+
         // Ctrl+K — вставить ключ Кинопоиска
         if (key.ctrl && key.name === 'k') {
             state.query = query;
@@ -381,6 +488,23 @@ async function searchScreen(state, apiKey) {
         }
 
         if (key.name === 'return') {
+            // Если запрос пустой и выбран пункт из истории
+            if (query.trim().length === 0 && recentHistory.length > 0 && selected < recentHistory.length) {
+                var h = recentHistory[selected];
+                return {
+                    id: h.filmId,
+                    title: h.title,
+                    year: h.year,
+                    poster: h.poster,
+                    serial: h.serial,
+                    resumeSeason: h.season,
+                    resumeEpisode: h.episode,
+                    resumeTime: h.timePos,
+                    resumePlayer: h.player,
+                    resumeTranslation: h.translation
+                };
+            }
+
             if (!apiKey) {
                 if (query.trim().length < 2) continue;
                 state.query = query;
@@ -398,13 +522,15 @@ async function searchScreen(state, apiKey) {
             continue;
         }
 
-        if (key.name === 'up') {
-            if (results.length > 0) selected = (selected - 1 + results.length) % results.length;
+        var maxItems = results.length > 0 ? results.length : (query.trim().length === 0 ? recentHistory.length : 0);
+
+        if (key.name === 'up' && maxItems > 0) {
+            selected = (selected - 1 + maxItems) % maxItems;
             continue;
         }
 
-        if (key.name === 'down') {
-            if (results.length > 0) selected = (selected + 1) % results.length;
+        if (key.name === 'down' && maxItems > 0) {
+            selected = (selected + 1) % maxItems;
             continue;
         }
 
@@ -448,6 +574,7 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
 
         if (key.name === 'escape') return 'back';
         if (key.ctrl && key.name === 's') return 'settings';
+        if (key.ctrl && key.name === 'h') return 'history';
         if (key.name === 'return' && items.length > 0) return selected;
         if (key.name === 'up') selected = (selected - 1 + items.length) % items.length;
         if (key.name === 'down') selected = (selected + 1) % items.length;
@@ -512,8 +639,42 @@ async function pickQuality(film, posterLines, found, variants, options, state, p
     };
 }
 
+// Интерактивный экран обратного отсчета для авто-перехода к следующей серии (Binge-Watching)
+async function nextEpisodeCountdown(film, nextSeason, nextEpisode, countdownSeconds) {
+    var remaining = countdownSeconds || 5;
+
+    while (remaining > 0) {
+        var size = metrics();
+        var content = [
+            '',
+            '  ' + style.accent('✓') + ' ' + style.bold('Серия завершена!'),
+            '',
+            '  ' + style.bold(film.title),
+            '  ' + style.accent('Следующая: Сезон ' + nextSeason + ', Серия ' + nextEpisode),
+            '',
+            '  ' + style.muted('Автозапуск через ' + remaining + ' сек…'),
+            ''
+        ];
+
+        tui.paint(tui.box('Binge-Watching', content, size.width,
+            footer(['Enter смотреть сейчас', 'Esc остановить просмотр'])));
+
+        var key = await tui.readKey(1000);
+
+        if (key === null) {
+            remaining--;
+            continue;
+        }
+
+        if (key.name === 'escape') return false;
+        if (key.name === 'return' || key.name === 'space') return true;
+    }
+
+    return true;
+}
+
 // Извлечение потока и воспроизведение в mpv
-async function playStream(film, player, translation, season, episode, options, state, posterLines) {
+async function playStream(film, player, translation, season, episode, options, state, posterLines, startTime) {
     var userConfig = config.read();
     var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
     var iframeUrl = api.withEpisode(source, season, episode);
@@ -549,7 +710,7 @@ async function playStream(film, player, translation, season, episode, options, s
         }), render);
     } catch (err) {
         await messageScreen('Не вышло', [err.message], 'любая клавиша — назад');
-        return false;
+        return { ok: false };
     }
 
     if (!found) {
@@ -559,7 +720,7 @@ async function playStream(film, player, translation, season, episode, options, s
             'Попробуй другой балансер (например, Collaps ⚡)',
             'или открой Настройки по Ctrl+S.'
         ], 'любая клавиша — к списку плееров');
-        return false;
+        return { ok: false };
     }
 
     if (found.suspicious) {
@@ -570,12 +731,10 @@ async function playStream(film, player, translation, season, episode, options, s
         ], 'любая клавиша — продолжить');
     }
 
-    // Привязываем конкретную звуковую дорожку
     if (translation && translation.audioId !== undefined) {
         found.audioId = translation.audioId;
     }
 
-    // Если экстрактор вернул список дорожек, ищем выбранную по названию
     if (found.audioTracks && found.audioTracks.length > 0 && translation && translation.name) {
         var wantedAudio = translation.name.toLowerCase();
         var matchedTrack = found.audioTracks.find(function (t) {
@@ -587,7 +746,7 @@ async function playStream(film, player, translation, season, episode, options, s
         }
     }
 
-    // Загружаем мастер-плейлист для выбора качества
+    // Загружаем мастер-плейлист
     var variants = await tui.withSpinner(stream.readVariants(found), function (frame) {
         var size = metrics();
         return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('проверяю доступные качества…'), ''],
@@ -595,21 +754,28 @@ async function playStream(film, player, translation, season, episode, options, s
     });
 
     var selectedQuality = await pickQuality(film, posterLines, found, variants, options, state, player);
-    if (!selectedQuality) return false;
-    if (selectedQuality === 'settings') return 'settings';
+    if (!selectedQuality) return { ok: false };
+    if (selectedQuality === 'settings') return { ok: false, settings: true };
 
     found = selectedQuality;
+    found.startTime = startTime || 0;
+    found.filmInfo = film;
+    found.season = season;
+    found.episode = episode;
+    found.player = player.source;
+    found.translation = translation ? translation.name : '';
 
     var streamTitle = film.title + (film.year ? ' (' + film.year + ')' : '') +
         (season ? ' · S' + season + 'E' + episode : '') +
         (translation && translation.name ? ' · ' + translation.name : '') +
         (found.label ? ' · ' + found.label : '');
 
-    // Запуск mpv
+    // Запуск mpv с IPC отслеживанием
     tui.exit();
 
+    var playResult;
     try {
-        await mpv.play(found, streamTitle, options.mpvArgs);
+        playResult = await mpv.play(found, streamTitle, options.mpvArgs);
     } catch (err) {
         tui.enter();
         await messageScreen('mpv не запустился', [
@@ -618,11 +784,16 @@ async function playStream(film, player, translation, season, episode, options, s
             'Ссылка на поток:',
             found.url
         ], 'любая клавиша — назад');
-        return true;
+        return { ok: true, eofReached: false };
     }
 
     tui.enter();
-    return true;
+    return {
+        ok: true,
+        eofReached: playResult.eofReached,
+        timePos: playResult.timePos,
+        duration: playResult.duration
+    };
 }
 
 // Главный цикл приложения
@@ -638,8 +809,10 @@ async function run(options) {
     var episode = options.episode ? Number(options.episode) : null;
     var players = [];
     var player = null;
+    var translation = null;
     var autoUsed = false;
-    var screen = 'search';
+    var screen = options.settings ? 'settings' : 'search';
+    var startTime = 0;
 
     var directId = api.parseFilmId(options.query);
     if (directId) {
@@ -664,12 +837,43 @@ async function run(options) {
                     continue;
                 }
 
+                if (film === 'history') {
+                    screen = 'history';
+                    continue;
+                }
+
                 if (film === 'key') {
                     screen = 'apikey';
                     continue;
                 }
 
+                // Если выбран пункт из истории с сохраненным прогрессом
+                if (film.resumeTime !== undefined) {
+                    startTime = film.resumeTime;
+                    season = film.resumeSeason;
+                    episode = film.resumeEpisode;
+                } else {
+                    startTime = 0;
+                }
+
                 screen = film.keyless ? 'players' : 'load';
+                players = [];
+                posterLines = [];
+                seasons = [];
+                continue;
+            }
+
+            if (screen === 'history') {
+                var chosenHistory = await historyScreen();
+                if (!chosenHistory) {
+                    screen = 'search';
+                    continue;
+                }
+                film = chosenHistory;
+                startTime = chosenHistory.resumeTime || 0;
+                season = chosenHistory.resumeSeason || null;
+                episode = chosenHistory.resumeEpisode || null;
+                screen = 'load';
                 players = [];
                 posterLines = [];
                 seasons = [];
@@ -727,6 +931,20 @@ async function run(options) {
                     continue;
                 }
 
+                // Проверяем сохраненную позицию в истории для фильмов
+                if (!film.serial && !startTime && film.id) {
+                    var savedProg = history.getProgress(film.id);
+                    if (savedProg && savedProg.timePos > 60 && !savedProg.watched) {
+                        var resumeChoices = [
+                            { label: '▶ Продолжить с ' + history.formatTime(savedProg.timePos), hint: savedProg.percentage + '%' },
+                            { label: '↺ Начать с начала', hint: '00:00' }
+                        ];
+                        var rIndex = await pickerScreen(film, posterLines, 'Возобновление', resumeChoices,
+                            [glyph.up + glyph.down + ' выбор', 'Enter подтвердить', 'Esc назад'], 2);
+                        if (rIndex === 0) startTime = savedProg.timePos;
+                    }
+                }
+
                 screen = seasons.length > 0 && !(season && episode) ? 'seasons' : 'players';
                 continue;
             }
@@ -760,9 +978,11 @@ async function run(options) {
             if (screen === 'episodes') {
                 var current = seasons.filter(function (item) { return item.number === season; })[0];
                 var episodeItems = (current ? current.episodes : []).map(function (item) {
+                    var isWatched = history.isEpisodeWatched(film.id, season, item.number);
+                    var prefix = isWatched ? style.accent('✓ ') : '';
                     return {
-                        label: 'S' + season + 'E' + item.number + (item.title ? '  ' + item.title : ''),
-                        hint: item.date ? String(item.date).slice(0, 10) : ''
+                        label: prefix + 'S' + season + 'E' + item.number + (item.title ? '  ' + item.title : ''),
+                        hint: isWatched ? 'Просмотрено' : (item.date ? String(item.date).slice(0, 10) : '')
                     };
                 });
 
@@ -780,6 +1000,22 @@ async function run(options) {
                 }
 
                 episode = current.episodes[episodeIndex].number;
+
+                // Проверяем сохраненную позицию для этой серии
+                var epProg = history.getProgress(film.id, season, episode);
+                if (epProg && epProg.timePos > 60 && !epProg.watched) {
+                    var epResumeChoices = [
+                        { label: '▶ Продолжить с ' + history.formatTime(epProg.timePos), hint: epProg.percentage + '%' },
+                        { label: '↺ Начать с начала', hint: '00:00' }
+                    ];
+                    var epRIndex = await pickerScreen(film, posterLines, 'Возобновление серии', epResumeChoices,
+                        [glyph.up + glyph.down + ' выбор', 'Enter подтвердить', 'Esc назад'], 0);
+                    if (epRIndex === 0) startTime = epProg.timePos;
+                    else startTime = 0;
+                } else {
+                    startTime = 0;
+                }
+
                 screen = 'players';
                 continue;
             }
@@ -814,7 +1050,6 @@ async function run(options) {
 
                 var chosenPlayer = null;
 
-                // Проверка флага --player или настройки preferredPlayer
                 var preferredP = options.player || (!autoUsed ? userConfig.preferredPlayer : null);
                 if (preferredP) {
                     var wantedP = preferredP.toLowerCase();
@@ -860,7 +1095,7 @@ async function run(options) {
 
             if (screen === 'translations') {
                 var variants = player.translations || [];
-                var translation = null;
+                translation = null;
 
                 var preferredTr = options.translation || (!autoUsed ? userConfig.preferredTranslation : null);
                 if (preferredTr && variants.length > 0) {
@@ -871,7 +1106,7 @@ async function run(options) {
                 }
 
                 if (!translation) {
-                    var translationItems = variants.map(function (item, idx) {
+                    var translationItems = variants.map(function (item) {
                         return {
                             label: item.name,
                             hint: item.quality || ''
@@ -902,12 +1137,40 @@ async function run(options) {
                     translation = variants[translationIndex] || null;
                 }
 
-                var playResult = await playStream(film, player, translation, season, episode, options, state, posterLines);
+                var playResult = await playStream(film, player, translation, season, episode, options, state, posterLines, startTime);
                 autoUsed = true;
+                startTime = 0;
 
-                if (playResult === 'settings') {
+                if (playResult.settings) {
                     await settingsScreen();
                     continue;
+                }
+
+                // Режим Binge-Watching для сериалов: если серия завершена, предлагаем следующую
+                if (film.serial && season && episode && playResult.eofReached && seasons.length > 0) {
+                    var curSeasonObj = seasons.find(function (s) { return s.number === season; });
+                    var nextEpNum = episode + 1;
+                    var hasNextInCurSeason = curSeasonObj && curSeasonObj.episodes.some(function (e) { return e.number === nextEpNum; });
+                    var nextSeasonNum = season;
+
+                    if (!hasNextInCurSeason) {
+                        var nextSeasonObj = seasons.find(function (s) { return s.number === season + 1; });
+                        if (nextSeasonObj && nextSeasonObj.episodes.length > 0) {
+                            nextSeasonNum = season + 1;
+                            nextEpNum = nextSeasonObj.episodes[0].number;
+                            hasNextInCurSeason = true;
+                        }
+                    }
+
+                    if (hasNextInCurSeason) {
+                        var autoNext = await nextEpisodeCountdown(film, nextSeasonNum, nextEpNum, 5);
+                        if (autoNext) {
+                            season = nextSeasonNum;
+                            episode = nextEpNum;
+                            screen = 'translations';
+                            continue;
+                        }
+                    }
                 }
 
                 screen = seasons.length > 0 ? 'episodes' : 'players';

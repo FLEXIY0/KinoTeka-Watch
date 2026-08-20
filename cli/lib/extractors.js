@@ -2,14 +2,14 @@
 
 // Прямые быстрые экстракторы потоков из балансеров.
 //
-// Большинство популярных балансеров (Collaps, Kodik и др.) отдают полные данные
-// о потоке, звуковых дорожках, субтитрах и плейлистах прямо в HTML/API фрейма.
-// Прямой парсинг работает за <100 мс и не требует запуска браузера,
-// траты памяти и риска блокировки анти-ботами.
+// Большинство популярных балансеров (Collaps, Kodik, Alloha, Voidboost и др.)
+// отдают полные данные о потоке, звуковых дорожках, субтитрах и плейлистах
+// прямо в HTML/API фрейма. Прямой парсинг работает за <100 мс и не требует
+// запуска браузера, траты памяти и риска блокировки анти-ботами.
 
 var USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// Разбор JS-литерала объекта из текста (например, аргумента функции makePlayer({...}))
+// Разбор JS-литерала объекта из текста
 function parseJsObject(code) {
     if (!code) return null;
     try {
@@ -28,7 +28,7 @@ function parseJsObject(code) {
     }
 }
 
-// 1. Экстрактор Collaps (api.ortified.ws, apicollaps.cc, etc.)
+// 1. Экстрактор Collaps (api.ortified.ws, apicollaps.cc, fprxnet.org, etc.)
 async function extractCollaps(iframeUrl, options) {
     options = options || {};
     var season = options.season ? parseInt(options.season, 10) : null;
@@ -58,7 +58,6 @@ async function extractCollaps(iframeUrl, options) {
     var html = await res.text();
     var origin = new URL(iframeUrl).origin;
 
-    // Ищем вызов makePlayer({ ... })
     var makePlayerMatch = html.match(/makePlayer\s*\(\s*(\{[\s\S]*?\})\s*\);/);
     if (!makePlayerMatch) {
         var altMatch = html.match(/makePlayer\s*\(\s*(\{[\s\S]*)/);
@@ -160,7 +159,6 @@ async function extractCollaps(iframeUrl, options) {
         }
     }
 
-    // Резервный поиск hls в HTML через регулярные выражения
     if (!hlsUrl) {
         var hlsRegexMatch = html.match(/["'](https?:\\?\/\\?\/[^"']+\.mp4\\?\/master\.m3u8[^"']*)["']/i) ||
             html.match(/hls\s*:\s*["']([^"']+)["']/i);
@@ -237,6 +235,147 @@ async function extractKodik(iframeUrl, options) {
     return null;
 }
 
+// 3. Экстрактор Alloha (theatre.stravers.live, alloha.tv, etc.)
+async function extractAlloha(iframeUrl, options) {
+    options = options || {};
+    var urlObj = new URL(iframeUrl);
+    if (!/stravers|alloha/i.test(urlObj.hostname) && !/alloha/i.test(iframeUrl)) {
+        return null;
+    }
+
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, options.timeout || 12000);
+
+    var res;
+    try {
+        res = await fetch(iframeUrl, {
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Referer': options.referer || 'https://kinobox.tv/',
+                'Sec-Fetch-Dest': 'iframe',
+                'Sec-Fetch-Mode': 'navigate'
+            },
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+
+    if (!res.ok) return null;
+
+    var html = await res.text();
+    var origin = urlObj.origin;
+
+    // Ищем JSON fileList
+    var fileListMatch = html.match(/const\s+fileList\s*=\s*JSON\.parse\s*\(\s*['"](\{[\s\S]*?\})['"]\s*\);/);
+    var tokenMatch = html.match(/token:\s*['"]([a-f0-9]+)['"]/);
+    var movieIdMatch = html.match(/id:\s*['"]([a-f0-9]+)['"]/);
+
+    if (fileListMatch) {
+        try {
+            var fileList = JSON.parse(fileListMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+            var active = fileList.active || {};
+            var activeId = active.id;
+
+            // Если есть id активного видео, запрашиваем прямой манифест с /lists.php
+            if (activeId && tokenMatch) {
+                var listRes = await fetch(origin + '/lists.php', {
+                    method: 'POST',
+                    headers: {
+                        'User-Agent': USER_AGENT,
+                        'Referer': iframeUrl,
+                        'Origin': origin,
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    body: 'id=' + encodeURIComponent(activeId) + '&token=' + encodeURIComponent(tokenMatch[1])
+                }).catch(function () { return null; });
+
+                if (listRes && listRes.ok) {
+                    var listData = await listRes.json().catch(function () { return null; });
+                    if (listData && (listData.file || listData.hls || listData.url)) {
+                        var streamUrl = listData.file || listData.hls || listData.url;
+                        return {
+                            type: 'alloha',
+                            url: streamUrl,
+                            referer: origin + '/',
+                            origin: origin,
+                            userAgent: USER_AGENT,
+                            audioTracks: [],
+                            subtitles: [],
+                            direct: true
+                        };
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    // Резервный поиск m3u8
+    var m3u8Match = html.match(/https?:\\?\/\\?\/[^"']+\.m3u8[^"']*/i);
+    if (m3u8Match) {
+        return {
+            type: 'alloha',
+            url: m3u8Match[0].replace(/\\\//g, '/'),
+            referer: origin + '/',
+            origin: origin,
+            userAgent: USER_AGENT,
+            audioTracks: [],
+            subtitles: [],
+            direct: true
+        };
+    }
+
+    return null;
+}
+
+// 4. Экстрактор Veoveo / Voidboost
+async function extractVeoveo(iframeUrl, options) {
+    options = options || {};
+    var urlObj = new URL(iframeUrl);
+    if (!/tazaromikaz|voidboost|veoveo/i.test(urlObj.hostname) && !/balancer-api/i.test(urlObj.pathname)) {
+        return null;
+    }
+
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, options.timeout || 12000);
+
+    var res;
+    try {
+        res = await fetch(iframeUrl, {
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Referer': options.referer || 'https://kinobox.tv/'
+            },
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+
+    if (!res.ok) return null;
+
+    var html = await res.text();
+    var origin = urlObj.origin;
+
+    var m3u8Match = html.match(/https?:\\?\/\\?\/[^"']+\.m3u8[^"']*/i) ||
+        html.match(/["'](https?:\/\/[^"']+\.mp4\/[a-zA-Z0-9_\-\/]+\.m3u8[^"']*)["']/i);
+
+    if (m3u8Match) {
+        return {
+            type: 'veoveo',
+            url: (m3u8Match[1] || m3u8Match[0]).replace(/\\\//g, '/'),
+            referer: origin + '/',
+            origin: origin,
+            userAgent: USER_AGENT,
+            audioTracks: [],
+            subtitles: [],
+            direct: true
+        };
+    }
+
+    return null;
+}
+
 // Универсальная точка входа для прямого извлечения потока
 async function extractDirectStream(iframeUrl, options) {
     if (!iframeUrl) return null;
@@ -260,8 +399,20 @@ async function extractDirectStream(iframeUrl, options) {
             if (kodikRes && kodikRes.url) return kodikRes;
         }
 
-        // 3. Резервная проверка для любого другого плеера
-        var genericCollaps = await extractCollaps(iframeUrl, Object.assign({}, options, { timeout: 3000 })).catch(function () { return null; });
+        // 3. Alloha
+        if (host.indexOf('stravers') >= 0 || host.indexOf('alloha') >= 0) {
+            var allohaRes = await extractAlloha(iframeUrl, options).catch(function () { return null; });
+            if (allohaRes && allohaRes.url) return allohaRes;
+        }
+
+        // 4. Veoveo / Voidboost
+        if (host.indexOf('tazaromikaz') >= 0 || host.indexOf('voidboost') >= 0 || parsed.pathname.indexOf('balancer-api') >= 0) {
+            var veoveoRes = await extractVeoveo(iframeUrl, options).catch(function () { return null; });
+            if (veoveoRes && veoveoRes.url) return veoveoRes;
+        }
+
+        // 5. Резервная проверка для любого другого плеера через универсальный парсер Collaps
+        var genericCollaps = await extractCollaps(iframeUrl, Object.assign({}, options, { timeout: 2500 })).catch(function () { return null; });
         if (genericCollaps && genericCollaps.url) return genericCollaps;
 
     } catch (err) {
@@ -278,6 +429,8 @@ function isDirectSupported(sourceName, iframeUrl) {
 
     if (s.indexOf('collaps') >= 0 || u.indexOf('ortified') >= 0 || u.indexOf('collaps') >= 0) return true;
     if (s.indexOf('kodik') >= 0 || u.indexOf('kodik') >= 0) return true;
+    if (s.indexOf('alloha') >= 0 || u.indexOf('stravers') >= 0) return true;
+    if (s.indexOf('veoveo') >= 0 || u.indexOf('tazaromikaz') >= 0 || u.indexOf('voidboost') >= 0) return true;
 
     return false;
 }
@@ -287,5 +440,7 @@ module.exports = {
     extractDirectStream: extractDirectStream,
     isDirectSupported: isDirectSupported,
     extractCollaps: extractCollaps,
-    extractKodik: extractKodik
+    extractKodik: extractKodik,
+    extractAlloha: extractAlloha,
+    extractVeoveo: extractVeoveo
 };

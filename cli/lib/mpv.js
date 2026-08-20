@@ -1,24 +1,47 @@
 'use strict';
 
-// Запуск mpv с потоком.
+// Запуск mpv с потоком и отслеживанием прогресса через IPC сокет.
 // Referer и User-Agent обязательны: CDN балансеров отдают сегменты
 // только с теми же заголовками, с какими их запрашивал бы браузер.
 
 var spawn = require('child_process').spawn;
+var net = require('net');
+var fs = require('fs');
+var path = require('path');
+var os = require('os');
 var config = require('./config');
+var history = require('./history');
 
-function buildArgs(stream, title, extraArgs) {
+// Генерация пути к IPC сокету
+function generateSocketPath() {
+    var id = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    if (process.platform === 'win32') {
+        return '\\\\.\\pipe\\ktw-mpv-' + id;
+    }
+    return path.join(os.tmpdir(), 'ktw-mpv-' + id + '.sock');
+}
+
+function buildArgs(stream, title, extraArgs, socketPath) {
     var userConfig = config.read();
 
     var args = [
         '--user-agent=' + (stream.userAgent || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'),
         '--referrer=' + stream.referer,
-        // В --http-header-fields значения разделяются запятой
         '--http-header-fields=Origin: ' + stream.origin
     ];
 
     if (title) {
         args.push('--force-media-title=' + title);
+    }
+
+    // Привязка к IPC сокету для сохранения прогресса и отслеживания таймкода
+    if (socketPath) {
+        args.push('--input-ipc-server=' + socketPath);
+    }
+
+    // Возобновление с нужной секунды (--start)
+    if (stream.startTime && Number(stream.startTime) > 0) {
+        args.push('--start=' + Math.floor(Number(stream.startTime)));
     }
 
     // Передача конкретной звуковой дорожки (--aid)
@@ -37,7 +60,7 @@ function buildArgs(stream, title, extraArgs) {
         });
     }
 
-    // Настройки пользователя из конфига (Fullscreen, HWDEC, Custom Args)
+    // Настройки пользователя из конфига
     if (userConfig.mpvFullscreen) {
         args.push('--fs');
     }
@@ -66,12 +89,120 @@ function buildCommand(stream, title, extraArgs) {
     return 'mpv ' + quoted.join(' ');
 }
 
-// Запуск mpv; резолвится кодом выхода
-function play(stream, title, extraArgs) {
+// Подключение к MPV IPC сокету и отслеживание времени воспроизведения
+function monitorIpc(socketPath, onProgress) {
+    var client = null;
+    var timer = null;
+    var attempts = 0;
+    var state = { timePos: 0, duration: 0, eofReached: false };
+
+    function sendCommand(command, reqId) {
+        if (!client || client.destroyed) return;
+        try {
+            var msg = JSON.stringify({ command: command, request_id: reqId || 0 }) + '\n';
+            client.write(msg);
+        } catch (e) {}
+    }
+
+    function tryConnect() {
+        if (attempts++ > 40) return; // 4 секунды попыток
+
+        client = net.createConnection(socketPath, function () {
+            // Запрашиваем наблюдение за свойствами
+            sendCommand(['observe_property', 1, 'time-pos']);
+            sendCommand(['observe_property', 2, 'duration']);
+            sendCommand(['observe_property', 3, 'eof-reached']);
+
+            // Периодический опрос
+            timer = setInterval(function () {
+                sendCommand(['get_property', 'time-pos'], 10);
+                sendCommand(['get_property', 'duration'], 11);
+                sendCommand(['get_property', 'eof-reached'], 12);
+            }, 2000);
+        });
+
+        client.on('data', function (data) {
+            var lines = data.toString().split('\n');
+            lines.forEach(function (line) {
+                if (!line.trim()) return;
+                try {
+                    var parsed = JSON.parse(line);
+                    if (parsed.name === 'time-pos' && typeof parsed.data === 'number') {
+                        state.timePos = parsed.data;
+                    } else if (parsed.name === 'duration' && typeof parsed.data === 'number') {
+                        state.duration = parsed.data;
+                    } else if (parsed.name === 'eof-reached' && typeof parsed.data === 'boolean') {
+                        state.eofReached = parsed.data;
+                    } else if (parsed.request_id === 10 && typeof parsed.data === 'number') {
+                        state.timePos = parsed.data;
+                    } else if (parsed.request_id === 11 && typeof parsed.data === 'number') {
+                        state.duration = parsed.data;
+                    } else if (parsed.request_id === 12 && typeof parsed.data === 'boolean') {
+                        state.eofReached = parsed.data;
+                    }
+
+                    if (onProgress && (state.timePos > 0 || state.duration > 0)) {
+                        onProgress(state);
+                    }
+                } catch (e) {}
+            });
+        });
+
+        client.on('error', function () {
+            setTimeout(tryConnect, 100);
+        });
+    }
+
+    setTimeout(tryConnect, 200);
+
+    return {
+        getState: function () { return state; },
+        close: function () {
+            if (timer) clearInterval(timer);
+            if (client) {
+                try { client.end(); client.destroy(); } catch (e) {}
+            }
+        }
+    };
+}
+
+// Запуск mpv; резолвится объектом с кодом выхода и последним состоянием { code, timePos, duration, eofReached }
+function play(stream, title, extraArgs, onProgressCallback) {
     return new Promise(function (resolve, reject) {
-        var child = spawn('mpv', buildArgs(stream, title, extraArgs), { stdio: 'inherit' });
+        var socketPath = generateSocketPath();
+        var ipc = monitorIpc(socketPath, function (state) {
+            if (stream.filmInfo) {
+                history.saveProgress({
+                    filmId: stream.filmInfo.id,
+                    title: stream.filmInfo.title,
+                    year: stream.filmInfo.year,
+                    poster: stream.filmInfo.poster,
+                    serial: stream.filmInfo.serial,
+                    season: stream.season,
+                    episode: stream.episode,
+                    player: stream.player,
+                    translation: stream.translation,
+                    quality: stream.label,
+                    timePos: state.timePos,
+                    duration: state.duration,
+                    watched: state.eofReached || (state.duration > 0 && state.timePos / state.duration > 0.85)
+                });
+            }
+            if (onProgressCallback) onProgressCallback(state);
+        });
+
+        var args = buildArgs(stream, title, extraArgs, socketPath);
+        var child = spawn('mpv', args, { stdio: 'inherit' });
+
+        function cleanupSocket() {
+            ipc.close();
+            if (process.platform !== 'win32') {
+                try { if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath); } catch (e) {}
+            }
+        }
 
         child.on('error', function (err) {
+            cleanupSocket();
             if (err.code === 'ENOENT') {
                 reject(new Error('mpv не найден в PATH. Установи mpv или запусти с --no-mpv'));
                 return;
@@ -80,7 +211,34 @@ function play(stream, title, extraArgs) {
         });
 
         child.on('exit', function (code) {
-            resolve(code === null ? 0 : code);
+            var finalState = ipc.getState();
+            cleanupSocket();
+
+            // Сохраняем финальный прогресс
+            if (stream.filmInfo) {
+                history.saveProgress({
+                    filmId: stream.filmInfo.id,
+                    title: stream.filmInfo.title,
+                    year: stream.filmInfo.year,
+                    poster: stream.filmInfo.poster,
+                    serial: stream.filmInfo.serial,
+                    season: stream.season,
+                    episode: stream.episode,
+                    player: stream.player,
+                    translation: stream.translation,
+                    quality: stream.label,
+                    timePos: finalState.timePos,
+                    duration: finalState.duration,
+                    watched: finalState.eofReached || (finalState.duration > 0 && finalState.timePos / finalState.duration > 0.85)
+                });
+            }
+
+            resolve({
+                code: code === null ? 0 : code,
+                timePos: finalState.timePos,
+                duration: finalState.duration,
+                eofReached: finalState.eofReached || (finalState.duration > 0 && finalState.timePos / finalState.duration > 0.85)
+            });
         });
     });
 }
@@ -88,5 +246,6 @@ function play(stream, title, extraArgs) {
 module.exports = {
     buildArgs: buildArgs,
     buildCommand: buildCommand,
+    generateSocketPath: generateSocketPath,
     play: play
 };

@@ -201,10 +201,20 @@ function normalizePlayers(list) {
             };
         });
 
-    // Прямые быстрые плееры (Collaps, Kodik) ставим первыми для мгновенного отклика
-    players.sort(function (a, b) {
-        return (b.direct ? 1 : 0) - (a.direct ? 1 : 0);
-    });
+function getPlayerPriority(item) {
+    var s = (item.source || '').toLowerCase();
+    if (s.indexOf('collaps') >= 0) return 100;
+    if (s.indexOf('kodik') >= 0) return 80;
+    if (s.indexOf('alloha') >= 0) return 60;
+    if (s.indexOf('veoveo') >= 0) return 50;
+    if (item.direct) return 40;
+    return 10;
+}
+
+// Прямые и самые функциональные плееры (Collaps, Kodik) ставим первыми
+players.sort(function (a, b) {
+    return getPlayerPriority(b) - getPlayerPriority(a);
+});
 
     return players;
 }

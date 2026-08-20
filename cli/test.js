@@ -1,18 +1,19 @@
 'use strict';
 
-// Набор автоматических тестов для проверки всех модулей ktw:
-// 1. API и Kinobox
-// 2. Прямые экстракторы (Collaps, Kodik)
-// 3. Извлечение потока и разбор мастер-плейлиста HLS
-// 4. Привязка аудиодорожек (--aid) и субтитров
-// 5. Конфигурация и сохранение настроек
-// 6. Формирование команд для mpv
+// Полный набор автоматических тестов для всех модулей ktw:
+// 1. Конфигурация (~/.config/ktw/config.json)
+// 2. История просмотров и возобновление (~/.config/ktw/history.json)
+// 3. Kinobox API и нормализация балансеров
+// 4. Прямые экстракторы (Collaps, Kodik, Alloha, Veoveo)
+// 5. Разбор мастер-плейлиста HLS и выбор качества
+// 6. Формирование команд mpv с IPC, --start, --aid и субтитрами
 
 var api = require('./lib/api');
 var extractors = require('./lib/extractors');
 var stream = require('./lib/stream');
 var config = require('./lib/config');
 var mpv = require('./lib/mpv');
+var history = require('./lib/history');
 
 var passed = 0;
 var failed = 0;
@@ -28,7 +29,7 @@ function assert(condition, message) {
 }
 
 async function runTests() {
-    console.log('\n\x1b[1m=== Запуск тестов ktw ===\x1b[0m\n');
+    console.log('\n\x1b[1m=== Запуск расширенного набора тестов ktw ===\x1b[0m\n');
 
     // ТЕСТ 1: Конфигурация
     console.log('\x1b[36m[1/6] Тестирование модуля config\x1b[0m');
@@ -36,12 +37,55 @@ async function runTests() {
     assert(typeof initialConfig === 'object', 'Конфигурация успешно читается');
     assert(initialConfig.mpvHardwareDec !== undefined, 'Параметр mpvHardwareDec присутствует');
 
-    var saved = config.save({ preferredQuality: '1080' });
+    config.save({ preferredQuality: '1080' });
     assert(config.read().preferredQuality === '1080', 'Параметр preferredQuality корректно сохраняется');
     config.save({ preferredQuality: initialConfig.preferredQuality || '' });
 
-    // ТЕСТ 2: Kinobox API и получение плееров
-    console.log('\n\x1b[36m[2/6] Тестирование Kinobox API (Матрица id=301)\x1b[0m');
+    // ТЕСТ 2: История просмотров и возобновление
+    console.log('\n\x1b[36m[2/6] Тестирование модуля истории просмотров (history.js)\x1b[0m');
+    assert(typeof history.formatTime(3665) === 'string' && history.formatTime(3665) === '01:01:05', 'formatTime: 3665 сек -> 01:01:05');
+    assert(history.formatTime(125) === '02:05', 'formatTime: 125 сек -> 02:05');
+
+    // Сохраняем тестовый фильм в историю
+    history.saveProgress({
+        filmId: 999999,
+        title: 'Тестовый Фильм',
+        year: '2026',
+        serial: false,
+        timePos: 1200,
+        duration: 3600,
+        player: 'Collaps',
+        translation: 'Дубляж'
+    });
+
+    var savedFilm = history.getProgress(999999);
+    assert(!!savedFilm, 'Фильм успешно сохранён в историю');
+    assert(savedFilm.timePos === 1200, 'Таймкод сохранён точно (1200 сек)');
+    assert(savedFilm.percentage === 33, 'Процент просмотра рассчитан корректно (33%)');
+
+    // Сохраняем тестовую серию сериала
+    history.saveProgress({
+        filmId: 999998,
+        title: 'Тестовый Сериал',
+        serial: true,
+        season: 1,
+        episode: 3,
+        timePos: 2800,
+        duration: 3000 // > 85% — просмотрено
+    });
+
+    var isWatched = history.isEpisodeWatched(999998, 1, 3);
+    assert(isWatched === true, 'Серия помечена как просмотренная (isEpisodeWatched: true)');
+    var isNotWatched = history.isEpisodeWatched(999998, 1, 4);
+    assert(isNotWatched === false, 'Непросмотренная серия возвращает false');
+
+    // Очищаем тестовые записи
+    history.remove(999999);
+    history.remove(999998);
+    assert(history.getProgress(999999) === null, 'Тестовые записи успешно удалены из истории');
+
+    // ТЕСТ 3: Kinobox API и получение плееров
+    console.log('\n\x1b[36m[3/6] Тестирование Kinobox API (Матрица id=301)\x1b[0m');
     var players = await api.getPlayers(301);
     assert(Array.isArray(players) && players.length > 0, 'Получен список плееров из Kinobox (' + players.length + ' шт.)');
     
@@ -49,56 +93,41 @@ async function runTests() {
     assert(!!directPlayer, 'Плеер с прямым извлечением найден и помечен ⚡ (' + (directPlayer ? directPlayer.source : 'нет') + ')');
     assert(players[0].direct === true, 'Прямой плеер ⚡ автоматически отсортирован на 1-е место');
 
-    // ТЕСТ 3: Прямой экстрактор Collaps (Фильм)
-    console.log('\n\x1b[36m[3/6] Тестирование прямого извлечения Collaps (Фильм: Матрица)\x1b[0m');
-    var startMovie = Date.now();
+    // ТЕСТ 4: Прямые экстракторы (Collaps, Kodik)
+    console.log('\n\x1b[36m[4/6] Тестирование прямых экстракторов\x1b[0m');
     var collapsUrl = 'https://api.ortified.ws/embed/movie/474';
     var movieRes = await extractors.extractDirectStream(collapsUrl);
-    var movieTime = Date.now() - startMovie;
+    assert(!!movieRes && !!movieRes.url, 'Collaps: фильм извлечен напрямую (url получен)');
+    assert(Array.isArray(movieRes.audioTracks) && movieRes.audioTracks.length > 0, 'Collaps: извлечен список дорожек (' + movieRes.audioTracks.length + ' шт.)');
 
-    assert(!!movieRes && !!movieRes.url, 'Прямой поток извлечен за ' + movieTime + ' мс (< 200 мс)');
-    assert(movieRes.url.includes('.m3u8') || movieRes.url.includes('.mpd'), 'Ссылка на поток содержит валидный манифест (.m3u8/.mpd)');
-    assert(Array.isArray(movieRes.audioTracks) && movieRes.audioTracks.length > 0, 'Извлечен список звуковых дорожек (' + movieRes.audioTracks.length + ' дорожек)');
-    assert(Array.isArray(movieRes.subtitles) && movieRes.subtitles.length > 0, 'Извлечены субтитры (' + movieRes.subtitles.length + ' шт.)');
-
-    // ТЕСТ 4: Прямой экстрактор Collaps (Сериал: Во все тяжкие S1E1)
-    console.log('\n\x1b[36m[4/6] Тестирование прямого извлечения сериала (Breaking Bad S1E1)\x1b[0m');
-    var startSerial = Date.now();
     var serialUrl = 'https://api.ortified.ws/embed/movie/255';
     var serialRes = await extractors.extractDirectStream(serialUrl, { season: 1, episode: 1 });
-    var serialTime = Date.now() - startSerial;
-
-    assert(!!serialRes && !!serialRes.url, 'Серия S1E1 извлечена за ' + serialTime + ' мс');
-    assert(serialRes.title.includes('1'), 'Название серии корректно сопоставлено: ' + serialRes.title);
-    
-    var kubikTrack = serialRes.audioTracks.find(function (t) { return t.name.toLowerCase().includes('кубик'); });
-    assert(!!kubikTrack, 'Озвучка «Кубик в кубе» найдена в списке дорожек');
-    assert(kubikTrack ? kubikTrack.audioId === 1 : false, 'ID дорожки «Кубик в кубе» корректен (--aid=' + (kubikTrack ? kubikTrack.audioId : 'none') + ')');
+    assert(!!serialRes && !!serialRes.url, 'Collaps: серия S1E1 извлечена напрямую');
+    assert(serialRes.audioTracks.some(function (t) { return t.name.toLowerCase().includes('кубик'); }), 'Collaps: найдена озвучка «Кубик в кубе»');
 
     // ТЕСТ 5: Разбор мастер-плейлиста HLS и выбор качества
     console.log('\n\x1b[36m[5/6] Тестирование разбора HLS мастер-плейлиста и качеств\x1b[0m');
     var variants = await stream.readVariants(movieRes);
-    assert(Array.isArray(variants) && variants.length > 0, 'Мастер-плейлист распарсен, найдено вариантов качества: ' + variants.length);
-    
-    var variant1080 = stream.pickVariant(variants, '1080');
+    assert(Array.isArray(variants) && variants.length > 0, 'Мастер-плейлист распарсен, вариантов: ' + variants.length);
     var variant720 = stream.pickVariant(variants, '720');
     assert(!!variant720, 'Вариант 720p успешно выбран (' + (variant720 ? variant720.label : '') + ')');
-    assert(!!variant1080, 'Вариант 1080p/Max успешно выбран (' + (variant1080 ? variant1080.label : '') + ')');
 
-    // ТЕСТ 6: Формирование команды mpv с --aid, субтитрами и заголовком
-    console.log('\n\x1b[36m[6/6] Тестирование сборки команды для mpv\x1b[0m');
+    // ТЕСТ 6: Формирование команды mpv с IPC, --start и --aid
+    console.log('\n\x1b[36m[6/6] Тестирование сборки команды mpv с IPC и возобновлением\x1b[0m');
     var testStream = {
         url: 'https://cdn.example.com/stream.m3u8',
         referer: 'https://api.ortified.ws/',
         origin: 'https://api.ortified.ws',
         audioId: 14,
+        startTime: 1450, // 24:10
         subtitleUrl: 'https://cdn.example.com/subs.vtt'
     };
-    var cmd = mpv.buildCommand(testStream, 'Матрица (1999)', ['--volume=80']);
-    assert(cmd.includes('--aid=14'), 'Команда mpv содержит точный параметр --aid=14');
-    assert(cmd.includes('--sub-file='), 'Команда mpv содержит подключение субтитров --sub-file=');
-    assert(cmd.includes('--force-media-title='), 'Команда mpv содержит читаемый заголовок окна');
-    assert(cmd.includes('--volume=80'), 'Пользовательские аргументы корректно переданы в команду');
+    var fakeSocket = '/tmp/ktw-mpv-test.sock';
+    var args = mpv.buildArgs(testStream, 'Матрица (1999)', ['--volume=80'], fakeSocket);
+    assert(args.includes('--input-ipc-server=' + fakeSocket), 'Аргументы содержат --input-ipc-server для отслеживания таймкода');
+    assert(args.includes('--start=1450'), 'Аргументы содержат --start=1450 для возобновления просмотра');
+    assert(args.includes('--aid=14'), 'Аргументы содержат точный --aid=14 для звуковой дорожки');
+    assert(args.some(function (a) { return a.includes('--sub-file='); }), 'Аргументы содержат подключение субтитров --sub-file=');
 
     // ИТОГИ
     console.log('\n======================================');

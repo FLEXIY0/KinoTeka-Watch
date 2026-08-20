@@ -1,164 +1,177 @@
 'use strict';
 
-// Коллекция визуальных стилей, цветовых палитр и точного ANSI арта для KTW.
+// Коллекция визуальных стилей, цветовых палитр и художественного ANSI арта для KTW.
 
 var ansi = require('./ansi');
 
 var LOGOS = {
-    // 1. Точный 3-строчный шрифт KINOTEKA
-    standard: [
+    // 1. Line-Art: чистая терминальная типографика из тонких рамок (минимализм)
+    lineart: [
+        '┌─┐ ┬ ┌┐┌ ┌─┐ ┌┬┐ ┌─┐ ┬┌─ ┌─┐',
+        '├┴┐ │ │││ │ │  │  ├┤  ├┴┐ ├─┤',
+        '┴ ┴ ┴ ┘└┘ └─┘  ┴  └─┘ ┴ ┴ ┴ ┴'
+    ],
+    // 2. Slant: динамичный 3D наклонный ASCII шрифт
+    slant: [
+        '   __ __ _____ _  __ ____  ______ ____ __ __ ___ ',
+        '  / //_//  _// |/ // __ \\/_  __// __// //_// _ |',
+        ' / ,<  _/ / /    // /_/ / / /  / _/ / ,<  / __ |',
+        '/_/|_|/___//_/|_/ \\____/ /_/  /___//_/|_//_/ |_|'
+    ],
+    // 3. Monument: монументальные монолитные Unicode блоки
+    monument: [
+        '██   ██  ██  ███    ██   ██████   ████████  ████████  ██   ██   █████  ',
+        '██  ██   ██  ████   ██  ██    ██     ██     ██        ██  ██   ██   ██ ',
+        '█████    ██  ██ ██  ██  ██    ██     ██     ██████    █████    ███████ ',
+        '██  ██   ██  ██  ██ ██  ██    ██     ██     ██        ██  ██   ██   ██ ',
+        '██   ██  ██  ██   ████   ██████      ██     ████████  ██   ██  ██   ██ '
+    ],
+    // 4. Gothic: компактный готический полужирный шрифт с тенями
+    gothic: [
+        '  ▄▄▄  ▄ ▄▄   ▄  ▄▄▄  ▄▄▄▄▄ ▄▄▄▄ ▄▄▄  ▄   ▄ ',
+        '  █  █ █ █ █  █ █   █   █   █    █  █ █   █ ',
+        '  █▀▀▄ █ █  █ █ █   █   █   █▀▀  █▀▀▄ █▀▀▀█ ',
+        '  █  █ █ █   ██  ▀▄▄▀   █   █▄▄▄ █  █ █   █ '
+    ],
+    // 5. Cyber: кибернетический геометрический контур
+    cyber: [
         '█  █ ▀█▀ █▄  █ ▄▀▀▄ ▀█▀ █▀▀ █  █ ▄▀▀▄',
         '█▄▀   █  █ ▀▄█ █  █  █  █▀▀ █▄▀  █▄▄█',
         '█ ▀▄ ▄█▄ █  ▀█ ▀▄▄▀  █  █▄▄ █ ▀▄ █  █'
-    ],
-    // 2. Компактный 2-строчный шрифт KINOTEKA
-    compact: [
-        '█▄▀ █ █▄ █ █▀█ ▀█▀ █▀▀ █▄▀ █▀█',
-        '█ █ █ █ ▀█ █▄█  █  ██▄ █ █ █▀█'
-    ],
-    // 3. Киберпанк / Контурный KTW
-    ktw: [
-        '╦╔═ ╔╦╗ ╦ ╦ ╦',
-        '╠╩╗  ║  ║║║║║',
-        '╩ ╩  ╩  ╚╩╝╩╝'
-    ],
-    // 4. Минималистичный микро-бейдж
-    mini: [
-        '▰▰▰ K I N O T E K A ▰▰▰'
     ]
 };
 
 var THEMES = {
     classic_bw: {
         id: 'classic_bw',
-        name: 'Classic Monochrome (Классическая Ч/Б)',
-        tagline: 'Строгий минимализм, чистый белый и серебристые полутона',
-        logoStyle: 'standard',
+        name: 'Classic Monochrome',
+        tagline: 'Строгий минимализм, чистый монохром',
+        logoStyle: 'lineart',
         colors: {
-            accent: [255, 255, 255],   // Pure White
-            secondary: [215, 215, 215],// Light Silver
-            highlight: [255, 255, 255],// White
-            muted: [130, 130, 130],    // Neutral Gray
-            border: [160, 160, 160],   // Crisp Gray
-            good: [240, 240, 240],     // White-Silver
-            warn: [200, 200, 200],     // Silver
-            bad: [150, 150, 150],      // Medium Gray
-            titleBg: [20, 20, 20],
-            cardBg: [10, 10, 10]
+            accent: [255, 255, 255],
+            secondary: [210, 210, 210],
+            highlight: [255, 255, 255],
+            muted: [120, 120, 120],
+            border: [130, 130, 130],
+            good: [230, 230, 230],
+            warn: [190, 190, 190],
+            bad: [140, 140, 140],
+            titleBg: [15, 15, 15],
+            cardBg: [0, 0, 0]
         },
         glyphs: {
             tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
-            arrow: '>', caret: '█', dot: '·', up: '▲', down: '▼', star: '★', film: '■'
+            arrow: '>', caret: '█', dot: '·', up: '^', down: 'v', star: '★'
+        }
+    },
+    monument: {
+        id: 'monument',
+        name: 'Monument Dark',
+        tagline: 'Монументальные блоки, глубокий графит',
+        logoStyle: 'monument',
+        colors: {
+            accent: [235, 240, 245],
+            secondary: [160, 175, 190],
+            highlight: [255, 255, 255],
+            muted: [100, 110, 125],
+            border: [70, 80, 95],
+            good: [180, 220, 190],
+            warn: [220, 200, 150],
+            bad: [200, 110, 110],
+            titleBg: [20, 24, 30],
+            cardBg: [12, 15, 20]
+        },
+        glyphs: {
+            tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
+            arrow: '■', caret: '▌', dot: '·', up: '▲', down: '▼', star: '★'
         }
     },
     cyberpunk: {
         id: 'cyberpunk',
-        name: 'Neon Cyberpunk (Неон / Киберпанк)',
-        tagline: 'Электрический циан, неоновый пурпур и глитч-эффекты',
-        logoStyle: 'standard',
+        name: 'Neon Cyberpunk',
+        tagline: 'Электрический циан, неоновый пурпур',
+        logoStyle: 'slant',
         colors: {
-            accent: [0, 240, 255],     // Electric Cyan
-            secondary: [255, 0, 127],  // Neon Pink/Magenta
-            highlight: [157, 0, 255],  // Purple Glow
-            muted: [100, 115, 145],    // Slate Blue
-            border: [120, 0, 220],     // Deep Neon Violet
-            good: [0, 255, 160],       // Mint Neon
-            warn: [255, 215, 0],       // Gold
-            bad: [255, 45, 85],        // Crimson
-            titleBg: [35, 10, 55],
-            cardBg: [15, 12, 28]
+            accent: [0, 240, 255],
+            secondary: [255, 0, 127],
+            highlight: [157, 0, 255],
+            muted: [90, 105, 135],
+            border: [110, 0, 200],
+            good: [0, 255, 160],
+            warn: [255, 215, 0],
+            bad: [255, 45, 85],
+            titleBg: [30, 10, 48],
+            cardBg: [12, 10, 22]
         },
         glyphs: {
             tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║',
-            arrow: '▶', caret: '▋', dot: '◆', up: '▲', down: '▼', star: '★', film: '🎞️'
+            arrow: '▶', caret: '▋', dot: '◆', up: '▲', down: '▼', star: '★'
         }
     },
     cinema: {
         id: 'cinema',
-        name: 'Cinema Noir & Gold (Тёмное Золото / Премиум Кино)',
-        tagline: 'Глубокий обсидиан, бархатное золото и эстетика IMAX',
-        logoStyle: 'standard',
+        name: 'Cinema Noir & Gold',
+        tagline: 'Обсидиан и бархатное золото',
+        logoStyle: 'gothic',
         colors: {
-            accent: [245, 185, 65],    // Warm Amber Gold
-            secondary: [255, 220, 130],// Soft Champagne
-            highlight: [255, 140, 50], // Sunset Copper
-            muted: [135, 130, 125],    // Muted Gray
-            border: [170, 125, 45],    // Antique Bronze
-            good: [130, 220, 130],     // Emerald
-            warn: [255, 190, 60],      // Amber
-            bad: [230, 80, 80],        // Ruby
-            titleBg: [30, 25, 18],
-            cardBg: [18, 18, 20]
+            accent: [245, 185, 65],
+            secondary: [255, 220, 130],
+            highlight: [255, 140, 50],
+            muted: [130, 125, 120],
+            border: [160, 120, 45],
+            good: [130, 210, 130],
+            warn: [255, 190, 60],
+            bad: [220, 80, 80],
+            titleBg: [28, 22, 15],
+            cardBg: [15, 14, 16]
         },
         glyphs: {
             tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
-            arrow: '❯', caret: '▎', dot: '✦', up: '↑', down: '↓', star: '★', film: '🎬'
+            arrow: '❯', caret: '▎', dot: '·', up: '↑', down: '↓', star: '★'
         }
     },
     matrix: {
         id: 'matrix',
-        name: 'Matrix Hacker (Матрица / Зелёный Терминал)',
-        tagline: 'Классический фосфорный монохром и кибернетический дух',
-        logoStyle: 'standard',
+        name: 'Matrix Hacker',
+        tagline: 'Фосфорный монохром, кибернетика',
+        logoStyle: 'cyber',
         colors: {
-            accent: [0, 255, 110],     // Phosphor Green
-            secondary: [140, 255, 180],// Light Mint
-            highlight: [0, 200, 80],   // Matrix Code Green
-            muted: [50, 125, 75],      // Dim Forest
-            border: [0, 170, 70],      // Deep Green
+            accent: [0, 255, 110],
+            secondary: [140, 255, 180],
+            highlight: [0, 200, 80],
+            muted: [45, 115, 65],
+            border: [0, 160, 65],
             good: [50, 255, 140],
             warn: [200, 255, 50],
             bad: [255, 70, 70],
-            titleBg: [5, 25, 10],
-            cardBg: [2, 15, 5]
+            titleBg: [5, 22, 10],
+            cardBg: [2, 12, 5]
         },
         glyphs: {
             tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│',
-            arrow: '»', caret: '█', dot: '▪', up: '▲', down: '▼', star: '★', film: '▤'
-        }
-    },
-    tokyo: {
-        id: 'tokyo',
-        name: 'Tokyo Night & Synthwave (Токио Ночь / Синтвейв)',
-        tagline: 'Фиолетовые сумерки, лавандовый и пастельный циан',
-        logoStyle: 'standard',
-        colors: {
-            accent: [125, 207, 255],   // Sky Cyan
-            secondary: [187, 154, 247],// Soft Lavender
-            highlight: [247, 118, 142],// Rose Pink
-            muted: [100, 110, 145],    // Slate Purple
-            border: [140, 100, 210],   // Violet
-            good: [158, 206, 106],     // Lime
-            warn: [224, 175, 104],     // Warm Ochre
-            bad: [247, 118, 142],
-            titleBg: [26, 27, 38],
-            cardBg: [19, 20, 30]
-        },
-        glyphs: {
-            tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
-            arrow: '➜', caret: '▏', dot: '•', up: '↑', down: '↓', star: '★', film: '📼'
+            arrow: '»', caret: '█', dot: '▪', up: '▲', down: '▼', star: '★'
         }
     },
     nordic: {
         id: 'nordic',
-        name: 'Nordic Frost (Северный Ледник / Минимализм)',
-        tagline: 'Арктический синий, чистый белый и морозный минимализм',
-        logoStyle: 'standard',
+        name: 'Nordic Frost',
+        tagline: 'Арктический синий и белый ледник',
+        logoStyle: 'lineart',
         colors: {
-            accent: [136, 192, 208],   // Frost Blue
-            secondary: [129, 161, 193],// Ice Blue
-            highlight: [236, 239, 244],// Snow White
-            muted: [94, 129, 172],     // Steel Blue
-            border: [76, 86, 106],     // Dark Slate
-            good: [163, 190, 140],     // Sage Green
-            warn: [235, 203, 139],     // Warm Sand
-            bad: [191, 97, 106],       // Polar Red
+            accent: [136, 192, 208],
+            secondary: [129, 161, 193],
+            highlight: [236, 239, 244],
+            muted: [94, 129, 172],
+            border: [76, 86, 106],
+            good: [163, 190, 140],
+            warn: [235, 203, 139],
+            bad: [191, 97, 106],
             titleBg: [46, 52, 64],
             cardBg: [36, 41, 51]
         },
         glyphs: {
             tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│',
-            arrow: '›', caret: '▌', dot: '·', up: '↑', down: '↓', star: '★', film: '❄'
+            arrow: '›', caret: '▌', dot: '·', up: '↑', down: '↓', star: '★'
         }
     }
 };
@@ -166,14 +179,13 @@ var THEMES = {
 // Генерация цветного ANSI логотипа с горизонтальным градиентом
 function renderLogo(themeId) {
     var theme = THEMES[themeId] || THEMES.classic_bw;
-    var rawLines = LOGOS[theme.logoStyle] || LOGOS.standard;
+    var rawLines = LOGOS[theme.logoStyle] || LOGOS.lineart;
     var c1 = theme.colors.accent;
     var c2 = theme.colors.secondary || theme.colors.highlight;
 
-    // В классической ч/б теме — чистая монохромная заливка
     if (theme.id === 'classic_bw') {
         return rawLines.map(function (l) {
-            return ansi.style.bold(ansi.fg(255, 255, 255) + l + ansi.style.reset);
+            return ansi.style.bold(ansi.fg(240, 240, 240) + l + ansi.style.reset);
         });
     }
 

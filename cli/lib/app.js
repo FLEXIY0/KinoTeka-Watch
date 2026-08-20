@@ -68,13 +68,13 @@ function columns(posterLines, rightLines, rightWidth) {
     return lines;
 }
 
-// Строка «📅 1999 · 🏷️ фантастика · ⏱️ 136 мин · ★ 8.5»
+// Строка «1999 · фантастика · 136 мин · ★ 8.5»
 function metaLine(film) {
     var parts = [];
 
-    if (film.year) parts.push('📅 ' + film.year);
-    if (film.genres && film.genres.length > 0) parts.push('🏷️ ' + film.genres.slice(0, 2).join(', '));
-    if (film.length) parts.push('⏱️ ' + film.length + ' мин');
+    if (film.year) parts.push(String(film.year));
+    if (film.genres && film.genres.length > 0) parts.push(film.genres.slice(0, 2).join(', '));
+    if (film.length) parts.push(film.length + ' мин');
     if (film.rating) parts.push((ansi.ascii ? '*' : '★') + ' ' + film.rating);
 
     return parts.join(' ' + glyph.dot + ' ');
@@ -441,9 +441,6 @@ async function searchScreen(state, apiKey) {
                 var indent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - len) / 2)));
                 content.push('  ' + indent + l);
             });
-            var sub = style.muted('✨ КИНОТЕАТР И СЕРИАЛЫ В ВАШЕМ ТЕРМИНАЛЕ ✨');
-            var subIndent = ansi.repeat(' ', Math.max(0, Math.floor((size.width - 6 - ansi.visibleWidth(sub)) / 2)));
-            content.push('  ' + subIndent + sub);
             content.push('');
         }
 
@@ -451,7 +448,7 @@ async function searchScreen(state, apiKey) {
         content.push('');
 
         if (spinnerFrame) {
-            content.push('  ' + style.accent(spinnerFrame) + ' ' + style.muted('ищу фильмы и сериалы…'));
+            content.push('  ' + style.accent(spinnerFrame) + ' ' + style.muted('поиск…'));
         } else if (status) {
             content.push('  ' + style.muted(ansi.truncate(status, size.width - 6)));
         } else if (results.length > 0) {
@@ -461,7 +458,7 @@ async function searchScreen(state, apiKey) {
                 var typeStr = film.type ? style.muted(film.type) : '';
                 var hint = [ratingStr, yearStr, typeStr].filter(Boolean).join(' ' + glyph.dot + ' ');
                 return {
-                    label: glyph.film + ' ' + film.title,
+                    label: film.title,
                     hint: hint
                 };
             });
@@ -470,17 +467,15 @@ async function searchScreen(state, apiKey) {
                 content.push(line);
             });
         } else if (query.trim().length === 0 && recentHistory.length > 0) {
-            content.push('  ' + style.bold('🍿 ПРОДОЛЖИТЬ ПРОСМОТР:'));
+            content.push('  ' + style.bold('Продолжить просмотр:'));
             var hItems = recentHistory.map(function (item) {
-                var epTag = item.season && item.episode ? ' [ S' + item.season + 'E' + item.episode + ' ]' : '';
-                var label = '🎬 ' + item.title + epTag;
+                var epTag = item.season && item.episode ? ' (S' + item.season + 'E' + item.episode + ')' : '';
+                var label = item.title + epTag;
                 var prog = '';
                 if (item.timePos > 0 && item.duration > 0) {
-                    var filled = Math.min(5, Math.max(1, Math.round(item.percentage / 20)));
-                    var bar = ansi.repeat('▰', filled) + ansi.repeat('▱', 5 - filled);
-                    prog = style.good(bar + ' ' + item.percentage + '%') + ' · ' + history.formatTime(item.timePos);
+                    prog = style.good(item.percentage + '%') + ' · ' + history.formatTime(item.timePos);
                 } else if (item.watched) {
-                    prog = style.good('✓ Просмотрено');
+                    prog = style.good('просмотрено');
                 }
                 return { label: label, hint: prog };
             });
@@ -488,11 +483,9 @@ async function searchScreen(state, apiKey) {
                 content.push(line);
             });
         } else if (!apiKey) {
-            content.push('  ' + style.muted('💡 Поиск напрямую через базу плееров Kinobox'));
-            content.push('  ' + style.muted('   [Ctrl+K] вставить API ключ  ·  [Ctrl+S] настройки  ·  [Ctrl+H] история'));
+            content.push('  ' + style.muted('поиск по базе Kinobox  ·  Ctrl+K ключ  ·  Ctrl+S настройки  ·  Ctrl+H история'));
         } else {
-            content.push('  ' + style.muted('⌨️ Введите название фильма и нажмите Enter для поиска'));
-            content.push('  ' + style.muted('   [Ctrl+S] меню настроек  ·  [Ctrl+H] история просмотров'));
+            content.push('  ' + style.muted('введите название и нажмите Enter  ·  Ctrl+S настройки  ·  Ctrl+H история'));
         }
 
         content.push('');
@@ -873,17 +866,17 @@ async function nextEpisodeCountdown(film, nextSeason, nextEp, totalSeconds) {
 
         var content = [
             '',
-            '  ' + style.bold('🍿 АВТОПЕРЕХОД К СЛЕДУЮЩЕЙ СЕРИИ'),
+            '  ' + style.bold('Следующая серия'),
             '',
-            '  ' + style.accent('Следующая серия: ') + style.bold('[' + numStr + '] ' + film.title),
-            '  ' + style.muted('Воспроизведение начнётся через: ') + style.warn(bar + ' ' + remaining + ' с.'),
+            '  ' + style.accent('[' + numStr + '] ') + style.bold(film.title),
+            '  ' + style.muted('Автозапуск через: ') + style.warn(remaining + ' с.'),
             '',
-            '  ' + style.muted('[ Enter ] Запустить прямо сейчас   [ Esc ] Отмена'),
+            '  ' + style.muted('Enter запустить сейчас · Esc отмена'),
             ''
         ];
 
-        tui.paint(tui.box('Binge-Watching', content, size.width,
-            footer([glyph.arrow + ' Enter запуск', 'Esc остановить'])));
+        tui.paint(tui.box('Автопереход', content, size.width,
+            footer(['Enter запуск', 'Esc отмена'])));
 
         var key = await tui.readKey(1000);
         if (key && (key.name === 'escape' || key.name === 'q')) {
@@ -1088,14 +1081,14 @@ async function run(options) {
                     var titleStr = item.title ? (' ' + item.title) : '';
                     var hint = '';
                     if (isWatched) {
-                        hint = style.good('✓ Просмотрено');
+                        hint = style.good('просмотрено');
                     } else if (epProg && epProg.timePos > 0) {
                         hint = style.accent(history.formatTime(epProg.timePos) + ' (' + epProg.percentage + '%)');
                     } else if (item.date) {
                         hint = String(item.date).slice(0, 10);
                     }
                     return {
-                        label: mark + ' [' + numStr + ']' + titleStr,
+                        label: mark + ' ' + numStr + titleStr,
                         hint: hint
                     };
                 });
@@ -1119,8 +1112,8 @@ async function run(options) {
                 var epProg = history.getProgress(film.id, season, episode);
                 if (epProg && epProg.timePos > 60 && !epProg.watched) {
                     var epResumeChoices = [
-                        { label: '▶ Продолжить с ' + history.formatTime(epProg.timePos), hint: epProg.percentage + '%' },
-                        { label: '↺ Начать с начала', hint: '00:00' }
+                        { label: 'Продолжить с ' + history.formatTime(epProg.timePos), hint: epProg.percentage + '%' },
+                        { label: 'Начать с начала', hint: '00:00' }
                     ];
                     var epRIndex = await pickerScreen(film, posterLines, 'Возобновление серии', epResumeChoices,
                         [glyph.up + glyph.down + ' выбор', 'Enter подтвердить', 'Esc назад'], 0);
@@ -1174,12 +1167,12 @@ async function run(options) {
 
                 if (!chosenPlayer) {
                     var playerItems = players.map(function (item) {
-                        var directBadge = item.direct ? style.good(' ⚡[ПРЯМОЙ]') : '';
-                        var trCount = item.translations ? ('🎧 ' + item.translations.length + ' озв.') : '';
-                        var qBadge = item.quality ? ('📺 ' + item.quality) : '';
+                        var directBadge = item.direct ? style.good(' [прямой]') : '';
+                        var trCount = item.translations ? (item.translations.length + ' озв.') : '';
+                        var qBadge = item.quality || '';
                         return {
                             label: item.source + directBadge,
-                            hint: [trCount, qBadge].filter(Boolean).join('  ·  ')
+                            hint: [trCount, qBadge].filter(Boolean).join(' · ')
                         };
                     });
 

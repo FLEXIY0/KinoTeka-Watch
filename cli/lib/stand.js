@@ -1,7 +1,6 @@
 'use strict';
 
-// Интерактивный выставочный стенд тем оформления (Theme Showcase Stand) для KTW.
-// Позволяет в реальном времени переключать темы и сразу видеть все элементы интерфейса.
+// Интерактивный выставочный стенд стилей оформления для KTW.
 
 var ansi = require('./ansi');
 var tui = require('./tui');
@@ -11,7 +10,7 @@ var config = require('./config');
 var style = ansi.style;
 
 function renderStand(themeId) {
-    var theme = themes.THEMES[themeId] || themes.THEMES.cyberpunk;
+    var theme = themes.THEMES[themeId] || themes.THEMES.classic_bw;
     var logoLines = themes.renderLogo(themeId);
     var g = theme.glyphs;
     var c = theme.colors;
@@ -34,7 +33,7 @@ function renderStand(themeId) {
     }
 
     addRow('');
-    // 1. Логотип по центру
+    // 1. Логотип
     logoLines.forEach(function (l) {
         var len = ansi.visibleWidth(l);
         var indent = ansi.repeat(' ', Math.max(0, Math.floor((inner - len) / 2)));
@@ -47,15 +46,14 @@ function renderStand(themeId) {
     addRow(tagIndent + tagline);
     addRow('');
 
-    // 2. Палитра цветов (Swatches)
+    // 2. Палитра цветов
     var swatches = [
         colorFg(c.accent, '■ Accent'),
         colorFg(c.secondary, '■ Secondary'),
         colorFg(c.highlight, '■ Highlight'),
         colorFg(c.border, '■ Border'),
-        colorFg(c.good, '■ ⚡ Direct'),
-        colorFg(c.warn, '■ 1080p'),
-        colorFg(c.bad, '■ 4K')
+        colorFg(c.good, '■ Direct'),
+        colorFg(c.warn, '■ 1080p')
     ].join('   ');
     var swatchIndent = ansi.repeat(' ', Math.max(0, Math.floor((inner - ansi.visibleWidth(swatches)) / 2)));
     addRow(swatchIndent + swatches);
@@ -65,19 +63,18 @@ function renderStand(themeId) {
     addRow(colorFg(c.border, '  ' + ansi.repeat(g.h, inner - 4)));
     addRow('');
 
-    // 4. Пример карточки фильма и элементов управления
-    addRow('  ' + colorFg(c.accent, g.film + ' ') + style.bold('Матрица') + style.muted(' (The Matrix · 1999 · ★ 8.5)'));
+    // 4. Пример интерфейса
+    addRow('  ' + style.bold('Матрица') + style.muted(' (The Matrix · 1999 · ★ 8.5)'));
     addRow('  ' + colorFg(c.secondary, '  ' + g.arrow + ' ') + style.bold(colorFg(c.accent, 'Collaps')) +
-        colorFg(c.good, ' ⚡[прямой]') + style.muted(' · 15 озв. · FHD (1080p)'));
-    addRow('    ' + style.muted('  Alloha ⚡ · 7 озв. · BDRip'));
-    addRow('    ' + style.muted('  Kodik ⚡ · 4 озв. · 720p'));
+        colorFg(c.good, ' [прямой]') + style.muted(' · 15 озв. · 1080p FHD'));
+    addRow('    ' + style.muted('  Alloha [прямой] · 7 озв. · 720p'));
+    addRow('    ' + style.muted('  Kodik [прямой] · 4 озв. · 720p'));
     addRow('');
 
-    addRow('  ' + style.bold('Озвучка: ') + colorFg(c.secondary, '«Кубик в кубе»') +
-        style.muted('  ' + g.dot + '  ') + style.bold('Качество: ') + colorFg(c.warn, '1080p FHD') +
+    addRow('  ' + style.bold('Озвучка: ') + colorFg(c.secondary, 'Кубик в кубе') +
+        style.muted('  ·  ') + style.bold('Качество: ') + colorFg(c.warn, '1080p') +
         style.muted(' (4200 кбит/с)'));
-    addRow('  ' + style.bold('Прогресс: ') + colorFg(c.good, '01:14:20 / 02:16:00 (54%) ') +
-        colorFg(c.accent, '▰▰▰▰▰▰▰▱▱▱▱▱'));
+    addRow('  ' + style.bold('Прогресс: ') + colorFg(c.good, '54%') + style.muted(' · 01:14:20 / 02:16:00'));
     addRow('');
 
     // 5. Нижняя рамка
@@ -86,7 +83,7 @@ function renderStand(themeId) {
     // Навигация
     var themeKeys = Object.keys(themes.THEMES);
     var currentIndex = themeKeys.indexOf(themeId);
-    var navStr = '←/→ тема (' + (currentIndex + 1) + '/' + themeKeys.length + ')  ·  Enter применить тему  ·  Esc назад';
+    var navStr = '←/→ стиль (' + (currentIndex + 1) + '/' + themeKeys.length + ') · Enter применить · Esc назад';
     var navCentered = Math.max(0, Math.floor((width - ansi.visibleWidth(navStr)) / 2));
     lines.push('');
     lines.push(ansi.repeat(' ', navCentered) + style.muted(navStr));
@@ -97,7 +94,7 @@ function renderStand(themeId) {
 async function runStand() {
     var themeKeys = Object.keys(themes.THEMES);
     var currentConfig = config.read();
-    var currentIndex = Math.max(0, themeKeys.indexOf(currentConfig.theme || 'cyberpunk'));
+    var currentIndex = Math.max(0, themeKeys.indexOf(currentConfig.theme || 'classic_bw'));
 
     tui.enter();
 

@@ -141,6 +141,16 @@ async function runTests() {
     assert(args.includes('--aid=14'), 'Аргументы содержат точный --aid=14 для звуковой дорожки');
     assert(args.some(function (a) { return a.includes('--sub-file='); }), 'Аргументы содержат подключение субтитров --sub-file=');
 
+    // ТЕСТ 7: Динамический генератор FIGlet шрифтов и темы
+    console.log('\n\x1b[36m[7/7] Тестирование динамического генератора FIGlet шрифтов\x1b[0m');
+    var themes = require('./lib/themes');
+    var slantLogo = themes.renderLogo('cyberpunk', 'slant');
+    assert(Array.isArray(slantLogo) && slantLogo.length > 0, 'Генерация Slant шрифта через FIGlet успешна');
+    var shadowLogo = themes.renderLogo('cinema', 'ansi_shadow');
+    assert(Array.isArray(shadowLogo) && shadowLogo.length > 0, 'Генерация ANSI Shadow шрифта через FIGlet успешна');
+    var offLogo = themes.renderLogo('matrix', 'off');
+    assert(Array.isArray(offLogo) && offLogo.length === 0, 'Режим off возвращает пустой список строк');
+
     // ИТОГИ
     console.log('\n======================================');
     console.log('Итоги: \x1b[32mУспешно: ' + passed + '\x1b[0m | \x1b[31mОшибок: ' + failed + '\x1b[0m');

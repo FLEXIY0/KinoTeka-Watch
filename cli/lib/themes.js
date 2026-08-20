@@ -1,24 +1,21 @@
 'use strict';
 
-// Коллекция визуальных тем оформления и генерации ANSI/ASCII логотипов для KTW.
+// Коллекция визуальных тем оформления и динамическая генерация ANSI/ASCII шрифтов через FIGlet.
 
 var ansi = require('./ansi');
+var figlet;
+try {
+    figlet = require('figlet');
+} catch (e) {
+    figlet = null;
+}
 
-var LOGOS = {
-    // 1. Line-Art: чистая терминальная типографика из тонких рамок
+var BUILTIN_LOGOS = {
     lineart: [
         '┌─┐ ┬ ┌┐┌ ┌─┐ ┌┬┐ ┌─┐ ┬┌─ ┌─┐',
         '├┴┐ │ │││ │ │  │  ├┤  ├┴┐ ├─┤',
         '┴ ┴ ┴ ┘└┘ └─┘  ┴  └─┘ ┴ ┴ ┴ ┴'
     ],
-    // 2. Slant: динамичный 3D наклонный ASCII шрифт
-    slant: [
-        '   __ __ _____ _  __ ____  ______ ____ __ __ ___ ',
-        '  / //_//  _// |/ // __ \\/_  __// __// //_// _ |',
-        ' / ,<  _/ / /    // /_/ / / /  / _/ / ,<  / __ |',
-        '/_/|_|/___//_/|_/ \\____/ /_/  /___//_/|_//_/ |_|'
-    ],
-    // 3. Monument: монументальные монолитные Unicode блоки
     monument: [
         '██   ██  ██  ███    ██   ██████   ████████  ████████  ██   ██   █████  ',
         '██  ██   ██  ████   ██  ██    ██     ██     ██        ██  ██   ██   ██ ',
@@ -26,27 +23,55 @@ var LOGOS = {
         '██  ██   ██  ██  ██ ██  ██    ██     ██     ██        ██  ██   ██   ██ ',
         '██   ██  ██  ██   ████   ██████      ██     ████████  ██   ██  ██   ██ '
     ],
-    // 4. Gothic: компактный готический полужирный шрифт с тенями
     gothic: [
         '  ▄▄▄  ▄ ▄▄   ▄  ▄▄▄  ▄▄▄▄▄ ▄▄▄▄ ▄▄▄  ▄   ▄ ',
         '  █  █ █ █ █  █ █   █   █   █    █  █ █   █ ',
         '  █▀▀▄ █ █  █ █ █   █   █   █▀▀  █▀▀▄ █▀▀▀█ ',
         '  █  █ █ █   ██  ▀▄▄▀   █   █▄▄▄ █  █ █   █ '
     ],
-    // 5. Cyber: кибернетический контур
     cyber: [
         '╦╔═ ╦ ╔╗╔ ╔═╗ ╔╦╗ ╔═╗ ╦╔═ ╔═╗',
         '╠╩╗ ║ ║║║ ║ ║  ║  ║╣  ╠╩╗ ╠═╣',
         '╩ ╩ ╩ ╝╚╝ ╚═╝  ╩  ╚═╝ ╩ ╩ ╩ ╩'
-    ],
-    // 6. Classic Figlet: классическая ASCII типографика
-    classic_figlet: [
-        ' _  _____ _   _  ___ _____ _____ _  __    _   ',
-        '| |/ /_ _| \\ | |/ _ \\_   _| ____| |/ /   / \\  ',
-        '| \' / | ||  \\| | | | || | |  _| | \' /   / _ \\ ',
-        '| . \\ | || |\\  | |_| || | | |___| . \\  / ___ \\',
-        '|_|\\_\\___|_| \\_|\\___/ |_| |_____|_|\\_\\/_/   \\_\\'
     ]
+};
+
+var FIGLET_FONT_MAP = {
+    ansi_shadow: 'ANSI Shadow',
+    slant: 'Slant',
+    doom: 'Doom',
+    standard: 'Standard',
+    small: 'Small',
+    cybermedium: 'Cybermedium',
+    big: 'Big'
+};
+
+var FONT_KEYS = [
+    'auto',
+    'ansi_shadow',
+    'slant',
+    'doom',
+    'standard',
+    'small',
+    'monument',
+    'lineart',
+    'cyber',
+    'gothic',
+    'off'
+];
+
+var FONT_LABELS = {
+    auto: 'Авто (из темы)',
+    ansi_shadow: 'ANSI Shadow (3D Блоки)',
+    slant: 'Slant (Наклонный 3D)',
+    doom: 'Doom (Классика игр)',
+    standard: 'Standard (ASCII)',
+    small: 'Small (Компактный)',
+    monument: 'Monument (Монолит)',
+    lineart: 'Line-Art (Тонкие рамки)',
+    cyber: 'Cyber (Кибернетика)',
+    gothic: 'Gothic (Готика)',
+    off: 'Выключить (без баннера)'
 };
 
 var THEMES = {
@@ -184,15 +209,36 @@ var THEMES = {
     }
 };
 
-// Генерация цветного ANSI логотипа с горизонтальным градиентом и выбором шрифта
-function renderLogo(themeId, bannerStyle) {
+// Генерация цветного ANSI логотипа с горизонтальным градиентом
+function renderLogo(themeId, bannerStyle, maxWidth) {
     if (bannerStyle === 'off') {
         return [];
     }
 
     var theme = THEMES[themeId] || THEMES.classic_bw;
-    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'lineart');
-    var rawLines = LOGOS[styleKey] || LOGOS.lineart;
+    var styleKey = (bannerStyle && bannerStyle !== 'auto') ? bannerStyle : (theme.logoStyle || 'slant');
+
+    var rawLines = null;
+
+    // 1. Проверяем генератор figlet
+    if (figlet && FIGLET_FONT_MAP[styleKey]) {
+        try {
+            var fontName = FIGLET_FONT_MAP[styleKey];
+            var text = (maxWidth && maxWidth < 65) ? 'KTW' : 'KINOTEKA';
+            var generated = figlet.textSync(text, { font: fontName });
+            if (generated) {
+                rawLines = generated.split('\n').filter(function (l) { return l.length > 0; });
+            }
+        } catch (e) {
+            rawLines = null;
+        }
+    }
+
+    // 2. Встроенные шрифты
+    if (!rawLines) {
+        rawLines = BUILTIN_LOGOS[styleKey] || BUILTIN_LOGOS.lineart;
+    }
+
     var c1 = theme.colors.accent;
     var c2 = theme.colors.secondary || theme.colors.highlight;
 
@@ -221,7 +267,10 @@ function renderLogo(themeId, bannerStyle) {
 }
 
 module.exports = {
-    LOGOS: LOGOS,
+    BUILTIN_LOGOS: BUILTIN_LOGOS,
+    FIGLET_FONT_MAP: FIGLET_FONT_MAP,
+    FONT_KEYS: FONT_KEYS,
+    FONT_LABELS: FONT_LABELS,
     THEMES: THEMES,
     renderLogo: renderLogo
 };

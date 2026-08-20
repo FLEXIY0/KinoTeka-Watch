@@ -302,20 +302,11 @@ async function settingsScreen() {
                 var nextLIdx = (curLIdx + (key.name === 'left' ? -1 : 1) + langOptions.length) % langOptions.length;
                 cfg.lang = langOptions[nextLIdx];
                 config.save({ lang: cfg.lang });
-            } else if (cur.key === 'theme') {
-                var curTIdx = themeOptions.indexOf(cfg.theme || 'classic_bw');
-                var nextTIdx = (curTIdx + (key.name === 'left' ? -1 : 1) + themeOptions.length) % themeOptions.length;
-                cfg.theme = themeOptions[nextTIdx];
-                config.save({ theme: cfg.theme });
-            } else if (cur.key === 'bannerStyle') {
-                var curBIdx = bannerOptions.indexOf(cfg.bannerStyle || 'auto');
-                var nextBIdx = (curBIdx + (key.name === 'left' ? -1 : 1) + bannerOptions.length) % bannerOptions.length;
-                cfg.bannerStyle = bannerOptions[nextBIdx];
-                config.save({ bannerStyle: cfg.bannerStyle });
-            } else if (cur.key === 'openStand') {
-                var standTheme = await require('./stand').runStand();
-                if (standTheme) {
-                    cfg.theme = standTheme;
+            } else if (cur.key === 'theme' || cur.key === 'bannerStyle' || cur.key === 'openStand') {
+                var standRes = await require('./stand').runStand();
+                if (standRes) {
+                    cfg.theme = standRes.theme;
+                    cfg.bannerStyle = standRes.bannerStyle;
                 }
             } else if (cur.key === 'preferredPlayer') {
                 var curPIdx = playerOptions.indexOf(cfg.preferredPlayer || '');

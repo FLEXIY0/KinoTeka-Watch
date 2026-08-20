@@ -24,6 +24,7 @@
   "homepage": "https://github.com/FLEXIY0/KinoTeka-Watch#readme",
   "dependencies": {
     "express": "^5.2.1",
+    "figlet": "^1.11.4",
     "node-fetch": "^3.3.2",
     "puppeteer": "^24.37.5"
   }

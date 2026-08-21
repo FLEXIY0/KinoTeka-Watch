@@ -1416,10 +1416,50 @@ async function playStream(film, player, translation, season, episode, options, s
 
         var magnet = translation && translation.magnet ? translation.magnet : null;
         if (!magnet) {
-            magnet = await inputScreen('TorrServe: Стриминг торрента', 'Magnet / Hash / Ссылка', [
-                'Введи magnet-ссылку или хэш торрента для «' + film.title + '»',
-                'TorrServer MatriX (' + (tsStatus.version || '143') + ') запустит прямое воспроизведение в 4K / 1080p'
-            ]);
+            var searchTitle = (film.title || '') + (film.year ? (' ' + film.year) : '');
+            var torrents = [];
+            try {
+                torrents = await tui.withSpinner(torrserve.searchTorrents(searchTitle, season, episode), function (frame) {
+                    var size = metrics();
+                    return tui.box(null, ['', '  ' + style.accent(frame || '⚡') + ' ' + style.muted('ищу торрент-раздачи в 4K / 1080p…'), ''],
+                        size.width, footer(['автоматический поиск JacRed']));
+                });
+            } catch (e) {}
+
+            if (torrents && torrents.length > 0) {
+                var torrentItems = torrents.map(function (t) {
+                    var qColor = t.quality.indexOf('4K') >= 0 ? style.accent('[' + t.quality + ']') : style.good('[' + t.quality + ']');
+                    var sizeBadge = style.bold(t.size);
+                    var seedsBadge = style.good(t.seeds + ' seeds');
+                    var meta = [qColor, sizeBadge, seedsBadge].join(' · ');
+                    var hint = t.voices ? style.warn(t.voices) : '';
+                    return {
+                        label: meta + ' ' + ansi.truncate(t.title, 55),
+                        hint: hint
+                    };
+                });
+
+                torrentItems.push({
+                    label: style.muted('Ввести magnet-ссылку вручную...'),
+                    hint: ''
+                });
+
+                var pickedTorrentIdx = await pickerScreen(film, posterLines, 'TorrServe · Раздачи', torrentItems,
+                    [glyph.up + glyph.down + ' выбор', 'Enter смотреть в mpv', 'Esc назад'], 2);
+
+                if (pickedTorrentIdx === 'back') return { ok: false, back: true };
+
+                if (pickedTorrentIdx < torrents.length) {
+                    magnet = torrents[pickedTorrentIdx].magnet;
+                }
+            }
+
+            if (!magnet) {
+                magnet = await inputScreen('TorrServe: Стриминг торрента', 'Magnet / Hash / Ссылка', [
+                    'Введи magnet-ссылку или хэш торрента для «' + film.title + '»',
+                    'TorrServer MatriX (' + (tsStatus.version || '143') + ') запустит прямое воспроизведение в 4K / 1080p'
+                ]);
+            }
         }
 
         if (!magnet) return { ok: false, back: true };

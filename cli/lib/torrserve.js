@@ -278,6 +278,77 @@ async function getTorrentFiles(magnetOrHash, customUrl) {
     });
 }
 
+// Поиск торрентов через агрегатор JacRed
+async function searchTorrents(query, season, episode) {
+    var searchQuery = query;
+    if (season) {
+        searchQuery += ' s' + (season < 10 ? '0' : '') + season;
+        if (episode) {
+            searchQuery += 'e' + (episode < 10 ? '0' : '') + episode;
+        }
+    }
+
+    var urls = [
+        'https://jac.red/api/v1/search?query=' + encodeURIComponent(searchQuery),
+        'https://jacred.xyz/api/v1/search?query=' + encodeURIComponent(searchQuery)
+    ];
+
+    for (var u of urls) {
+        try {
+            var raw = await new Promise(function (resolve, reject) {
+                var client = u.indexOf('https:') === 0 ? https : http;
+                var req = client.get(u, {
+                    rejectUnauthorized: false,
+                    timeout: 5000,
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                }, function (res) {
+                    var c = [];
+                    res.on('data', function (d) { c.push(d); });
+                    res.on('end', function () { resolve(Buffer.concat(c).toString('utf8')); });
+                });
+                req.on('error', reject);
+                req.on('timeout', function () { req.destroy(); reject(new Error('timeout')); });
+            });
+
+            var data = JSON.parse(raw);
+            if (Array.isArray(data) && data.length > 0) {
+                return data.map(function (item) {
+                    var quality = '1080p';
+                    if (item.info && item.info.quality) {
+                        quality = item.info.quality >= 2160 ? '4K UHD' : (item.info.quality + 'p');
+                    } else if (/2160p|4k|uhd/i.test(item.title)) {
+                        quality = '4K UHD';
+                    } else if (/720p/i.test(item.title)) {
+                        quality = '720p';
+                    }
+
+                    var sizeStr = '';
+                    if (item.info && item.info.sizeName) {
+                        sizeStr = item.info.sizeName;
+                    } else if (item.size) {
+                        sizeStr = (item.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                    }
+
+                    var voices = (item.info && item.info.voices) ? item.info.voices.join(', ') : '';
+
+                    return {
+                        title: item.title,
+                        quality: quality,
+                        size: sizeStr,
+                        seeds: item.seeders || 0,
+                        peers: item.leechers || 0,
+                        voices: voices,
+                        magnet: item.magnetUrl || item.downloadUrl,
+                        indexer: item.indexer || 'Torrent'
+                    };
+                });
+            }
+        } catch (e) {}
+    }
+
+    return [];
+}
+
 module.exports = {
     DEFAULT_TORRSERVE_URL: DEFAULT_TORRSERVE_URL,
     getBinaryName: getBinaryName,
@@ -287,5 +358,6 @@ module.exports = {
     startServerDaemon: startServerDaemon,
     buildStreamUrl: buildStreamUrl,
     addTorrent: addTorrent,
-    getTorrentFiles: getTorrentFiles
+    getTorrentFiles: getTorrentFiles,
+    searchTorrents: searchTorrents
 };

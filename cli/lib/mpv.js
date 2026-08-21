@@ -240,11 +240,15 @@ function monitorIpc(socketPath, onProgress) {
         getState: function () { return state; },
         sendCommand: sendCommand,
         setAudio: function (audioId) { sendCommand(['set_property', 'aid', audioId]); },
+        cycleAudio: function () { sendCommand(['cycle', 'aid']); },
         setBitrate: function (bitrate) { sendCommand(['set_property', 'hls-bitrate', bitrate]); },
         setSubtitle: function (subId) { sendCommand(['set_property', 'sid', subId]); },
+        cycleSubtitle: function () { sendCommand(['cycle', 'sub']); },
+        toggleSubtitle: function () { sendCommand(['cycle', 'sub-visibility']); },
         setPause: function (val) { sendCommand(['set_property', 'pause', val]); },
         togglePause: function () { sendCommand(['cycle', 'pause']); },
         toggleFullscreen: function () { sendCommand(['cycle', 'fullscreen']); },
+        toggleMute: function () { sendCommand(['cycle', 'mute']); },
         seek: function (seconds) { sendCommand(['seek', seconds, 'relative']); },
         setVolume: function (vol) { sendCommand(['set_property', 'volume', Math.max(0, Math.min(150, vol))]); },
         changeVolume: function (delta) { sendCommand(['add', 'volume', delta]); },
@@ -349,12 +353,21 @@ function tryAttachExistingSession(onProgressCallback) {
                 get stream() { return sessionData.stream; },
                 set stream(s) { sessionData.stream = s; persistAttached(); },
                 get player() { return { source: sessionData.player, direct: true }; },
+                set player(p) {
+                    sessionData.player = (typeof p === 'string' ? p : (p ? p.source : ''));
+                    persistAttached();
+                },
                 get translation() { return sessionData.translation ? { name: sessionData.translation } : null; },
+                set translation(t) {
+                    sessionData.translation = (typeof t === 'string' ? t : (t ? t.name : ''));
+                    persistAttached();
+                },
                 get season() { return sessionData.season; },
                 set season(s) { sessionData.season = s; persistAttached(); },
                 get episode() { return sessionData.episode; },
                 set episode(e) { sessionData.episode = e; persistAttached(); },
                 get variants() { return sessionData.variants || []; },
+                set variants(v) { sessionData.variants = v || []; persistAttached(); },
                 updateStream: function (newStream, newTitle) {
                     sessionData.filmInfo = newStream.filmInfo;
                     sessionData.stream = {
@@ -534,12 +547,27 @@ function startLiveSession(stream, title, extraArgs, onProgressCallback) {
             currentStream = Object.assign({}, s);
             persistCurrent();
         },
+        get player() { return { source: currentStream.player, direct: true }; },
+        set player(p) {
+            currentStream.player = (typeof p === 'string' ? p : (p ? p.source : ''));
+            persistCurrent();
+        },
+        get translation() { return currentStream.translation ? { name: currentStream.translation } : null; },
+        set translation(t) {
+            currentStream.translation = (typeof t === 'string' ? t : (t ? t.name : ''));
+            persistCurrent();
+        },
         get season() { return currentStream.season; },
         set season(s) { currentStream.season = s; persistCurrent(); },
         get episode() { return currentStream.episode; },
         set episode(e) { currentStream.episode = e; persistCurrent(); },
         get film() { return currentStream.filmInfo; },
         set film(f) { currentStream.filmInfo = f; persistCurrent(); },
+        get variants() { return currentStream.variants || []; },
+        set variants(v) {
+            currentStream.variants = v || [];
+            persistCurrent();
+        },
         updateStream: function (newStream, newTitle) {
             currentStream = Object.assign({}, newStream);
             if (newTitle) {

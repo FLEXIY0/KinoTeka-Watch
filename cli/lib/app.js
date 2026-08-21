@@ -1147,9 +1147,10 @@ async function playbackControllerScreen(posterLines) {
         }
 
         var controlRows = [
-            style.accent('[Space/P]') + ' пауза   ' + style.accent('[A]') + ' озвучка   ' + style.accent('[Q]') + ' качество',
-            style.accent('[← / →]') + ' 10 сек   ' + style.accent('[↑ / ↓]') + ' громкость   ' + style.accent('[F]') + ' полный экран',
-            style.accent('[Esc/Ctrl+P]') + ' в меню KTW   ' + style.accent('[Ctrl+X]') + ' остановить mpv'
+            style.accent('[Space/P]') + ' пауза   ' + style.accent('[A]') + ' озвучка   ' + style.accent('[Q]') + ' качество   ' + style.accent('[C]') + ' субтитры',
+            style.accent('[← / →]') + ' 10 сек   ' + style.accent('[↑ / ↓]') + ' громкость   ' + style.accent('[F]') + ' экран   ' + style.accent('[M]') + ' звук',
+            (season ? (style.accent('[N]') + ' след. серия   ' + style.accent('[B]') + ' пред. серия   ') : '') +
+            style.accent('[Esc]') + ' меню KTW   ' + style.accent('[Ctrl+X]') + ' выключить'
         ];
 
         controlRows.forEach(function (r) { rightLines.push('  ' + r); });
@@ -1159,7 +1160,7 @@ async function playbackControllerScreen(posterLines) {
             : rightLines.map(function (l) { return ' ' + ansi.pad(l, size.width - 3); });
 
         tui.paint(tui.box('Пульт mpv · KTW Live', [''].concat(content, ['']),
-            size.width, footer(['Esc вернуться в меню (mpv играет)', 'A озвучка', 'Q качество', 'Space пауза'])));
+            size.width, footer(['Esc вернуться в меню (mpv играет)', 'A озвучка', 'Q качество', 'C субтитры', 'Space пауза'])));
 
         var key = await tui.readKey(400);
 
@@ -1183,12 +1184,18 @@ async function playbackControllerScreen(posterLines) {
         } else if (key.name === 'f' && !key.ctrl) {
             session.ipc.toggleFullscreen();
             setToast('Переключен режим экрана');
+        } else if (key.name === 'm' || key.str === 'm' || key.str === 'M' || key.str === 'ь' || key.str === 'Ь') {
+            session.ipc.toggleMute();
+            setToast('Звук переключен (Mute)');
+        } else if (key.name === 'c' || key.str === 'c' || key.str === 'C' || key.str === 'с' || key.str === 'С') {
+            session.ipc.cycleSubtitle();
+            setToast('Субтитры переключены');
         } else if (key.name === 'left') {
-            session.ipc.seek(-10);
-            setToast('Перемотка -10 сек');
+            session.ipc.seek(key.shift ? -60 : -10);
+            setToast(key.shift ? 'Перемотка -60 сек' : 'Перемотка -10 сек');
         } else if (key.name === 'right') {
-            session.ipc.seek(10);
-            setToast('Перемотка +10 сек');
+            session.ipc.seek(key.shift ? 60 : 10);
+            setToast(key.shift ? 'Перемотка +60 сек' : 'Перемотка +10 сек');
         } else if (key.name === 'up') {
             session.ipc.changeVolume(5);
             setToast('Громкость +5%');
@@ -1201,6 +1208,9 @@ async function playbackControllerScreen(posterLines) {
         } else if (key.str === ']' || key.str === '}') {
             session.ipc.changeSpeed(0.1);
             setToast('Скорость +0.1x');
+        } else if (key.str === '\\' || key.str === '|') {
+            session.ipc.setSpeed(1.0);
+            setToast('Скорость сброшена на 1.0x');
         } else if ((key.name === 'a' || key.str === 'a' || key.str === 'A' || key.str === 'ф' || key.str === 'Ф') && audioTracks.length > 1) {
             var trItems = audioTracks.map(function (at, idx) {
                 var isCur = (activePlayback.translation && at.name === activePlayback.translation.name) || (playbackState.aid === (at.audioId || (idx + 1)));
@@ -1214,8 +1224,28 @@ async function playbackControllerScreen(posterLines) {
             if (typeof pickedTrIdx === 'number' && audioTracks[pickedTrIdx]) {
                 var selectedAt = audioTracks[pickedTrIdx];
                 activePlayback.translation = selectedAt;
+                session.translation = selectedAt.name;
                 var aidToSet = selectedAt.audioId || (pickedTrIdx + 1);
                 session.ipc.setAudio(aidToSet);
+
+                // Приоритетно сохраняем выбранную в пульте озвучку
+                if (film && film.id) {
+                    history.saveProgress({
+                        filmId: film.id,
+                        title: film.title,
+                        year: film.year,
+                        poster: film.poster,
+                        serial: film.serial,
+                        season: season,
+                        episode: episode,
+                        player: player.source,
+                        translation: selectedAt.name,
+                        quality: activePlayback.stream ? activePlayback.stream.label : '',
+                        timePos: playbackState.timePos || 0,
+                        duration: playbackState.duration || 0,
+                        watched: playbackState.eofReached || false
+                    });
+                }
                 setToast('Озвучка изменена: ' + selectedAt.name);
             }
         } else if ((key.name === 'q' || key.str === 'q' || key.str === 'Q' || key.str === 'й' || key.str === 'Й') && variants.length > 1) {
@@ -1231,10 +1261,97 @@ async function playbackControllerScreen(posterLines) {
             if (typeof pickedQIdx === 'number' && variants[pickedQIdx]) {
                 var selectedV = variants[pickedQIdx];
                 if (activePlayback.stream) activePlayback.stream.label = selectedV.label;
+                if (session.stream) session.stream.label = selectedV.label;
                 if (selectedV.bandwidth) {
                     session.ipc.setBitrate(selectedV.bandwidth);
                 }
+                // Приоритетно сохраняем выбранное качество
+                if (film && film.id) {
+                    history.saveProgress({
+                        filmId: film.id,
+                        title: film.title,
+                        year: film.year,
+                        poster: film.poster,
+                        serial: film.serial,
+                        season: season,
+                        episode: episode,
+                        player: player.source,
+                        translation: activePlayback.translation ? activePlayback.translation.name : '',
+                        quality: selectedV.label,
+                        timePos: playbackState.timePos || 0,
+                        duration: playbackState.duration || 0,
+                        watched: playbackState.eofReached || false
+                    });
+                }
                 setToast('Качество изменено: ' + selectedV.label);
+            }
+        } else if (season && episode && (key.name === 'n' || key.str === 'n' || key.str === 'N' || key.str === 'т' || key.str === 'Т')) {
+            // Переход к следующей серии прямо из пульта
+            var nextEp = episode + 1;
+            setToast('Загружаю серию S' + season + 'E' + nextEp + '…');
+            try {
+                var sourceUrl = (activePlayback.translation && activePlayback.translation.iframeUrl) ? activePlayback.translation.iframeUrl : player.iframeUrl;
+                var nextIframe = api.withEpisode(sourceUrl, season, nextEp);
+                var nextStream = await stream.resolveStream(nextIframe, {
+                    season: season,
+                    episode: nextEp,
+                    translation: activePlayback.translation ? activePlayback.translation.name : '',
+                    timeout: 8000
+                });
+                if (nextStream && nextStream.url) {
+                    var newTitle = film.title + ' · S' + (season < 10 ? '0' : '') + season + 'E' + (nextEp < 10 ? '0' : '') + nextEp;
+                    nextStream.filmInfo = film;
+                    nextStream.season = season;
+                    nextStream.episode = nextEp;
+                    nextStream.player = player.source;
+                    nextStream.translation = activePlayback.translation ? activePlayback.translation.name : '';
+                    activePlayback.season = season;
+                    activePlayback.episode = nextEp;
+                    activePlayback.stream = nextStream;
+                    session.updateStream(nextStream, newTitle);
+                    session.ipc.loadFile(nextStream.url, 0, newTitle);
+                    episode = nextEp;
+                    epInfo = ' · S' + (season < 10 ? '0' : '') + season + 'E' + (episode < 10 ? '0' : '') + episode;
+                    setToast('Включена серия E' + nextEp);
+                } else {
+                    setToast('Серия E' + nextEp + ' не найдена');
+                }
+            } catch (e) {
+                setToast('Ошибка смены серии');
+            }
+        } else if (season && episode > 1 && (key.name === 'b' || key.str === 'b' || key.str === 'B' || key.str === 'и' || key.str === 'И')) {
+            // Переход к предыдущей серии прямо из пульта
+            var prevEp = episode - 1;
+            setToast('Загружаю серию S' + season + 'E' + prevEp + '…');
+            try {
+                var prevSourceUrl = (activePlayback.translation && activePlayback.translation.iframeUrl) ? activePlayback.translation.iframeUrl : player.iframeUrl;
+                var prevIframe = api.withEpisode(prevSourceUrl, season, prevEp);
+                var prevStream = await stream.resolveStream(prevIframe, {
+                    season: season,
+                    episode: prevEp,
+                    translation: activePlayback.translation ? activePlayback.translation.name : '',
+                    timeout: 8000
+                });
+                if (prevStream && prevStream.url) {
+                    var prevTitle = film.title + ' · S' + (season < 10 ? '0' : '') + season + 'E' + (prevEp < 10 ? '0' : '') + prevEp;
+                    prevStream.filmInfo = film;
+                    prevStream.season = season;
+                    prevStream.episode = prevEp;
+                    prevStream.player = player.source;
+                    prevStream.translation = activePlayback.translation ? activePlayback.translation.name : '';
+                    activePlayback.season = season;
+                    activePlayback.episode = prevEp;
+                    activePlayback.stream = prevStream;
+                    session.updateStream(prevStream, prevTitle);
+                    session.ipc.loadFile(prevStream.url, 0, prevTitle);
+                    episode = prevEp;
+                    epInfo = ' · S' + (season < 10 ? '0' : '') + season + 'E' + (episode < 10 ? '0' : '') + episode;
+                    setToast('Включена серия E' + prevEp);
+                } else {
+                    setToast('Серия E' + prevEp + ' не найдена');
+                }
+            } catch (e) {
+                setToast('Ошибка смены серии');
             }
         } else if (key.name === 's' || (key.ctrl && key.name === 's')) {
             await settingsScreen();

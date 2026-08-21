@@ -575,6 +575,13 @@ async function testDoctor() {
         'краткий режим печатает поломку вместе с подсказкой');
 }
 
+async function testUpdateModule() {
+    group('Модуль самообновления');
+
+    var update = require('./lib/update');
+    assert(typeof update.runUpdate === 'function', 'runUpdate экспортирован');
+}
+
 async function testConfigAndHistory() {
     group('Конфигурация и история');
 
@@ -704,6 +711,7 @@ var SUITES = [
     ['Доктор', testDoctor],
     ['Конфиг', testConfigAndHistory],
     ['Качество', testQualityPick],
+    ['Самообновление', testUpdateModule],
     ['Живые', testLive]
 ];
 

@@ -289,6 +289,11 @@ async function settingsScreen() {
                     var ms = require('./sysinfo').getMemoryStats();
                     return 'KTW ' + ms.ktw + ' МБ + mpv ' + ms.mpv + ' МБ' + (ms.terminal > 0 ? (' + TTY ' + ms.terminal + ' МБ') : '') + ' = ' + ms.total + ' МБ';
                 })()
+            },
+            {
+                key: 'updateKtw',
+                label: '📦 Обновление KTW',
+                valueText: 'Проверить и обновить'
             }
         ];
 
@@ -391,6 +396,16 @@ async function settingsScreen() {
                 }
             } else if (cur.key === 'memoryBenchmark') {
                 await memoryBenchmarkScreen();
+            } else if (cur.key === 'updateKtw') {
+                tui.exit();
+                await require('./update').runUpdate();
+                ui.info(ui.color.dim('  Нажми Enter для возврата в настройки...'));
+                await new Promise(function (res) {
+                    process.stdin.setEncoding('utf8');
+                    process.stdin.resume();
+                    process.stdin.once('data', function () { res(); });
+                });
+                tui.enter();
             }
         }
     }

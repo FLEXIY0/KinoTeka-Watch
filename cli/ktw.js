@@ -51,6 +51,7 @@ var HELP = [
     '      --settings       открыть меню тонких настроек',
     '  -h, --help           эта справка',
     '  -V, --version        какая версия и откуда запускается',
+    '  -u, --update         проверить и установить последнее обновление KTW',
     '      --clean          очистить кэш и показать состояние установки',
     '',
     ui.color.bold('Управление в интерфейсе:'),
@@ -187,6 +188,7 @@ function parseArgs(argv) {
 
         if (arg === '-h' || arg === '--help') options.help = true;
         else if (arg === '-V' || arg === '--version') options.version = true;
+        else if (arg === '-u' || arg === '--update' || arg === '--upgrade') options.update = true;
         else if (arg === '--clean') options.clean = true;
         else if (arg === '--history') options.history = true;
         else if (arg === '--stand' || arg === '--themes') options.stand = true;
@@ -529,6 +531,10 @@ async function main() {
     if (options.version) {
         ui.info(version());
         return 0;
+    }
+
+    if (options.update) {
+        return await require('./lib/update').runUpdate();
     }
 
     if (options.clean) {

@@ -67,7 +67,7 @@ async function resolveStream(iframeUrl, options) {
     var report = options.onProgress || function () { };
     var errors = [];
 
-    report('разбираю плеер напрямую ⚡');
+    report('разбираю плеер напрямую…');
 
     var found = await extractors.extractDirectStream(iframeUrl, {
         season: options.season,
@@ -84,7 +84,7 @@ async function resolveStream(iframeUrl, options) {
         throw failure;
     }
 
-    report('поток получен напрямую ⚡');
+    report('поток получен напрямую');
 
     return {
         url: found.url,

@@ -130,17 +130,17 @@ function getCachedDonators() {
 function formatDonatorsBanner(donators, maxWidth) {
     maxWidth = maxWidth || 80;
     if (!donators || donators.length === 0) {
-        return '🍺 Поддержать: donatty.com/nedoedal';
+        return 'Поддержать проект: donatty.com/nedoedal';
     }
 
-    var medals = ['🥇', '🥈', '🥉'];
+    var medals = ['1.', '2.', '3.'];
     var parts = donators.slice(0, 3).map(function (d, idx) {
-        var medal = medals[idx] || '•';
+        var rank = medals[idx] || '•';
         var valStr = d.value ? (d.value + ' ₽') : '';
-        return medal + ' ' + d.name + (valStr ? (' (' + valStr + ')') : '');
+        return rank + ' ' + d.name + (valStr ? (' (' + valStr + ')') : '');
     });
 
-    var text = '🍺 Топ поддержки: ' + parts.join('  ') + '  ·  donatty.com/nedoedal';
+    var text = 'Топ поддержки: ' + parts.join('  ') + '  ·  donatty.com/nedoedal';
     return text;
 }
 

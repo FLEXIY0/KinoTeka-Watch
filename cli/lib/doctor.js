@@ -367,7 +367,7 @@ async function checkTorrserverLive() {
     if (status.ok) {
         return check('TorrServe', 'ok', status.url + ' (' + status.version + ') — активен и готов к 4K стримингу');
     }
-    return check('TorrServe', 'ok', 'готов к автоматическому запуску из коробки ⚡');
+    return check('TorrServe', 'ok', 'готов к автоматическому запуску из коробки');
 }
 
 // ---------- сборка ----------

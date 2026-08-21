@@ -677,7 +677,7 @@ async function testDonattyIntegration() {
     ];
     var banner = donatty.formatDonatorsBanner(sampleDonators);
     assert(banner.indexOf('nedoedal') >= 0 && banner.indexOf('10 ₽') >= 0, 'formatDonatorsBanner форматирует топ с именами и суммами');
-    assert(banner.indexOf('🥇') >= 0 && banner.indexOf('🥈') >= 0, 'formatDonatorsBanner содержит эмодзи медалей');
+    assert(banner.indexOf('1.') >= 0 && banner.indexOf('2.') >= 0, 'formatDonatorsBanner содержит аккуратную нумерацию мест');
 }
 
 async function testTorrserveIntegration() {

@@ -269,7 +269,7 @@ async function settingsScreen() {
     var langLabels = ['Русский (RU)', 'English (EN)'];
 
     var playerOptions = ['', 'Collaps', 'Alloha', 'Kodik', 'Veoveo', 'Turbo'];
-    var playerLabels = ['Авто (первый лучший)', 'Collaps ⚡ (прямой поток)', 'Alloha ⚡', 'Kodik ⚡', 'Veoveo ⚡', 'Turbo'];
+    var playerLabels = ['Авто (первый доступный)', 'Collaps (прямой поток)', 'Alloha', 'Kodik', 'Veoveo', 'Turbo'];
 
     var qualityOptions = ['', '1080', '720', '480', 'max', 'min'];
     var qualityLabels = ['Спрашивать всегда', '1080p (FHD)', '720p (HD)', '480p (SD)', 'Максимальное (4K/FHD)', 'Минимальное (трафик)'];
@@ -278,7 +278,7 @@ async function settingsScreen() {
     var hwdecLabels = ['Авто (auto-safe)', 'Выкл (no)', 'NVIDIA (nvdec)', 'Intel/AMD Linux (vaapi)', 'Windows (d3d11va)'];
 
     var modeOptions = [false, true];
-    var modeLabels = ['Прямой парсинг ⚡', 'Прямой парсинг ⚡ (браузер не используется)'];
+    var modeLabels = ['Прямой парсинг', 'Прямой парсинг (без браузера)'];
 
     var themeOptions = Object.keys(themes.THEMES);
     var themeLabels = themeOptions.map(function (k) { return themes.THEMES[k].name; });
@@ -288,7 +288,7 @@ async function settingsScreen() {
     var sizeLabels = ['Авто (адаптивный)', 'Полный (KINOTEKA)', 'Компактный (KTW)', 'Мини (ktw)'];
 
     var winSizeOptions = ['compact', 'medium', 'large', 'fullscreen'];
-    var winSizeLabels = ['Компактный (200px PiP в углу)', 'Средний (400px)', 'Большой (60%)', 'Полный экран (--fs)'];
+    var winSizeLabels = ['Компактное', 'Среднее', 'Большое', 'На весь экран'];
 
     while (true) {
         var size = metrics();
@@ -342,7 +342,7 @@ async function settingsScreen() {
             {
                 key: 'mpvWindowSize',
                 label: 'Размер окна mpv',
-                valueText: winSizeLabels[winSizeOptions.indexOf(cfg.mpvWindowSize || (cfg.mpvFullscreen ? 'fullscreen' : 'compact'))] || 'Компактный (PiP в углу)'
+                valueText: winSizeLabels[winSizeOptions.indexOf(cfg.mpvWindowSize || (cfg.mpvFullscreen ? 'fullscreen' : 'compact'))] || 'Компактное'
             },
             {
                 key: 'mpvHardwareDec',
@@ -361,12 +361,12 @@ async function settingsScreen() {
             },
             {
                 key: 'torrserveUrl',
-                label: '🧲 TorrServer URL',
+                label: 'TorrServer URL',
                 valueText: cfg.torrserveUrl || 'http://127.0.0.1:8090'
             },
             {
                 key: 'memoryBenchmark',
-                label: '📊 Замер памяти (RAM)',
+                label: 'Замер памяти (RAM)',
                 valueText: (function () {
                     var ms = require('./sysinfo').getMemoryStats();
                     return 'KTW ' + ms.ktw + ' МБ + mpv ' + ms.mpv + ' МБ' + (ms.terminal > 0 ? (' + TTY ' + ms.terminal + ' МБ') : '') + ' = ' + ms.total + ' МБ';
@@ -374,12 +374,12 @@ async function settingsScreen() {
             },
             {
                 key: 'updateKtw',
-                label: '📦 Обновление KTW',
+                label: 'Обновление KTW',
                 valueText: 'Проверить и обновить'
             },
             {
                 key: 'donate',
-                label: t('donate_label') || '🍺 Поддержать автора (На пиво)',
+                label: t('donate_label') || 'Поддержать автора (Donatty)',
                 valueText: t('donate_val') || 'donatty.com/nedoedal [Enter]'
             }
         ];
@@ -387,7 +387,7 @@ async function settingsScreen() {
         if (activePlayback.session && activePlayback.session.isAlive()) {
             items.unshift({
                 key: 'openController',
-                label: '🎮 Пульт плеера (HUD)',
+                label: 'Пульт плеера (HUD)',
                 valueText: 'Открыть пульт [Ctrl+P]'
             });
         }
@@ -526,7 +526,7 @@ async function settingsScreen() {
                     require('child_process').exec(openCmd, function () {});
                 } catch (e) {}
 
-                await messageScreen('🍺 Поддержка автора (Donatty)', [
+                await messageScreen('Поддержка автора (Donatty)', [
                     'Спасибо за поддержку KinoTeka Watch!',
                     '',
                     style.bold('Ссылка для доната: ') + style.accent(donateUrl),
@@ -1237,7 +1237,7 @@ async function playbackControllerScreen(posterLines) {
 
         var rightLines = [];
         rightLines.push(style.bold(ansi.truncate(film.title + epInfo, size.rightWidth)));
-        rightLines.push(style.muted('Плеер: ') + style.accent(player.source + (player.direct ? ' ⚡' : '')) +
+        rightLines.push(style.muted('Плеер: ') + style.accent(player.source + (player.direct ? ' [прямой]' : '')) +
             (activePlayback.stream && activePlayback.stream.label ? (style.muted(' · Качество: ') + style.warn(activePlayback.stream.label)) : ''));
         rightLines.push('');
 
@@ -1254,7 +1254,7 @@ async function playbackControllerScreen(posterLines) {
         rightLines.push('');
 
         if (toast) {
-            rightLines.push(style.good('⚡ ' + toast));
+            rightLines.push(style.good('✓ ' + toast));
         } else {
             rightLines.push(style.muted('Горячие клавиши пульта:'));
         }
@@ -1486,8 +1486,8 @@ async function playStream(film, player, translation, season, episode, options, s
                 progressMsg = msg;
             }), function (frame) {
                 var size = metrics();
-                return tui.box(null, ['', '  ' + style.accent(frame || '⚡') + ' ' + style.bold(progressMsg), ''],
-                    size.width, footer(['автоматический запуск из коробки ⚡']));
+                return tui.box(null, ['', '  ' + style.accent(frame || '•') + ' ' + style.bold(progressMsg), ''],
+                    size.width, footer(['автоматический запуск из коробки']));
             });
         } catch (e) {
             await messageScreen('Ошибка запуска TorrServer', [
@@ -1504,7 +1504,7 @@ async function playStream(film, player, translation, season, episode, options, s
             try {
                 torrents = await tui.withSpinner(torrserve.searchTorrents(film, season, episode), function (frame) {
                     var size = metrics();
-                    return tui.box(null, ['', '  ' + style.accent(frame || '⚡') + ' ' + style.muted('ищу торрент-раздачи в 4K / 1080p…'), ''],
+                    return tui.box(null, ['', '  ' + style.accent(frame || '•') + ' ' + style.muted('ищу торрент-раздачи в 4K / 1080p…'), ''],
                         size.width, footer(['автоматический поиск JacRed']));
                 });
             } catch (e) {}
@@ -1637,14 +1637,14 @@ async function playStream(film, player, translation, season, episode, options, s
     var label = film.title + (season ? ' · S' + season + 'E' + episode : '');
     var found;
 
-    var progress = 'проверяю прямое извлечение ⚡';
+    var progress = 'проверяю прямое извлечение…';
 
     function render(frame) {
         var size = metrics();
 
         return tui.box(null, [
             '',
-            '  ' + style.accent(frame || '⚡') + ' ' + style.bold('Достаю поток'),
+            '  ' + style.accent(frame || '•') + ' ' + style.bold('Достаю поток'),
             '',
             '  ' + style.muted(ansi.truncate(label, size.width - 6)),
             '  ' + style.muted(ansi.truncate('плеер ' + player.source +
@@ -1652,7 +1652,7 @@ async function playStream(film, player, translation, season, episode, options, s
             '',
             '  ' + style.muted(ansi.truncate(progress, size.width - 6)),
             ''
-        ], size.width, footer(['прямой парсинг ⚡ или защита от рекламы']));
+        ], size.width, footer(['прямой парсинг или защита от рекламы']));
     }
 
     try {
@@ -1681,7 +1681,7 @@ async function playStream(film, player, translation, season, episode, options, s
         await messageScreen('Поток не найден', [
             'Плеер ' + player.source + ' не отдал поток.',
             '',
-            'Попробуй другой балансер (например, Collaps ⚡)',
+            'Попробуй другой балансер (например, Collaps)',
             'или открой Настройки по Ctrl+S.'
         ], 'любая клавиша — к списку плееров');
         return { ok: false };
@@ -1691,7 +1691,7 @@ async function playStream(film, player, translation, season, episode, options, s
         await messageScreen('Похоже, это реклама', [
             'Плеер ' + player.source + ' вернул только рекламный ролик.',
             '',
-            'Надёжнее выбрать другой балансер (например, Collaps ⚡).'
+            'Надёжнее выбрать другой балансер (например, Collaps).'
         ], 'любая клавиша — продолжить');
     }
 
@@ -2241,7 +2241,7 @@ async function run(options) {
                     });
 
                     players.push({
-                        source: 'TorrServe ⚡ [Торрент 4K/1080p]',
+                        source: 'TorrServe [Торрент 4K/1080p]',
                         isTorrserve: true,
                         direct: true,
                         quality: '4K / 1080p',
@@ -2384,7 +2384,7 @@ async function run(options) {
                     }
 
                     var translationIndex = await pickerScreen(film, posterLines,
-                        'Озвучка · ' + player.source + (player.direct ? ' ⚡' : ''), translationItems,
+                        'Озвучка · ' + player.source + (player.direct ? ' [прямой]' : ''), translationItems,
                         [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Ctrl+S настройки', 'Esc назад'], 0);
 
                     if (translationIndex === 'back') {

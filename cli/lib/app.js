@@ -1390,6 +1390,7 @@ async function playbackControllerScreen(posterLines) {
 }
 
 // Извлечение потока и воспроизведение в mpv (фоновый режим с адаптацией на лету)
+async function playStream(film, player, translation, season, episode, options, state, posterLines, startTime, resumeQuality) {
     var userConfig = config.read();
 
     if (player && player.isTorrserve) {

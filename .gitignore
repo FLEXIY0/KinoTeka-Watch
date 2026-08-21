@@ -1,6 +1,8 @@
-# Конфигурационные файлы с секретами
-config.js
-kinopoisk-key.js
+# Конфигурационные файлы с секретами.
+# Слэш в начале обязателен: без него шаблон прячет файл с таким именем в
+# любом каталоге — так однажды потерялся cli/lib/config.js.
+/config.js
+/kinopoisk-key.js
 js/donatty-widget.js
 *.local.js
 .env

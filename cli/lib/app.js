@@ -1395,24 +1395,32 @@ async function playStream(film, player, translation, season, episode, options, s
 
     if (player && player.isTorrserve) {
         var torrserve = require('./torrserve');
-        var tsStatus = await torrserve.checkAvailability();
-        if (!tsStatus.ok) {
-            await messageScreen('TorrServer не запущен', [
-                'TorrServer не найден по адресу ' + tsStatus.url,
+        var tsStatus;
+        var progressMsg = 'запускаю TorrServer MatriX из коробки…';
+        try {
+            tsStatus = await tui.withSpinner(torrserve.ensureRunning(function (msg) {
+                progressMsg = msg;
+            }), function (frame) {
+                var size = metrics();
+                return tui.box(null, ['', '  ' + style.accent(frame || '⚡') + ' ' + style.bold(progressMsg), ''],
+                    size.width, footer(['автоматический запуск из коробки ⚡']));
+            });
+        } catch (e) {
+            await messageScreen('Ошибка запуска TorrServer', [
+                e.message,
                 '',
-                'Чтобы воспроизводить торренты на лету без скачивания:',
-                '1. Запусти TorrServer MatriX (по умолчанию на порту 8090)',
-                '2. Или укажи адрес удаленного сервера в Настройках (Ctrl+S)',
-                '',
-                'Сайт TorrServer: https://github.com/YouROK/TorrServer'
+                'Проверь интернет-соединение или укажи адрес удаленного сервера в Настройках (Ctrl+S).'
             ], 'любая клавиша — назад');
             return { ok: false, back: true };
         }
 
-        var magnet = await inputScreen('TorrServe: Стриминг торрента', 'Magnet / Hash', [
-            'Введи magnet-ссылку или info-hash торрента для «' + film.title + '»',
-            'TorrServer мгновенно запустит видео в 4K / 1080p в mpv'
-        ]);
+        var magnet = translation && translation.magnet ? translation.magnet : null;
+        if (!magnet) {
+            magnet = await inputScreen('TorrServe: Стриминг торрента', 'Magnet / Hash / Ссылка', [
+                'Введи magnet-ссылку или хэш торрента для «' + film.title + '»',
+                'TorrServer MatriX (' + (tsStatus.version || '143') + ') запустит прямое воспроизведение в 4K / 1080p'
+            ]);
+        }
 
         if (!magnet) return { ok: false, back: true };
 
@@ -1422,7 +1430,7 @@ async function playStream(film, player, translation, season, episode, options, s
             referer: '',
             origin: '',
             userAgent: 'mpv',
-            label: '4K / 1080p',
+            label: '4K / 1080p (TorrServe)',
             audioTracks: [],
             subtitles: []
         };
@@ -1444,7 +1452,7 @@ async function playStream(film, player, translation, season, episode, options, s
             style.good('✓ Торрент-поток передан в плеер:'),
             '',
             '  ' + style.bold(streamTitle),
-            '  ' + style.muted('Источник: ' + tsStatus.url),
+            '  ' + style.muted('Сервер: ' + tsStatus.url + ' (' + tsStatus.version + ')'),
             '',
             'mpv играет в фоне / отдельном окне.',
             'Ты можешь дальше пользоваться поиском и меню KTW.'

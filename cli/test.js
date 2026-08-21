@@ -664,7 +664,11 @@ async function testTorrserveIntegration() {
     group('Интеграция с TorrServe');
     var torrserve = require('./lib/torrserve');
     assert(typeof torrserve.checkAvailability === 'function', 'checkAvailability экспортирован');
+    assert(typeof torrserve.ensureRunning === 'function', 'ensureRunning экспортирован');
+    assert(typeof torrserve.getBinaryName === 'function', 'getBinaryName экспортирован');
+    assert(typeof torrserve.getBinaryPath === 'function', 'getBinaryPath экспортирован');
     assert(typeof torrserve.buildStreamUrl === 'function', 'buildStreamUrl экспортирован');
+    assert(torrserve.getBinaryName().indexOf('TorrServer-') === 0, 'getBinaryName возвращает верное имя бинарника');
     var streamUrl = torrserve.buildStreamUrl('magnet:?xt=urn:btih:ABC12345', 2, 'http://127.0.0.1:8090');
     assert(streamUrl.indexOf('http://127.0.0.1:8090/stream?link=') === 0, 'buildStreamUrl строит верный URL');
     assert(streamUrl.indexOf('&index=2') >= 0, 'buildStreamUrl включает индекс файла');

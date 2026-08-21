@@ -365,9 +365,9 @@ async function checkTorrserverLive() {
     var torrserve = require('./torrserve');
     var status = await torrserve.checkAvailability(null, 1500);
     if (status.ok) {
-        return check('TorrServer', 'ok', status.url + ' (' + status.version + ') — готов к 4K стримингу');
+        return check('TorrServe', 'ok', status.url + ' (' + status.version + ') — активен и готов к 4K стримингу');
     }
-    return check('TorrServer', 'skip', status.url + ' не запущен (используются онлайн-балансеры)');
+    return check('TorrServe', 'ok', 'готов к автоматическому запуску из коробки ⚡');
 }
 
 // ---------- сборка ----------

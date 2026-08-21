@@ -52,13 +52,34 @@ function runQuiet(command, args) {
 
 // ---------- локальные проверки ----------
 
+// Рантайм подходит любой из двух. Единственное жёсткое требование — глобальный
+// fetch: на нём держится вся работа с балансерами, и в Node он появился только
+// в 18-й версии. Более старый Node запустится, но упадёт на первом запросе.
 function checkRuntime() {
     if (typeof Bun !== 'undefined' && Bun.version) {
         return check('рантайм', 'ok', 'bun ' + Bun.version);
     }
 
-    return check('рантайм', 'fail', 'запущено не через bun',
-        'ktw рассчитан только на Bun: curl -fsSL https://bun.sh/install | bash');
+    var node = process.versions && process.versions.node;
+
+    if (node) {
+        var major = parseInt(node.split('.')[0], 10);
+
+        if (major >= 18) {
+            return check('рантайм', 'ok', 'node ' + node);
+        }
+
+        return check('рантайм', 'fail', 'node ' + node + ' — слишком старый',
+            'нужен Node 18+ (в нём появился fetch) или Bun: ' +
+            'apt install nodejs, либо curl -fsSL https://bun.sh/install | bash');
+    }
+
+    if (typeof fetch !== 'function') {
+        return check('рантайм', 'fail', 'неизвестный рантайм без fetch',
+            'запускай через bun или node 18+');
+    }
+
+    return check('рантайм', 'warn', 'неизвестный рантайм, но fetch есть');
 }
 
 function checkMpv() {

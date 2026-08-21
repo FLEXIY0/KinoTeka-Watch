@@ -497,11 +497,16 @@ async function testEndToEnd() {
     // ловятся ошибки проводки между ktw.js, stream.js и mpv.js. Сеть подменена
     // через bun --preload, поэтому регион и провайдер ни при чём.
     var execFileSync = require('child_process').execFileSync;
+
+    // Тем же рантаймом, которым запущены тесты: флаг предзагрузки у bun и node
+    // называется по-разному, но оба принимают наш CommonJS-заглушку.
+    var isBun = typeof Bun !== 'undefined';
+    var preloadFlag = isBun ? '--preload' : '--require';
     var raw;
 
     try {
-        raw = execFileSync('bun', [
-            '--preload', path.join(__dirname, 'fixtures', 'stub-network.js'),
+        raw = execFileSync(process.execPath, [
+            preloadFlag, path.join(__dirname, 'fixtures', 'stub-network.js'),
             path.join(__dirname, 'ktw.js'),
             '474', '--plain', '--no-mpv', '--json'
         ], {
@@ -511,7 +516,7 @@ async function testEndToEnd() {
             timeout: 60000
         });
     } catch (err) {
-        assert(false, 'ktw отработал без падения: ' + err.message);
+        assert(false, 'ktw отработал без падения (' + process.execPath + '): ' + err.message);
         return;
     }
 
@@ -551,9 +556,10 @@ async function testDoctor() {
     assert(Array.isArray(result.checks) && result.checks.length >= 5,
         'быстрая проверка прогоняет локальные пункты (' + result.checks.length + ')');
 
+    // Рантайм подходит любой: bun или node 18+, где есть глобальный fetch
     var runtime = result.checks.find(function (c) { return c.name === 'рантайм'; });
-    assert(runtime && runtime.status === 'ok' && /bun/.test(runtime.detail),
-        'рантайм определён как bun: ' + (runtime && runtime.detail));
+    assert(runtime && runtime.status === 'ok' && /(bun|node)\s/.test(runtime.detail),
+        'рантайм распознан: ' + (runtime && runtime.detail));
 
     var browser = result.checks.find(function (c) { return c.name === 'браузер'; });
     assert(!!browser, 'доктор отдельно проверяет, что браузер не нужен');

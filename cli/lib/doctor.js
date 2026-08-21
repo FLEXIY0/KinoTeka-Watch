@@ -77,7 +77,7 @@ function checkMpv() {
 
     if (!found) {
         var hint = process.platform === 'win32'
-            ? 'поставь mpv: winget install shinchiro.mpv или scoop install mpv'
+            ? 'команда для установки: winget install --id shinchiro.mpv -e'
             : 'поставь mpv пакетным менеджером: apt install mpv / apk add mpv / pacman -S mpv';
         return check('mpv', 'fail', 'не найден в PATH', hint);
     }

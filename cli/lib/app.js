@@ -1416,10 +1416,9 @@ async function playStream(film, player, translation, season, episode, options, s
 
         var magnet = translation && translation.magnet ? translation.magnet : null;
         if (!magnet) {
-            var searchTitle = (film.title || '') + (film.year ? (' ' + film.year) : '');
             var torrents = [];
             try {
-                torrents = await tui.withSpinner(torrserve.searchTorrents(searchTitle, season, episode), function (frame) {
+                torrents = await tui.withSpinner(torrserve.searchTorrents(film, season, episode), function (frame) {
                     var size = metrics();
                     return tui.box(null, ['', '  ' + style.accent(frame || '⚡') + ' ' + style.muted('ищу торрент-раздачи в 4K / 1080p…'), ''],
                         size.width, footer(['автоматический поиск JacRed']));

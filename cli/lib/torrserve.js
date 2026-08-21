@@ -279,101 +279,126 @@ async function getTorrentFiles(magnetOrHash, customUrl) {
 }
 
 // Поиск торрентов через агрегатор JacRed
-async function searchTorrents(query, season, episode) {
-    var searchQuery = query;
-    if (season) {
-        searchQuery += ' s' + (season < 10 ? '0' : '') + season;
-        if (episode) {
-            searchQuery += 'e' + (episode < 10 ? '0' : '') + episode;
+async function searchTorrents(filmOrQuery, season, episode) {
+    var rawTitle = typeof filmOrQuery === 'object' ? (filmOrQuery.title || '') : String(filmOrQuery || '');
+    var origTitle = typeof filmOrQuery === 'object' ? (filmOrQuery.original || '') : '';
+    var filmYear = typeof filmOrQuery === 'object' ? (filmOrQuery.year || '') : '';
+    var isSerial = Boolean(season) || (typeof filmOrQuery === 'object' && filmOrQuery.serial);
+
+    // Очищенное название для поиска
+    var cleanTitle = rawTitle.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').replace(/\s+/g, ' ').trim();
+    var cleanOrig = origTitle ? origTitle.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').replace(/\s+/g, ' ').trim() : '';
+
+    var queries = [];
+    if (isSerial) {
+        if (season) {
+            var sStr = 's' + (season < 10 ? '0' : '') + season;
+            queries.push(cleanTitle + ' ' + sStr);
+            if (cleanOrig) queries.push(cleanOrig + ' ' + sStr);
+        }
+        queries.push(cleanTitle);
+        if (cleanOrig && cleanOrig !== cleanTitle) queries.push(cleanOrig);
+    } else {
+        if (filmYear) {
+            queries.push(cleanTitle + ' ' + filmYear);
+        }
+        queries.push(cleanTitle);
+        if (cleanOrig && cleanOrig !== cleanTitle) {
+            if (filmYear) queries.push(cleanOrig + ' ' + filmYear);
+            queries.push(cleanOrig);
         }
     }
 
     var urls = [
-        'https://jac.red/api/v1/search?query=' + encodeURIComponent(searchQuery),
-        'https://jacred.xyz/api/v1/search?query=' + encodeURIComponent(searchQuery)
+        'https://jac.red/api/v1/search?query=',
+        'https://jacred.xyz/api/v1/search?query='
     ];
 
-    // Извлекаем чистое название для фильтрации (убираем год)
-    var cleanTitle = query.replace(/\s*\d{4}\s*$/, '').trim().toLowerCase();
+    var allResults = [];
 
-    for (var u of urls) {
-        try {
-            var raw = await new Promise(function (resolve, reject) {
-                var client = u.indexOf('https:') === 0 ? https : http;
-                var req = client.get(u, {
-                    rejectUnauthorized: false,
-                    timeout: 8000,
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-                }, function (res) {
-                    var c = [];
-                    res.on('data', function (d) { c.push(d); });
-                    res.on('end', function () { resolve(Buffer.concat(c).toString('utf8')); });
-                });
-                req.on('error', reject);
-                req.on('timeout', function () { req.destroy(); reject(new Error('timeout')); });
-            });
-
-            var data = JSON.parse(raw);
-            if (Array.isArray(data) && data.length > 0) {
-                // Фильтруем: оставляем только раздачи, где название фильма
-                // совпадает с запросом (по info.name или по title)
-                var filtered = data.filter(function (item) {
-                    var itemName = '';
-                    if (item.info && item.info.name) {
-                        itemName = item.info.name.toLowerCase();
-                    }
-                    var itemTitle = (item.title || '').toLowerCase();
-
-                    // Проверяем совпадение по названию из info.name или по title
-                    return itemName.indexOf(cleanTitle) >= 0 ||
-                           cleanTitle.indexOf(itemName) >= 0 ||
-                           itemTitle.indexOf(cleanTitle) >= 0;
+    for (var i = 0; i < queries.length; i++) {
+        var q = queries[i];
+        for (var j = 0; j < urls.length; j++) {
+            var fullUrl = urls[j] + encodeURIComponent(q);
+            try {
+                var raw = await new Promise(function (resolve, reject) {
+                    var client = fullUrl.indexOf('https:') === 0 ? https : http;
+                    var req = client.get(fullUrl, {
+                        rejectUnauthorized: false,
+                        timeout: 6000,
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                    }, function (res) {
+                        var c = [];
+                        res.on('data', function (d) { c.push(d); });
+                        res.on('end', function () { resolve(Buffer.concat(c).toString('utf8')); });
+                    });
+                    req.on('error', reject);
+                    req.on('timeout', function () { req.destroy(); reject(new Error('timeout')); });
                 });
 
-                // Если после фильтрации ничего — берём все, но сортируем
-                if (filtered.length === 0) filtered = data;
-
-                // Сортируем по количеству сидов (лучшее наверху)
-                filtered.sort(function (a, b) {
-                    return (b.seeders || 0) - (a.seeders || 0);
-                });
-
-                // Берём только топ-20 самых живых раздач
-                return filtered.slice(0, 20).map(function (item) {
-                    var quality = '1080p';
-                    if (item.info && item.info.quality) {
-                        quality = item.info.quality >= 2160 ? '4K UHD' : (item.info.quality + 'p');
-                    } else if (/2160p|4k|uhd/i.test(item.title)) {
-                        quality = '4K UHD';
-                    } else if (/720p/i.test(item.title)) {
-                        quality = '720p';
-                    }
-
-                    var sizeStr = '';
-                    if (item.info && item.info.sizeName) {
-                        sizeStr = item.info.sizeName;
-                    } else if (item.size) {
-                        sizeStr = (item.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-                    }
-
-                    var voices = (item.info && item.info.voices) ? item.info.voices.join(', ') : '';
-
-                    return {
-                        title: item.title,
-                        quality: quality,
-                        size: sizeStr,
-                        seeds: item.seeders || 0,
-                        peers: item.leechers || 0,
-                        voices: voices,
-                        magnet: item.magnetUrl || item.downloadUrl,
-                        indexer: item.indexer || 'Torrent'
-                    };
-                });
-            }
-        } catch (e) {}
+                var data = JSON.parse(raw);
+                if (Array.isArray(data) && data.length > 0) {
+                    allResults = data;
+                    break;
+                }
+            } catch (e) {}
+        }
+        if (allResults.length > 0) break;
     }
 
-    return [];
+    if (allResults.length === 0) return [];
+
+    // Строгая фильтрация по словам названия
+    var searchWords = cleanTitle.toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
+    var origWords = cleanOrig.toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
+
+    var filtered = allResults.filter(function (item) {
+        var t = (item.title || '').toLowerCase();
+        var n = (item.info && item.info.name ? item.info.name : '').toLowerCase();
+        var hay = t + ' ' + n;
+
+        var ruMatch = searchWords.length > 0 && searchWords.every(function (w) { return hay.indexOf(w) >= 0; });
+        var origMatch = origWords.length > 0 && origWords.every(function (w) { return hay.indexOf(w) >= 0; });
+
+        return ruMatch || origMatch;
+    });
+
+    if (filtered.length === 0) filtered = allResults;
+
+    filtered.sort(function (a, b) {
+        return (b.seeders || 0) - (a.seeders || 0);
+    });
+
+    return filtered.slice(0, 25).map(function (item) {
+        var quality = '1080p';
+        if (item.info && item.info.quality) {
+            quality = item.info.quality >= 2160 ? '4K UHD' : (item.info.quality + 'p');
+        } else if (/2160p|4k|uhd/i.test(item.title)) {
+            quality = '4K UHD';
+        } else if (/720p/i.test(item.title)) {
+            quality = '720p';
+        }
+
+        var sizeStr = '';
+        if (item.info && item.info.sizeName) {
+            sizeStr = item.info.sizeName;
+        } else if (item.size) {
+            sizeStr = (item.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+
+        var voices = (item.info && item.info.voices) ? item.info.voices.join(', ') : '';
+
+        return {
+            title: item.title,
+            quality: quality,
+            size: sizeStr,
+            seeds: item.seeders || 0,
+            peers: item.leechers || 0,
+            voices: voices,
+            magnet: item.magnetUrl || item.downloadUrl,
+            indexer: item.indexer || 'Torrent'
+        };
+    });
 }
 
 module.exports = {

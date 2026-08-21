@@ -110,15 +110,16 @@ function buildArgs(stream, title, extraArgs, socketPath) {
     } else {
         var winSize = userConfig.mpvWindowSize || 'compact';
         if (winSize === 'compact') {
-            // Компактный режим в правом нижнем углу экрана (Picture-in-Picture из коробки)
-            args.push('--autofit=42%x42%');
-            args.push('--geometry=96%:94%');
+            // Компактный режим 200px в правом нижнем углу экрана (Picture-in-Picture из коробки)
+            args.push('--autofit=200');
+            args.push('--geometry=98%:96%');
             args.push('--ontop');
         } else if (winSize === 'medium') {
-            args.push('--autofit=60%x60%');
-            args.push('--geometry=50%:50%');
+            args.push('--autofit=400');
+            args.push('--geometry=96%:94%');
+            args.push('--ontop');
         } else if (winSize === 'large') {
-            args.push('--autofit=85%x85%');
+            args.push('--autofit=60%x60%');
             args.push('--geometry=50%:50%');
         }
     }

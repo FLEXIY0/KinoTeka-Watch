@@ -278,7 +278,7 @@ async function settingsScreen() {
     var sizeLabels = ['Авто (адаптивный)', 'Полный (KINOTEKA)', 'Компактный (KTW)', 'Мини (ktw)'];
 
     var winSizeOptions = ['compact', 'medium', 'large', 'fullscreen'];
-    var winSizeLabels = ['Компактный (PiP в углу)', 'Средний (60%)', 'Большой (85%)', 'Полный экран (--fs)'];
+    var winSizeLabels = ['Компактный (200px PiP в углу)', 'Средний (400px)', 'Большой (60%)', 'Полный экран (--fs)'];
 
     while (true) {
         var size = metrics();

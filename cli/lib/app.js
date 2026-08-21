@@ -1315,7 +1315,7 @@ async function playStream(film, player, translation, season, episode, options, s
     });
 
     var selectedQuality = await pickQuality(film, posterLines, found, variants, options, state, player);
-    if (!selectedQuality) return { ok: false };
+    if (!selectedQuality) return { ok: false, back: true };
     if (selectedQuality === 'settings') return { ok: false, settings: true };
 
     found = selectedQuality;
@@ -1914,7 +1914,12 @@ async function run(options) {
                         [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Ctrl+S настройки', 'Esc назад'], 0);
 
                     if (translationIndex === 'back') {
-                        screen = 'players';
+                        if (preferredP) {
+                            screen = seasons.length > 0 ? 'episodes' : 'search';
+                            if (screen === 'search') { film = null; players = []; }
+                        } else {
+                            screen = 'players';
+                        }
                         continue;
                     }
 
@@ -1932,6 +1937,18 @@ async function run(options) {
 
                 if (playResult.settings) {
                     await settingsScreen();
+                    continue;
+                }
+
+                if (playResult.back) {
+                    if (preferredTr && preferredP) {
+                        screen = seasons.length > 0 ? 'episodes' : 'search';
+                        if (screen === 'search') { film = null; players = []; }
+                    } else if (preferredTr) {
+                        screen = 'players';
+                    } else {
+                        screen = 'translations';
+                    }
                     continue;
                 }
 
@@ -1963,10 +1980,14 @@ async function run(options) {
                 }
 
                 if (playResult.inBackground) {
-                    screen = 'search';
-                    film = null;
-                    seasons = [];
-                    players = [];
+                    if (film.serial && seasons.length > 0 && season) {
+                        screen = 'episodes';
+                    } else {
+                        screen = 'search';
+                        film = null;
+                        seasons = [];
+                        players = [];
+                    }
                     continue;
                 }
 

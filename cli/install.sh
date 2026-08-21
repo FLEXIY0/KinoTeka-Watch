@@ -15,7 +15,7 @@
 set -eu
 
 REPO_URL="${KTW_REPO:-https://github.com/FLEXIY0/KinoTeka-Watch.git}"
-REPO_BRANCH="${KTW_BRANCH:-feature/direct-kinobox-tui}"
+REPO_BRANCH="${KTW_BRANCH:-claude/direct-tui-bun-install-d9bhfq}"
 INSTALL_DIR="${KTW_HOME:-$HOME/.local/share/ktw2}"
 BIN_DIR="${KTW_BIN:-$HOME/.local/bin}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ktw"
@@ -577,6 +577,8 @@ write_launcher() {
     _dest="$1"
     _tmp="$_dest.tmp.$$"
 
+    rm -f "$_dest" "$_tmp"
+
     cat > "$_tmp" << EOF
 #!/bin/sh
 # ktw — KinoTeka Watch в терминале. Рантайм: Bun.
@@ -618,14 +620,16 @@ link_binary() {
         fi
     fi
 
+    rm -f "$BIN_DIR/ktw" "$BIN_DIR/ktw2"
     write_launcher "$BIN_DIR/ktw" || die "не смог записать $BIN_DIR/ktw"
     cp -f "$BIN_DIR/ktw" "$BIN_DIR/ktw2"
     ok "команды: $BIN_DIR/ktw и $BIN_DIR/ktw2"
 
     # Если доступен root/sudo, кладём копию в /usr/local/bin — тогда команда
-    # доступна в PATH мгновенно, без перелогина
+    # доступна в PATH мгновенно, без перелогина. Обязательно rm -f, чтобы
+    # cp не перезаписал файл по старому симлинку.
     if [ "$BIN_DIR" != "/usr/local/bin" ] && { [ "$(id -u)" = "0" ] || sudo -n true 2>/dev/null; }; then
-        if run_root "cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw2" 2>/dev/null; then
+        if run_root "rm -f /usr/local/bin/ktw /usr/local/bin/ktw2 && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw2" 2>/dev/null; then
             ok "системные команды: /usr/local/bin/ktw и /usr/local/bin/ktw2"
             return 0
         fi

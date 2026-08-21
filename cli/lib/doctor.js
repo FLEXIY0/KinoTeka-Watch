@@ -361,6 +361,15 @@ async function checkApiKeyLive() {
     }
 }
 
+async function checkTorrserverLive() {
+    var torrserve = require('./torrserve');
+    var status = await torrserve.checkAvailability(null, 1500);
+    if (status.ok) {
+        return check('TorrServer', 'ok', status.url + ' (' + status.version + ') — готов к 4K стримингу');
+    }
+    return check('TorrServer', 'skip', status.url + ' не запущен (используются онлайн-балансеры)');
+}
+
 // ---------- сборка ----------
 
 async function run(mode) {
@@ -387,6 +396,9 @@ async function run(mode) {
 
         var balancers = await checkBalancers();
         balancers.forEach(function (item) { checks.push(item); });
+
+        var ts = await checkTorrserverLive();
+        if (ts) checks.push(ts);
     }
 
     var failed = checks.filter(function (item) { return item.status === 'fail'; });

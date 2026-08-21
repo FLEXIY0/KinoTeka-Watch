@@ -27,6 +27,7 @@ var DEFAULTS = {
     bannerStyle: 'ansi_shadow', // ANSI Shadow 3D блоки по умолчанию
     bannerSize: 'auto',         // 'auto', 'full', 'compact', 'mini'
     lang: 'ru',                 // 'ru', 'en'
+    torrserveUrl: 'http://127.0.0.1:8090', // адрес сервера TorrServer
     timeout: 40000
 };
 

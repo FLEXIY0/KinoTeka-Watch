@@ -660,6 +660,16 @@ async function testSessionPersistence() {
     assert(attached === null, 'пустая сессия корректно возвращает null');
 }
 
+async function testTorrserveIntegration() {
+    group('Интеграция с TorrServe');
+    var torrserve = require('./lib/torrserve');
+    assert(typeof torrserve.checkAvailability === 'function', 'checkAvailability экспортирован');
+    assert(typeof torrserve.buildStreamUrl === 'function', 'buildStreamUrl экспортирован');
+    var streamUrl = torrserve.buildStreamUrl('magnet:?xt=urn:btih:ABC12345', 2, 'http://127.0.0.1:8090');
+    assert(streamUrl.indexOf('http://127.0.0.1:8090/stream?link=') === 0, 'buildStreamUrl строит верный URL');
+    assert(streamUrl.indexOf('&index=2') >= 0, 'buildStreamUrl включает индекс файла');
+}
+
 // ---------- живые проверки ----------
 
 async function testLive() {
@@ -784,6 +794,7 @@ var SUITES = [
     ['Качество', testQualityPick],
     ['Самообновление', testUpdateModule],
     ['Сессия mpv', testSessionPersistence],
+    ['TorrServe', testTorrserveIntegration],
     ['Защита UI и постеров', testUiAndPosterDefensiveness],
     ['Живые', testLive]
 ];

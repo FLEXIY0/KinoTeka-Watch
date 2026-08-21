@@ -2049,6 +2049,14 @@ async function run(options) {
                         var bScore = (b.direct ? 10 : 0) + (b.source === 'Veoveo' ? 5 : 0);
                         return bScore - aScore;
                     });
+
+                    players.push({
+                        source: 'TorrServe ⚡ [Торрент 4K/1080p]',
+                        isTorrserve: true,
+                        direct: true,
+                        quality: '4K / 1080p',
+                        translations: [{ name: 'Торрент-поток (4K / 1080p)' }]
+                    });
                 }
 
                 var preselectedIdx = 0;
@@ -2107,6 +2115,18 @@ async function run(options) {
             }
 
             if (screen === 'translations') {
+                if (player && player.isTorrserve) {
+                    var tsPlayResult = await playStream(film, player, null, season, episode, options, state, posterLines, startTime, resumeQuality);
+                    if (tsPlayResult && tsPlayResult.back) {
+                        screen = 'players';
+                        continue;
+                    }
+                    screen = 'search';
+                    film = null;
+                    players = [];
+                    continue;
+                }
+
                 var variants = player.translations || [];
 
                 // Если балансер прямой (Collaps/Veoveo/etc), достаем живой список дорожек прямо из балансера

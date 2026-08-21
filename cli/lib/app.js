@@ -359,6 +359,11 @@ async function settingsScreen() {
                 valueText: cfg.kinopoiskApiKey ? (cfg.kinopoiskApiKey.slice(0, 8) + '…' + cfg.kinopoiskApiKey.slice(-4)) : t('key_not_set')
             },
             {
+                key: 'torrserveUrl',
+                label: '🧲 TorrServer URL',
+                valueText: cfg.torrserveUrl || 'http://127.0.0.1:8090'
+            },
+            {
                 key: 'memoryBenchmark',
                 label: '📊 Замер памяти (RAM)',
                 valueText: (function () {
@@ -482,6 +487,15 @@ async function settingsScreen() {
                 if (newKey !== null) {
                     cfg.kinopoiskApiKey = newKey;
                     config.save({ kinopoiskApiKey: newKey });
+                }
+            } else if (cur.key === 'torrserveUrl') {
+                var newTsUrl = await inputScreen('Адрес TorrServer', 'URL', [
+                    'Базовый адрес сервера TorrServer MatriX (например: http://127.0.0.1:8090).',
+                    'Позволяет воспроизводить торренты на лету в 4K / 1080p.'
+                ], cfg.torrserveUrl || 'http://127.0.0.1:8090');
+                if (newTsUrl !== null) {
+                    cfg.torrserveUrl = newTsUrl;
+                    config.save({ torrserveUrl: newTsUrl });
                 }
             } else if (cur.key === 'openController') {
                 await playbackControllerScreen();
@@ -1376,8 +1390,68 @@ async function playbackControllerScreen(posterLines) {
 }
 
 // Извлечение потока и воспроизведение в mpv (фоновый режим с адаптацией на лету)
-async function playStream(film, player, translation, season, episode, options, state, posterLines, startTime, resumeQuality) {
     var userConfig = config.read();
+
+    if (player && player.isTorrserve) {
+        var torrserve = require('./torrserve');
+        var tsStatus = await torrserve.checkAvailability();
+        if (!tsStatus.ok) {
+            await messageScreen('TorrServer не запущен', [
+                'TorrServer не найден по адресу ' + tsStatus.url,
+                '',
+                'Чтобы воспроизводить торренты на лету без скачивания:',
+                '1. Запусти TorrServer MatriX (по умолчанию на порту 8090)',
+                '2. Или укажи адрес удаленного сервера в Настройках (Ctrl+S)',
+                '',
+                'Сайт TorrServer: https://github.com/YouROK/TorrServer'
+            ], 'любая клавиша — назад');
+            return { ok: false, back: true };
+        }
+
+        var magnet = await inputScreen('TorrServe: Стриминг торрента', 'Magnet / Hash', [
+            'Введи magnet-ссылку или info-hash торрента для «' + film.title + '»',
+            'TorrServer мгновенно запустит видео в 4K / 1080p в mpv'
+        ]);
+
+        if (!magnet) return { ok: false, back: true };
+
+        var streamUrl = torrserve.buildStreamUrl(magnet);
+        var tsStream = {
+            url: streamUrl,
+            referer: '',
+            origin: '',
+            userAgent: 'mpv',
+            label: '4K / 1080p',
+            audioTracks: [],
+            subtitles: []
+        };
+
+        var streamTitle = film.title + (film.year ? ' (' + film.year + ')' : '') +
+            (season ? ' · S' + season + 'E' + episode : '') + ' · TorrServe 4K';
+
+        var session = mpv.startLiveSession(tsStream, streamTitle, options.mpvArgs);
+        session.stream = tsStream;
+        activePlayback.session = session;
+        activePlayback.film = film;
+        activePlayback.player = player;
+        activePlayback.translation = null;
+        activePlayback.season = season;
+        activePlayback.episode = episode;
+        activePlayback.variants = [];
+
+        await messageScreen('Воспроизведение TorrServe', [
+            style.good('✓ Торрент-поток передан в плеер:'),
+            '',
+            '  ' + style.bold(streamTitle),
+            '  ' + style.muted('Источник: ' + tsStatus.url),
+            '',
+            'mpv играет в фоне / отдельном окне.',
+            'Ты можешь дальше пользоваться поиском и меню KTW.'
+        ], 'Enter или авто-переход в меню…', 900);
+
+        return { ok: true, inBackground: true };
+    }
+
     var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
     var iframeUrl = api.withEpisode(source, season, episode);
     var label = film.title + (season ? ' · S' + season + 'E' + episode : '');

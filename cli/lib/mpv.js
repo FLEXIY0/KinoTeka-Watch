@@ -54,6 +54,8 @@ function buildArgs(stream, title, extraArgs, socketPath) {
         '--input-cursor=yes',
         '--hwdec=' + (userConfig.mpvHardwareDec || 'auto-safe'),
         '--sws-scaler=fast-bilinear',
+        '--force-window=immediate',
+        '--vid=auto',
         '--osc=yes',
         '--script-opts=osc-scalewindowed=1.2,osc-scalefullscreen=1.2,osc-visibility=auto'
     ];
@@ -110,16 +112,15 @@ function buildArgs(stream, title, extraArgs, socketPath) {
     } else {
         var winSize = userConfig.mpvWindowSize || 'compact';
         if (winSize === 'compact') {
-            // Компактный режим 200px в правом нижнем углу экрана (Picture-in-Picture из коробки)
-            args.push('--autofit=200');
-            args.push('--geometry=98%:96%');
-            args.push('--ontop');
-        } else if (winSize === 'medium') {
-            args.push('--autofit=400');
+            // Компактный режим Picture-in-Picture в углу экрана
+            args.push('--autofit=480x270');
             args.push('--geometry=96%:94%');
             args.push('--ontop');
+        } else if (winSize === 'medium') {
+            args.push('--autofit=800x450');
+            args.push('--geometry=50%:50%');
         } else if (winSize === 'large') {
-            args.push('--autofit=60%x60%');
+            args.push('--autofit=70%x70%');
             args.push('--geometry=50%:50%');
         }
     }

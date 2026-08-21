@@ -35,9 +35,13 @@ function onKeypress(str, key) {
     key = key || {};
 
     // Разбор SGR последовательностей мыши: \x1b[<btn;col;row;M или m
-    if (str && str.indexOf('\x1b[<') === 0) {
-        var match = str.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
-        if (match) {
+    if (str && str.indexOf('\x1b[<') >= 0) {
+        var mouseRegex = /\x1b\[<(\d+);(\d+);(\d+)([Mm])/g;
+        var match;
+        var handledMouse = false;
+
+        while ((match = mouseRegex.exec(str)) !== null) {
+            handledMouse = true;
             var btn = parseInt(match[1], 10);
             var col = parseInt(match[2], 10);
             var row = parseInt(match[3], 10);
@@ -46,25 +50,22 @@ function onKeypress(str, key) {
             // Колёсико мыши вверх
             if (btn === 64) {
                 dispatchEvent({ name: 'up', mouse: true });
-                return;
             }
             // Колёсико мыши вниз
-            if (btn === 65) {
+            else if (btn === 65) {
                 dispatchEvent({ name: 'down', mouse: true });
-                return;
             }
             // Левый клик мыши
-            if (btn === 0 && isPress) {
+            else if (btn === 0 && isPress) {
                 dispatchEvent({ name: 'return', mouse: true, col: col, row: row });
-                return;
             }
             // Правый клик мыши — возврат назад (Esc)
-            if (btn === 2 && isPress) {
+            else if (btn === 2 && isPress) {
                 dispatchEvent({ name: 'escape', mouse: true, col: col, row: row });
-                return;
             }
         }
-        return;
+
+        if (handledMouse) return;
     }
 
     var event = {
@@ -103,8 +104,8 @@ function enter() {
     if (active) return;
     active = true;
 
-    // Альтернативный буфер + скрытый курсор + включение мыши (1000h, 1002h, 1006h)
-    write('\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[2J');
+    // Альтернативный буфер + скрытый курсор + включение мыши (1000h, 1006h) + очистка
+    write('\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1006h\x1b[2J');
 
     readline.emitKeypressEvents(process.stdin, { escapeCodeTimeout: 60 });
     if (process.stdin.isTTY) process.stdin.setRawMode(true);
@@ -119,7 +120,7 @@ function exit() {
     active = false;
 
     // Отключение мыши + возврат курсора + возврат буфера
-    write('\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?25h\x1b[?1049l');
+    write('\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[?1049l');
 
     process.stdin.removeListener('keypress', onKeypress);
     process.stdout.removeListener('resize', onResize);
@@ -156,8 +157,9 @@ function readKey(timeoutMs) {
     });
 }
 
-// Отрисовка кадра: блок строк по центру экрана
+// Отрисовка кадра: блок строк по центру экрана с атомарным фрейм-синком
 function paint(lines) {
+    if (!lines) return;
     lastFrame = lines;
 
     var screen = size();
@@ -177,7 +179,9 @@ function paint(lines) {
         out.push('\x1b[2K' + content);
     }
 
-    write('\x1b[H' + out.join('\r\n'));
+    // \x1b[?2026h = начало синхронизированного вывода (без мерцания и задержек)
+    // \x1b[?2026l = конец синхронизированного вывода
+    write('\x1b[?2026h\x1b[H' + out.join('\r\n') + '\x1b[?2026l');
 }
 
 // Рамка вокруг готовых строк содержимого

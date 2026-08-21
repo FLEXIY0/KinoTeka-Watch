@@ -1976,13 +1976,21 @@ async function run(options) {
                     });
                 }
 
-                var chosenPlayer = null;
-
-                var preferredP = options.player || resumePlayer || (!autoUsed ? userConfig.preferredPlayer : null);
+                var preselectedIdx = 0;
+                var preferredP = options.player || resumePlayer || userConfig.preferredPlayer;
                 if (preferredP) {
                     var wantedP = preferredP.toLowerCase();
-                    chosenPlayer = players.find(function (item) {
+                    var foundIdx = players.findIndex(function (item) {
                         return item.source.toLowerCase() === wantedP || item.source.toLowerCase().indexOf(wantedP) === 0;
+                    });
+                    if (foundIdx >= 0) preselectedIdx = foundIdx;
+                }
+
+                var chosenPlayer = null;
+                if (options.player) {
+                    var wantedCli = options.player.toLowerCase();
+                    chosenPlayer = players.find(function (item) {
+                        return item.source.toLowerCase() === wantedCli || item.source.toLowerCase().indexOf(wantedCli) === 0;
                     }) || null;
                 }
 
@@ -1999,7 +2007,7 @@ async function run(options) {
 
                     var heading = season ? 'Плееры · S' + season + 'E' + episode : 'Плееры';
                     var playerIndex = await pickerScreen(film, posterLines, heading, playerItems,
-                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Ctrl+S настройки', 'Esc назад'], season ? 0 : 3);
+                        [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Ctrl+S настройки', 'Esc назад'], season ? 0 : 3, preselectedIdx);
 
                     if (playerIndex === 'back') {
                         screen = seasons.length > 0 ? 'episodes' : 'search';

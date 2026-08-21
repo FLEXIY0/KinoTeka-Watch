@@ -249,8 +249,16 @@ function monitorIpc(socketPath, onProgress) {
         changeVolume: function (delta) { sendCommand(['add', 'volume', delta]); },
         setSpeed: function (speed) { sendCommand(['set_property', 'speed', speed]); },
         changeSpeed: function (delta) { sendCommand(['add', 'speed', delta]); },
-        loadFile: function (url, startTime) {
+        setTitle: function (title) {
+            sendCommand(['set_property', 'force-media-title', title]);
+            sendCommand(['set_property', 'title', title]);
+        },
+        loadFile: function (url, startTime, title) {
             sendCommand(['loadfile', url, 'replace', startTime ? ('start=' + Math.floor(startTime)) : 'start=0']);
+            if (title) {
+                sendCommand(['set_property', 'force-media-title', title]);
+                sendCommand(['set_property', 'title', title]);
+            }
         },
         quit: function () { sendCommand(['quit']); },
         isClosed: function () { return !client || client.destroyed; },
@@ -306,19 +314,24 @@ function tryAttachExistingSession(onProgressCallback) {
             clearTimeout(timeout);
             client.destroy();
 
+            var sessionData = Object.assign({}, data);
+            function persistAttached() {
+                saveSessionFile(sessionData);
+            }
+
             var ipc = monitorIpc(socketPath, function (state) {
-                if (data.filmInfo) {
+                if (sessionData.filmInfo) {
                     history.saveProgress({
-                        filmId: data.filmInfo.id,
-                        title: data.filmInfo.title,
-                        year: data.filmInfo.year,
-                        poster: data.filmInfo.poster,
-                        serial: data.filmInfo.serial,
-                        season: data.season,
-                        episode: data.episode,
-                        player: data.player,
-                        translation: data.translation,
-                        quality: data.stream ? data.stream.label : '',
+                        filmId: sessionData.filmInfo.id,
+                        title: sessionData.filmInfo.title,
+                        year: sessionData.filmInfo.year,
+                        poster: sessionData.filmInfo.poster,
+                        serial: sessionData.filmInfo.serial,
+                        season: sessionData.season,
+                        episode: sessionData.episode,
+                        player: sessionData.player,
+                        translation: sessionData.translation,
+                        quality: sessionData.stream ? sessionData.stream.label : '',
                         timePos: state.timePos,
                         duration: state.duration,
                         watched: state.eofReached || (state.duration > 0 && state.timePos / state.duration > 0.85)
@@ -330,13 +343,52 @@ function tryAttachExistingSession(onProgressCallback) {
             resolve({
                 ipc: ipc,
                 socketPath: socketPath,
-                film: data.filmInfo,
-                stream: data.stream,
-                player: { source: data.player, direct: true },
-                translation: data.translation ? { name: data.translation } : null,
-                season: data.season,
-                episode: data.episode,
-                variants: data.variants || [],
+                get film() { return sessionData.filmInfo; },
+                set film(f) { sessionData.filmInfo = f; persistAttached(); },
+                get stream() { return sessionData.stream; },
+                set stream(s) { sessionData.stream = s; persistAttached(); },
+                get player() { return { source: sessionData.player, direct: true }; },
+                get translation() { return sessionData.translation ? { name: sessionData.translation } : null; },
+                get season() { return sessionData.season; },
+                set season(s) { sessionData.season = s; persistAttached(); },
+                get episode() { return sessionData.episode; },
+                set episode(e) { sessionData.episode = e; persistAttached(); },
+                get variants() { return sessionData.variants || []; },
+                updateStream: function (newStream, newTitle) {
+                    sessionData.filmInfo = newStream.filmInfo;
+                    sessionData.stream = {
+                        url: newStream.url,
+                        label: newStream.label,
+                        audioTracks: newStream.audioTracks,
+                        variants: newStream.variants
+                    };
+                    sessionData.player = newStream.player;
+                    sessionData.translation = newStream.translation;
+                    sessionData.season = newStream.season;
+                    sessionData.episode = newStream.episode;
+                    sessionData.variants = newStream.variants || [];
+                    if (newTitle) {
+                        ipc.setTitle(newTitle);
+                    }
+                    persistAttached();
+                    if (newStream.filmInfo) {
+                        history.saveProgress({
+                            filmId: newStream.filmInfo.id,
+                            title: newStream.filmInfo.title,
+                            year: newStream.filmInfo.year,
+                            poster: newStream.filmInfo.poster,
+                            serial: newStream.filmInfo.serial,
+                            season: newStream.season,
+                            episode: newStream.episode,
+                            player: newStream.player,
+                            translation: newStream.translation,
+                            quality: newStream.label,
+                            timePos: newStream.startTime || 0,
+                            duration: 0,
+                            watched: false
+                        });
+                    }
+                },
                 isAlive: function () {
                     var st = ipc.getState();
                     return !ipc.isClosed() && (st.duration > 0 || st.timePos > 0 || !st.eofReached);
@@ -360,19 +412,40 @@ function tryAttachExistingSession(onProgressCallback) {
 // Запуск сессии воспроизведения с живым IPC пультом
 function startLiveSession(stream, title, extraArgs, onProgressCallback) {
     var socketPath = generateSocketPath();
+    var currentStream = Object.assign({}, stream);
+
+    function persistCurrent() {
+        saveSessionFile({
+            socketPath: socketPath,
+            filmInfo: currentStream.filmInfo,
+            stream: {
+                url: currentStream.url,
+                label: currentStream.label,
+                audioTracks: currentStream.audioTracks,
+                variants: currentStream.variants
+            },
+            player: currentStream.player,
+            translation: currentStream.translation,
+            season: currentStream.season,
+            episode: currentStream.episode,
+            variants: currentStream.variants || [],
+            timestamp: Date.now()
+        });
+    }
+
     var ipc = monitorIpc(socketPath, function (state) {
-        if (stream.filmInfo) {
+        if (currentStream.filmInfo) {
             history.saveProgress({
-                filmId: stream.filmInfo.id,
-                title: stream.filmInfo.title,
-                year: stream.filmInfo.year,
-                poster: stream.filmInfo.poster,
-                serial: stream.filmInfo.serial,
-                season: stream.season,
-                episode: stream.episode,
-                player: stream.player,
-                translation: stream.translation,
-                quality: stream.label,
+                filmId: currentStream.filmInfo.id,
+                title: currentStream.filmInfo.title,
+                year: currentStream.filmInfo.year,
+                poster: currentStream.filmInfo.poster,
+                serial: currentStream.filmInfo.serial,
+                season: currentStream.season,
+                episode: currentStream.episode,
+                player: currentStream.player,
+                translation: currentStream.translation,
+                quality: currentStream.label,
                 timePos: state.timePos,
                 duration: state.duration,
                 watched: state.eofReached || (state.duration > 0 && state.timePos / state.duration > 0.85)
@@ -386,22 +459,7 @@ function startLiveSession(stream, title, extraArgs, onProgressCallback) {
     var exited = false;
     var exitCode = null;
 
-    saveSessionFile({
-        socketPath: socketPath,
-        filmInfo: stream.filmInfo,
-        stream: {
-            url: stream.url,
-            label: stream.label,
-            audioTracks: stream.audioTracks,
-            variants: stream.variants
-        },
-        player: stream.player,
-        translation: stream.translation,
-        season: stream.season,
-        episode: stream.episode,
-        variants: stream.variants || [],
-        timestamp: Date.now()
-    });
+    persistCurrent();
 
     function cleanupSocket() {
         ipc.close();
@@ -440,18 +498,18 @@ function startLiveSession(stream, title, extraArgs, onProgressCallback) {
             var finalState = ipc.getState();
             cleanupSocket();
 
-            if (stream.filmInfo) {
+            if (currentStream.filmInfo) {
                 history.saveProgress({
-                    filmId: stream.filmInfo.id,
-                    title: stream.filmInfo.title,
-                    year: stream.filmInfo.year,
-                    poster: stream.filmInfo.poster,
-                    serial: stream.filmInfo.serial,
-                    season: stream.season,
-                    episode: stream.episode,
-                    player: stream.player,
-                    translation: stream.translation,
-                    quality: stream.label,
+                    filmId: currentStream.filmInfo.id,
+                    title: currentStream.filmInfo.title,
+                    year: currentStream.filmInfo.year,
+                    poster: currentStream.filmInfo.poster,
+                    serial: currentStream.filmInfo.serial,
+                    season: currentStream.season,
+                    episode: currentStream.episode,
+                    player: currentStream.player,
+                    translation: currentStream.translation,
+                    quality: currentStream.label,
                     timePos: finalState.timePos,
                     duration: finalState.duration,
                     watched: finalState.eofReached || (finalState.duration > 0 && finalState.timePos / finalState.duration > 0.85)
@@ -470,6 +528,41 @@ function startLiveSession(stream, title, extraArgs, onProgressCallback) {
     return {
         ipc: ipc,
         child: child,
+        get stream() { return currentStream; },
+        set stream(s) {
+            currentStream = Object.assign({}, s);
+            persistCurrent();
+        },
+        get season() { return currentStream.season; },
+        set season(s) { currentStream.season = s; persistCurrent(); },
+        get episode() { return currentStream.episode; },
+        set episode(e) { currentStream.episode = e; persistCurrent(); },
+        get film() { return currentStream.filmInfo; },
+        set film(f) { currentStream.filmInfo = f; persistCurrent(); },
+        updateStream: function (newStream, newTitle) {
+            currentStream = Object.assign({}, newStream);
+            if (newTitle) {
+                ipc.setTitle(newTitle);
+            }
+            persistCurrent();
+            if (currentStream.filmInfo) {
+                history.saveProgress({
+                    filmId: currentStream.filmInfo.id,
+                    title: currentStream.filmInfo.title,
+                    year: currentStream.filmInfo.year,
+                    poster: currentStream.filmInfo.poster,
+                    serial: currentStream.filmInfo.serial,
+                    season: currentStream.season,
+                    episode: currentStream.episode,
+                    player: currentStream.player,
+                    translation: currentStream.translation,
+                    quality: currentStream.label,
+                    timePos: currentStream.startTime || 0,
+                    duration: 0,
+                    watched: false
+                });
+            }
+        },
         isAlive: function () { return !exited && child.exitCode === null; },
         getState: function () { return ipc.getState(); },
         waitExit: function () { return exitPromise; },

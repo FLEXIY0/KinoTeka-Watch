@@ -61,8 +61,12 @@ function getMiniPlayerBar() {
     if (!activePlayback.session || !activePlayback.session.isAlive()) return null;
     var st = activePlayback.session.getState();
     var time = history.formatTime(st.timePos) + (st.duration > 0 ? (' / ' + history.formatTime(st.duration)) : '');
-    var ep = (activePlayback.season && activePlayback.episode) ? (' · S' + activePlayback.season + 'E' + activePlayback.episode) : '';
-    var filmTitle = activePlayback.film ? activePlayback.film.title : 'Видео';
+    var s = activePlayback.season || (activePlayback.session.season) || (activePlayback.stream && activePlayback.stream.season);
+    var e = activePlayback.episode || (activePlayback.session.episode) || (activePlayback.stream && activePlayback.stream.episode);
+    var ep = (s && e) ? (' · S' + (s < 10 ? '0' : '') + s + 'E' + (e < 10 ? '0' : '') + e) : '';
+    var filmTitle = (activePlayback.film && activePlayback.film.title)
+        || (activePlayback.session.film && activePlayback.session.film.title)
+        || 'Видео';
     var icon = st.pause ? '⏸ ' : '▶ ';
     return style.accent(icon + filmTitle + ep) + ' ' + style.good(time) +
         style.muted(' · ' + (activePlayback.player ? activePlayback.player.source : 'mpv')) +
@@ -1335,9 +1339,12 @@ async function playStream(film, player, translation, season, episode, options, s
     // Если плеер mpv уже открыт — адаптируем воспроизведение на лету
     if (activePlayback.session && activePlayback.session.isAlive()) {
         try {
-            activePlayback.session.ipc.loadFile(found.url, found.startTime);
+            activePlayback.session.ipc.loadFile(found.url, found.startTime, streamTitle);
             if (found.audioId) {
                 activePlayback.session.ipc.setAudio(found.audioId);
+            }
+            if (activePlayback.session.updateStream) {
+                activePlayback.session.updateStream(found, streamTitle);
             }
             activePlayback.film = film;
             activePlayback.player = player;
@@ -1346,6 +1353,23 @@ async function playStream(film, player, translation, season, episode, options, s
             activePlayback.episode = episode;
             activePlayback.variants = variants;
             activePlayback.stream = found;
+
+            // Мгновенно обновляем запись в истории на новую серию
+            history.saveProgress({
+                filmId: film.id,
+                title: film.title,
+                year: film.year,
+                poster: film.poster,
+                serial: film.serial,
+                season: season,
+                episode: episode,
+                player: player.source,
+                translation: translation ? translation.name : '',
+                quality: found.label,
+                timePos: found.startTime || 0,
+                duration: 0,
+                watched: false
+            });
 
             await messageScreen('mpv адаптирован к выбору', [
                 style.good('✓ Воспроизведение переключено в открытом окне mpv:'),
@@ -1374,6 +1398,23 @@ async function playStream(film, player, translation, season, episode, options, s
         activePlayback.season = season;
         activePlayback.episode = episode;
         activePlayback.variants = variants;
+
+        // Мгновенно сохраняем выбранную серию в истории
+        history.saveProgress({
+            filmId: film.id,
+            title: film.title,
+            year: film.year,
+            poster: film.poster,
+            serial: film.serial,
+            season: season,
+            episode: episode,
+            player: player.source,
+            translation: translation ? translation.name : '',
+            quality: found.label,
+            timePos: found.startTime || 0,
+            duration: 0,
+            watched: false
+        });
 
         await messageScreen('Воспроизведение запущено в mpv', [
             style.good('✓ Видео открыто в окне mpv:'),

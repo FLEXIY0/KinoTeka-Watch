@@ -113,7 +113,7 @@ async function resolveStream(iframeUrl, options) {
 // подпись бралась из ответа Kinobox, а не из плейлиста.
 async function readVariants(stream) {
     if (stream.manifest) {
-        return parseMaster(stream.manifest, stream.url);
+        return parseMaster(stream.manifest, stream.url, stream.playerTracks || stream.audioTracks);
     }
 
     var sources = [stream.url];
@@ -145,7 +145,7 @@ async function readVariants(stream) {
             continue;
         }
 
-        var variants = parseMaster(res.body, res.url);
+        var variants = parseMaster(res.body, res.url, stream.playerTracks || stream.audioTracks);
 
         if (variants.length > 0) return variants;
 
@@ -165,12 +165,7 @@ function attr(line, name) {
 }
 
 // Разбор мастер-плейлиста в список дорожек.
-//
-// Важное: аудио у большинства балансеров вынесено в отдельные рендиции
-// (#EXT-X-MEDIA:TYPE=AUDIO с GROUP-ID), а сам вариант качества — только видео.
-// Поэтому каждой дорожке качества привязывается её собственная группа звука:
-// иначе выбор качества уводил на видео без звука.
-function parseMaster(text, baseUrl) {
+function parseMaster(text, baseUrl, knownTracks) {
     if (!text || text.indexOf('#EXTM3U') < 0) return [];
 
     var lines = text.split(/\r?\n/);
@@ -186,9 +181,12 @@ function parseMaster(text, baseUrl) {
         var group = attr(line, 'GROUP-ID');
         var uri = attr(line, 'URI');
 
+        var rawName = attr(line, 'NAME') || '';
+        var rawLang = attr(line, 'LANGUAGE') || '';
+
         var entry = {
-            name: attr(line, 'NAME') || '',
-            lang: attr(line, 'LANGUAGE') || '',
+            name: rawName,
+            lang: rawLang,
             url: uri ? new URL(uri, baseUrl).toString() : null,
             default: /DEFAULT=YES/i.test(line),
             group: group
@@ -196,10 +194,27 @@ function parseMaster(text, baseUrl) {
 
         if (mediaType === 'AUDIO') {
             if (!audioByGroup[group]) audioByGroup[group] = [];
-            entry.name = entry.name || ('Аудио ' + (audioByGroup[group].length + 1));
-            entry.index = audioByGroup[group].length;
-            // mpv нумерует дорожки внутри выбранной группы с единицы
-            entry.audioId = audioByGroup[group].length + 1;
+            var trackIndex = audioByGroup[group].length;
+            entry.index = trackIndex;
+            entry.audioId = trackIndex + 1;
+
+            var fromKnown = null;
+            if (knownTracks && knownTracks.length > 0) {
+                fromKnown = knownTracks.find(function (t) { return t.order === trackIndex; }) || knownTracks[trackIndex];
+            }
+
+            if (fromKnown && fromKnown.name) {
+                // Если у нас техническое имя (rus0, audio0 и т.д.) или пустое
+                if (!entry.name || /^rus\d+|^eng\d+|^ukr\d+|^audio\d+/i.test(entry.name)) {
+                    entry.name = fromKnown.name;
+                }
+                entry.lang = fromKnown.lang || entry.lang;
+            } else if (!entry.name) {
+                entry.name = 'Аудио ' + (trackIndex + 1);
+            }
+
+            if (!entry.lang) entry.lang = extractors.languageOf(entry.name);
+
             audioByGroup[group].push(entry);
         } else if (mediaType === 'SUBTITLES') {
             if (!subsByGroup[group]) subsByGroup[group] = [];

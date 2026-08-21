@@ -1303,6 +1303,44 @@ async function run(options) {
 
             if (screen === 'translations') {
                 var variants = player.translations || [];
+
+                // Если балансер прямой (Collaps/Veoveo/etc), достаем живой список дорожек прямо из балансера
+                if (player.direct && (!variants || variants.length <= 1 || player.source.toLowerCase().indexOf('collaps') >= 0)) {
+                    var probeUrl = api.withEpisode(player.iframeUrl, season, episode);
+                    try {
+                        var directInfo = await tui.withSpinner(stream.resolveStream(probeUrl, {
+                            season: season,
+                            episode: episode,
+                            timeout: 8000
+                        }), function (frame) {
+                            var size = metrics();
+                            return tui.box(null, ['', '  ' + style.accent(frame) + ' ' + style.muted('получаю список озвучек из балансера…'), ''],
+                                size.width, footer(['Esc — назад']));
+                        });
+
+                        if (directInfo) {
+                            if (directInfo.audioTracks && directInfo.audioTracks.length > 0) {
+                                variants = directInfo.audioTracks.map(function (at) {
+                                    return {
+                                        name: at.name,
+                                        quality: player.quality || '',
+                                        iframeUrl: player.iframeUrl,
+                                        audioId: at.audioId
+                                    };
+                                });
+                            } else if (directInfo.variantTracks && directInfo.variantTracks.length > 0) {
+                                variants = directInfo.variantTracks.map(function (vt) {
+                                    return {
+                                        name: vt.name,
+                                        quality: player.quality || '',
+                                        iframeUrl: vt.url
+                                    };
+                                });
+                            }
+                        }
+                    } catch (e) {}
+                }
+
                 translation = null;
 
                 var preferredTr = options.translation || (!autoUsed ? userConfig.preferredTranslation : null);

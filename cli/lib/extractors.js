@@ -118,8 +118,14 @@ async function extractCollaps(iframeUrl, options) {
     var subtitles = [];
     var duration = 0;
     var title = '';
-
-    var makePlayerAt = html.indexOf('makePlayer');
+    var callMatch = html.match(/makePlayer\s*\(\s*\{/);
+    var makePlayerAt = callMatch ? callMatch.index : -1;
+    if (makePlayerAt < 0) {
+        var mkMatch = html.match(/<script[^>]*data-name="mk"[^>]*>([\s\S]*?)<\/script>/i);
+        if (mkMatch) {
+            makePlayerAt = html.indexOf(mkMatch[1]);
+        }
+    }
     var cfg = makePlayerAt >= 0 ? parseJsObject(sliceBalanced(html, makePlayerAt)) : null;
 
     if (cfg) {
@@ -236,7 +242,8 @@ function veoveoVariants(episode) {
                 name: variant.title || ('Дорожка ' + (idx + 1)),
                 url: variant.filepath || variant.m3u8MasterFilePath,
                 duration: variant.duration || 0,
-                index: idx
+                index: idx,
+                lang: languageOf(variant.title || '')
             };
         });
 }
@@ -312,14 +319,25 @@ async function extractVeoveo(iframeUrl, options) {
         chosen = variants.find(function (item) { return namesMatch(normalizeName(item.name), wanted); });
     }
 
-    if (!chosen) chosen = variants[0];
+    if (!chosen) {
+        var russian = variants.filter(function (v) { return languageOf(v.name) === 'rus'; });
+        chosen = russian.length > 0 ? russian[0] : variants[0];
+    }
 
     return baseResult('veoveo', chosen.url, res.url, {
         duration: chosen.duration || 0,
         title: target.title || '',
-        // Дорожки этого балансера — отдельные плейлисты, а не aid внутри одного
+        audioTracks: variants.map(function (item) {
+            return {
+                name: item.name,
+                url: item.url,
+                index: item.index,
+                audioId: item.index + 1,
+                lang: item.lang
+            };
+        }),
         variantTracks: variants.map(function (item) {
-            return { name: item.name, url: item.url, index: item.index };
+            return { name: item.name, url: item.url, index: item.index, lang: item.lang };
         })
     });
 }
@@ -607,12 +625,14 @@ function namesMatch(a, b) {
 function languageOf(name) {
     var text = String(name || '');
 
-    if (/\((?:rus|ru)\)|\bрус/i.test(text)) return 'rus';
-    if (/\((?:ukr|ua)\)|\bукр/i.test(text)) return 'ukr';
-    if (/\((?:eng|en)\)|\bengl|оригинал|original/i.test(text)) return 'eng';
+    if (/\((?:rus|ru)\)|\bрус\b|\bдубл|\bмногогол|\bдвухгол|\bодногол|\bзакадр/i.test(text)) return 'rus';
+    if (/\b(?:lostfilm|hdrezka|rezka|fox|jaskier|newstudio|alexfilm|baibako|coldfilm|hamsterstudio|octopus|tvshows|kurazh|redheadsound|rhs|flarrow)\b/i.test(text)) return 'rus';
+    if (/\((?:ukr|ua)\)|\bукр\b|\bбагатог/i.test(text)) return 'ukr';
+    if (/\((?:eng|en)\)|\bengl\b|original\s*\(eng\)|оригинал\s*\(eng\)/i.test(text)) return 'eng';
 
-    // Кириллица в названии озвучки — почти всегда русская дорожка
+    // Кириллица в названии озвучки — русская дорожка
     if (/[а-яё]/i.test(text)) return 'rus';
+    if (/\beng\b|\boriginal\b/i.test(text)) return 'eng';
 
     return '';
 }

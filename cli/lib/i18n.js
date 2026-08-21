@@ -61,7 +61,9 @@ var DICT = {
         key_reset: 'r сбросить',
         key_delete: 'd удалить',
         key_back: 'назад',
-        key_exit: 'выход'
+        key_exit: 'выход',
+        donate_label: '🍺 Поддержать автора (На пиво)',
+        donate_val: 'donatty.com/nedoedal [Enter]'
     },
     en: {
         search_title: 'ktw',
@@ -121,7 +123,9 @@ var DICT = {
         key_reset: 'r reset',
         key_delete: 'd delete',
         key_back: 'back',
-        key_exit: 'exit'
+        key_exit: 'exit',
+        donate_label: '🍺 Support author (Beer donate)',
+        donate_val: 'donatty.com/nedoedal [Enter]'
     }
 };
 

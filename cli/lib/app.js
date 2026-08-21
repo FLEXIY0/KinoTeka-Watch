@@ -375,6 +375,11 @@ async function settingsScreen() {
                 key: 'updateKtw',
                 label: '📦 Обновление KTW',
                 valueText: 'Проверить и обновить'
+            },
+            {
+                key: 'donate',
+                label: t('donate_label') || '🍺 Поддержать автора (На пиво)',
+                valueText: t('donate_val') || 'donatty.com/nedoedal [Enter]'
             }
         ];
 
@@ -511,6 +516,23 @@ async function settingsScreen() {
                     process.stdin.once('data', function () { res(); });
                 });
                 tui.enter();
+            } else if (cur.key === 'donate') {
+                var donateUrl = 'https://donatty.com/nedoedal';
+                var openCmd = process.platform === 'win32'
+                    ? 'start "" "' + donateUrl + '"'
+                    : (process.platform === 'darwin' ? 'open "' + donateUrl + '"' : 'xdg-open "' + donateUrl + '"');
+                try {
+                    require('child_process').exec(openCmd, function () {});
+                } catch (e) {}
+
+                await messageScreen('🍺 Поддержка автора (Donatty)', [
+                    'Спасибо за поддержку KinoTeka Watch!',
+                    '',
+                    style.bold('Ссылка для доната: ') + style.accent(donateUrl),
+                    style.muted('(страница открыта в твоём браузере)'),
+                    '',
+                    'Автор проекта: ' + style.bold('Droopi') + ' (FLEXIY0)'
+                ], 'любая клавиша — назад');
             }
 
             syncSettingsToLivePlayer(cfg);

@@ -87,9 +87,22 @@ if (Get-Command "bun" -ErrorAction SilentlyContinue) {
     Write-Ok "Зависимости установлены через npm"
 }
 
-# 5. Команда ktw
+# 5. Команда ktw (нативный .exe, .cmd и .ps1)
 Write-Step "5. Создание команды ktw"
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+
+$Compiled = $false
+if (Get-Command "bun" -ErrorAction SilentlyContinue) {
+    try {
+        Write-Dim "Компилирую быстрый бинарник ktw.exe..."
+        bun build --compile --minify "$InstallDir\cli\ktw.js" --outfile "$BinDir\ktw.exe"
+        Copy-Item -Force "$BinDir\ktw.exe" "$BinDir\ktw2.exe"
+        $Compiled = $true
+        Write-Ok "Скомпилирован нативный $BinDir\ktw.exe"
+    } catch {
+        $Compiled = $false
+    }
+}
 
 $CmdContent = @"
 @echo off
@@ -104,22 +117,41 @@ if exist "$env:USERPROFILE\.bun\bin\bun.exe" (
 )
 "@
 
+$Ps1Content = @"
+if (Test-Path "$env:USERPROFILE\.bun\bin\bun.exe") {
+    & "$env:USERPROFILE\.bun\bin\bun.exe" "$InstallDir\cli\ktw.js" `$args
+} elseif (Get-Command "bun" -ErrorAction SilentlyContinue) {
+    & bun "$InstallDir\cli\ktw.js" `$args
+} else {
+    & node "$InstallDir\cli\ktw.js" `$args
+}
+"@
+
 Set-Content -Path "$BinDir\ktw.cmd" -Value $CmdContent -Encoding ASCII
 Set-Content -Path "$BinDir\ktw2.cmd" -Value $CmdContent -Encoding ASCII
-Write-Ok "Команды созданы: $BinDir\ktw.cmd и ktw2.cmd"
+Set-Content -Path "$BinDir\ktw.ps1" -Value $Ps1Content -Encoding UTF8
+Set-Content -Path "$BinDir\ktw2.ps1" -Value $Ps1Content -Encoding UTF8
+Write-Ok "Скрипты запуска созданы: ktw.cmd, ktw2.cmd, ktw.ps1"
 
-# 6. Проверка PATH
+# 6. Обновление PATH в текущей сессии и навсегда
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($UserPath -notlike "*$BinDir*") {
     [Environment]::SetEnvironmentVariable("Path", "$UserPath;$BinDir", "User")
-    Write-Ok "Каталог $BinDir добавлен в пользовательский PATH"
+    Write-Ok "Каталог $BinDir добавлен в системный реестр PATH"
+}
+
+# Обновляем PATH прямо в текущем сеансе PowerShell
+if ($env:PATH -notlike "*$BinDir*") {
+    $env:PATH = "$BinDir;$env:PATH"
 }
 
 Write-Host @"
 
-  Готово! Запускай в Windows Terminal или PowerShell:
+  ✓ Готово! Запускай:
     ktw
     ktw матрица
     ktw --stand
+
+  (Если в текущей вкладке команда ещё не подхватилась, открой новую вкладку терминала или выполни: `$env:PATH = "$BinDir;`$env:PATH")
 
 "@ -ForegroundColor Green

@@ -104,10 +104,25 @@ function buildArgs(stream, title, extraArgs, socketPath) {
         });
     }
 
-    // Настройки пользователя из конфига
-    if (userConfig.mpvFullscreen) {
+    // Настройки окна и полноэкранного режима
+    if (userConfig.mpvFullscreen || userConfig.mpvWindowSize === 'fullscreen') {
         args.push('--fs');
+    } else {
+        var winSize = userConfig.mpvWindowSize || 'compact';
+        if (winSize === 'compact') {
+            // Компактный режим в правом нижнем углу экрана (Picture-in-Picture из коробки)
+            args.push('--autofit=42%x42%');
+            args.push('--geometry=96%:94%');
+            args.push('--ontop');
+        } else if (winSize === 'medium') {
+            args.push('--autofit=60%x60%');
+            args.push('--geometry=50%:50%');
+        } else if (winSize === 'large') {
+            args.push('--autofit=85%x85%');
+            args.push('--geometry=50%:50%');
+        }
     }
+
     if (userConfig.mpvHardwareDec && userConfig.mpvHardwareDec !== 'no') {
         args.push('--hwdec=' + userConfig.mpvHardwareDec);
     }

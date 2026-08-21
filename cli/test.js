@@ -181,6 +181,7 @@ async function testMpvArgs() {
     assert(args.indexOf('--aid=3') >= 0, 'есть --aid=3 для звуковой дорожки');
     assert(args.some(function (a) { return a.indexOf('--sub-file=') === 0; }), 'подключены субтитры');
     assert(args.indexOf('--volume=80') >= 0, 'проброшены пользовательские аргументы');
+    assert(args.some(function (a) { return a.indexOf('--autofit=') === 0; }), 'компактный размер окна из коробки');
 
     // Именно так и получался немой mpv: --aid на дорожку, которой нет
     var bad = mpv.buildArgs({
@@ -606,10 +607,19 @@ async function testConfigAndHistory() {
 
     history.saveProgress({
         filmId: 999998, title: 'Сериал', serial: true, season: 1, episode: 3,
-        timePos: 2800, duration: 3000
+        timePos: 2800, duration: 3000, userRating: 9
     });
     assert(history.isEpisodeWatched(999998, 1, 3) === true, 'серия помечена просмотренной');
     assert(history.isEpisodeWatched(999998, 1, 4) === false, 'непросмотренная серия — false');
+    assert(history.getProgress(999998).userRating === 9, 'оценка сохранена (9/10)');
+
+    history.setUserRating(999998, 10);
+    assert(history.getProgress(999998).userRating === 10, 'setUserRating обновляет оценку до 10');
+
+    history.toggleEpisodeWatched(999998, 1, 4);
+    assert(history.isEpisodeWatched(999998, 1, 4) === true, 'toggleEpisodeWatched отмечает серию');
+    history.unmarkEpisode(999998, 1, 4);
+    assert(history.isEpisodeWatched(999998, 1, 4) === false, 'unmarkEpisode сбрасывает серию');
 
     history.resetSerial(999998);
     assert(history.getWatchedEpisodesCount(999998) === 0, 'resetSerial сбрасывает прогресс');

@@ -72,10 +72,18 @@ function saveProgress(entry) {
     var percentage = duration > 0 ? Math.min(100, Math.round((timePos / duration) * 100)) : 0;
     var watched = entry.watched || (percentage >= 85);
 
-    // Удаляем предыдущую запись об этом фильме/сериале
+    // Удаляем предыдущую запись об этом фильме/сериале, сохраняя пользовательскую оценку
+    var existing = data.items.find(function (item) {
+        return String(item.filmId) === filmId;
+    });
+
     data.items = data.items.filter(function (item) {
         return String(item.filmId) !== filmId;
     });
+
+    var userRating = entry.userRating !== undefined
+        ? (entry.userRating ? Number(entry.userRating) : null)
+        : (existing ? existing.userRating : null);
 
     var record = {
         filmId: filmId,
@@ -92,6 +100,7 @@ function saveProgress(entry) {
         duration: duration,
         percentage: percentage,
         watched: watched,
+        userRating: userRating,
         updatedAt: Date.now()
     };
 
@@ -110,6 +119,20 @@ function saveProgress(entry) {
     }
 
     write(data);
+}
+
+// Установка личной оценки фильма / сериала (1-10 звезд)
+function setUserRating(filmId, rating) {
+    if (!filmId) return;
+    var data = read();
+    var idStr = String(filmId);
+    var item = data.items.find(function (i) { return String(i.filmId) === idStr; });
+    if (item) {
+        item.userRating = (rating !== null && rating !== undefined && !isNaN(rating))
+            ? Math.max(1, Math.min(10, Math.round(Number(rating))))
+            : null;
+        write(data);
+    }
 }
 
 // Получить сохранённый прогресс фильма или конкретной серии
@@ -134,6 +157,39 @@ function isEpisodeWatched(filmId, season, episode) {
     var list = data.watchedEpisodes[String(filmId)];
     if (!Array.isArray(list)) return false;
     return list.indexOf(Number(season) + '_' + Number(episode)) >= 0;
+}
+
+// Снять отметку просмотра с конкретной серии
+function unmarkEpisode(filmId, season, episode) {
+    if (!filmId || !season || !episode) return;
+    var data = read();
+    var idStr = String(filmId);
+    var list = data.watchedEpisodes[idStr];
+    if (Array.isArray(list)) {
+        var epKey = Number(season) + '_' + Number(episode);
+        data.watchedEpisodes[idStr] = list.filter(function (k) { return k !== epKey; });
+        write(data);
+    }
+}
+
+// Переключить статус просмотра серии (✓ / сброс)
+function toggleEpisodeWatched(filmId, season, episode) {
+    if (!filmId || !season || !episode) return false;
+    var data = read();
+    var idStr = String(filmId);
+    if (!data.watchedEpisodes[idStr]) data.watchedEpisodes[idStr] = [];
+    var epKey = Number(season) + '_' + Number(episode);
+    var idx = data.watchedEpisodes[idStr].indexOf(epKey);
+    var isNowWatched = false;
+    if (idx >= 0) {
+        data.watchedEpisodes[idStr].splice(idx, 1);
+        isNowWatched = false;
+    } else {
+        data.watchedEpisodes[idStr].push(epKey);
+        isNowWatched = true;
+    }
+    write(data);
+    return isNowWatched;
 }
 
 // Получить список просмотренных серий для сериала
@@ -192,8 +248,11 @@ module.exports = {
     write: write,
     formatTime: formatTime,
     saveProgress: saveProgress,
+    setUserRating: setUserRating,
     getProgress: getProgress,
     isEpisodeWatched: isEpisodeWatched,
+    unmarkEpisode: unmarkEpisode,
+    toggleEpisodeWatched: toggleEpisodeWatched,
     getWatchedEpisodesList: getWatchedEpisodesList,
     getWatchedEpisodesCount: getWatchedEpisodesCount,
     resetSerial: resetSerial,

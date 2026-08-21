@@ -18,6 +18,7 @@ var DEFAULTS = {
     preferredTranslation: '',  // 'Дублированный', 'LostFilm', 'Кубик в кубе', 'Оригинал'...
     preferredQuality: '',      // '1080', '720', 'max', 'min' или пусто
     mpvFullscreen: false,
+    mpvWindowSize: 'compact',  // 'compact' (40% в углу), 'medium' (60%), 'large' (85%), 'fullscreen'
     mpvHardwareDec: 'auto-safe',
     mpvCustomArgs: [],
     directOnly: false,         // режим только прямого парсинга без запуска браузера
@@ -28,6 +29,12 @@ var DEFAULTS = {
     lang: 'ru',                 // 'ru', 'en'
     timeout: 40000
 };
+
+function ensureDir() {
+    try {
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    } catch (e) {}
+}
 
 function read() {
     try {
@@ -42,7 +49,7 @@ function save(patch) {
     var current = read();
     var updated = Object.assign({}, current, patch);
     try {
-        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+        ensureDir();
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2) + '\n', { mode: 0o600 });
     } catch (err) {
         // При ошибке прав записи просто возвращаем объект

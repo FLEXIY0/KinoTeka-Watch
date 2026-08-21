@@ -300,6 +300,7 @@ async function checkBalancers() {
 
     var results = [];
     var geoSeen = false;
+    var workingCount = 0;
 
     for (var i = 0; i < players.length; i++) {
         var player = players[i];
@@ -316,6 +317,7 @@ async function checkBalancers() {
         }
 
         if (found && found.url) {
+            workingCount++;
             results.push(check('балансер ' + player.source, 'ok', http.hostOf(found.url)));
             continue;
         }
@@ -326,8 +328,14 @@ async function checkBalancers() {
         if (code === 'geo') geoSeen = true;
 
         results.push(check('балансер ' + player.source,
-            code === 'geo' ? 'warn' : 'fail',
-            reason ? reason.message : 'не отдал поток'));
+            'warn',
+            reason ? reason.message : 'не отдал поток',
+            'плеер временно недоступен — ktw автоматически использует рабочий'));
+    }
+
+    if (workingCount === 0 && players.length > 0) {
+        results.push(check('источники видео', 'fail', 'ни один балансер не отдал поток',
+            'проверь подключение к интернету или включи VPN'));
     }
 
     if (geoSeen) {

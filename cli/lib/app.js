@@ -1968,6 +1968,12 @@ async function run(options) {
                         screen = seasons.length > 0 ? 'episodes' : 'search';
                         continue;
                     }
+
+                    players.sort(function (a, b) {
+                        var aScore = (a.direct ? 10 : 0) + (a.source === 'Veoveo' ? 5 : 0);
+                        var bScore = (b.direct ? 10 : 0) + (b.source === 'Veoveo' ? 5 : 0);
+                        return bScore - aScore;
+                    });
                 }
 
                 var chosenPlayer = null;

@@ -35,8 +35,16 @@ function check(name, status, detail, hint) {
 }
 
 function which(command) {
+    if (process.platform === 'win32') {
+        try {
+            var out = execFileSync('where', [command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+            return out.split('\r\n')[0].split('\n')[0];
+        } catch (err) {
+            return '';
+        }
+    }
     try {
-        return execFileSync('sh', ['-c', 'command -v ' + command], { encoding: 'utf8' }).trim();
+        return execFileSync('sh', ['-c', 'command -v ' + command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     } catch (err) {
         return '';
     }
@@ -56,17 +64,22 @@ function checkRuntime() {
     if (typeof Bun !== 'undefined' && Bun.version) {
         return check('рантайм', 'ok', 'bun ' + Bun.version);
     }
+    if (typeof process !== 'undefined' && process.version) {
+        return check('рантайм', 'ok', 'node ' + process.version);
+    }
 
-    return check('рантайм', 'fail', 'запущено не через bun',
-        'ktw рассчитан только на Bun: curl -fsSL https://bun.sh/install | bash');
+    return check('рантайм', 'fail', 'неизвестный рантайм',
+        'ktw работает на Bun или Node.js (18+): curl -fsSL https://bun.sh/install | bash');
 }
 
 function checkMpv() {
     var found = which('mpv');
 
     if (!found) {
-        return check('mpv', 'fail', 'не найден в PATH',
-            'поставь mpv пакетным менеджером: apt install mpv / apk add mpv / pacman -S mpv');
+        var hint = process.platform === 'win32'
+            ? 'поставь mpv: winget install shinchiro.mpv или scoop install mpv'
+            : 'поставь mpv пакетным менеджером: apt install mpv / apk add mpv / pacman -S mpv';
+        return check('mpv', 'fail', 'не найден в PATH', hint);
     }
 
     var version = (runQuiet('mpv', ['--version']).split('\n')[0] || 'версия неизвестна').trim();

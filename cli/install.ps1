@@ -45,10 +45,36 @@ if (Get-Command "bun" -ErrorAction SilentlyContinue) {
     }
 }
 
-# 2. Проверка mpv
+# 2. Проверка и установка mpv
 Write-Step "2. Видеоплеер mpv"
 if (Get-Command "mpv" -ErrorAction SilentlyContinue) {
     Write-Ok "mpv найден в PATH"
+} elseif (Get-Command "winget" -ErrorAction SilentlyContinue) {
+    Write-Dim "Пробую установить mpv автоматически через Winget..."
+    try {
+        winget install --id shinchiro.mpv -e --accept-package-agreements --accept-source-agreements --silent
+        # Добавляем стандартные пути установки mpv в PATH сессии
+        $MpvPaths = @(
+            "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\shinchiro.mpv_*",
+            "$env:ProgramFiles\mpv",
+            "$env:ProgramFiles (x86)\mpv"
+        )
+        foreach ($p in $MpvPaths) {
+            $resolved = Get-Item $p -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($resolved -and (Test-Path "$($resolved.FullName)\mpv.exe")) {
+                $env:PATH = "$($resolved.FullName);$env:PATH"
+                break
+            }
+        }
+        if (Get-Command "mpv" -ErrorAction SilentlyContinue) {
+            Write-Ok "mpv успешно установлен"
+        } else {
+            Write-Warn "mpv установлен, но может потребоваться перезапуск терминала"
+        }
+    } catch {
+        Write-Warn "Не удалось установить mpv автоматически."
+        Write-Dim "Установи вручную: winget install shinchiro.mpv"
+    }
 } else {
     Write-Warn "mpv не найден в PATH."
     Write-Dim "Установи через Winget: winget install shinchiro.mpv"
@@ -144,6 +170,50 @@ if ($UserPath -notlike "*$BinDir*") {
 if ($env:PATH -notlike "*$BinDir*") {
     $env:PATH = "$BinDir;$env:PATH"
 }
+
+# 7. Ключ Кинопоиска API
+Write-Step "6. Ключ Кинопоиска API"
+$ConfigDir = "$env:USERPROFILE\.config\ktw"
+$ConfigFile = "$ConfigDir\config.json"
+New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+
+$ExistingConfig = @{}
+if (Test-Path $ConfigFile) {
+    try { $ExistingConfig = Get-Content $ConfigFile -Raw | ConvertFrom-Json } catch {}
+}
+
+$CurrentKey = if ($env:KINOPOISK_API_KEY) { $env:KINOPOISK_API_KEY } elseif ($ExistingConfig.kinopoiskApiKey) { $ExistingConfig.kinopoiskApiKey } else { "" }
+
+if ($CurrentKey) {
+    Write-Ok "Ключ API уже сохранён"
+} else {
+    Write-Dim "Бесплатный ключ API: https://kinopoiskapiunofficial.tech"
+    try {
+        $EnteredKey = Read-Host "  Вставь ключ (или нажми Enter, чтобы ввести позже)"
+        if ($EnteredKey -and $EnteredKey.Trim().Length -gt 0) {
+            $ExistingConfig | Add-Member -NotePropertyName "kinopoiskApiKey" -NotePropertyValue ($EnteredKey.Trim()) -Force
+            $ExistingConfig | ConvertTo-Json | Set-Content -Path $ConfigFile -Encoding UTF8
+            Write-Ok "Ключ успешно сохранен в $ConfigFile"
+        } else {
+            Write-Warn "Ключ не задан. Позже введи его в ktw по Ctrl+K или в $ConfigFile"
+        }
+    } catch {
+        Write-Warn "Ключ не задан. Позже введи его в ktw по Ctrl+K или в $ConfigFile"
+    }
+}
+
+# 8. Проверка Доктором
+Write-Step "7. Проверка готовности"
+try {
+    if (Test-Path "$BinDir\ktw.exe") {
+        & "$BinDir\ktw.exe" --doctor-brief
+    } elseif (Test-Path "$env:USERPROFILE\.bun\bin\bun.exe") {
+        & "$env:USERPROFILE\.bun\bin\bun.exe" "$InstallDir\cli\ktw.js" --doctor-brief
+    } else {
+        & node "$InstallDir\cli\ktw.js" --doctor-brief
+    }
+    Write-Ok "Всё настроено"
+} catch {}
 
 Write-Host @"
 

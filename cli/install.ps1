@@ -1,0 +1,125 @@
+# KTW — KinoTeka Watch installer for Windows (PowerShell)
+# Запуск: irm https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/claude/direct-tui-bun-install-d9bhfq/cli/install.ps1 | iex
+
+$ErrorActionPreference = "Stop"
+
+$RepoUrl = if ($env:KTW_REPO) { $env:KTW_REPO } else { "https://github.com/FLEXIY0/KinoTeka-Watch.git" }
+$RepoBranch = if ($env:KTW_BRANCH) { $env:KTW_BRANCH } else { "claude/direct-tui-bun-install-d9bhfq" }
+$InstallDir = if ($env:KTW_HOME) { $env:KTW_HOME } else { "$env:USERPROFILE\.local\share\ktw2" }
+$BinDir = if ($env:KTW_BIN) { $env:KTW_BIN } else { "$env:USERPROFILE\.local\bin" }
+
+function Write-Ok($msg)   { Write-Host "  [✓] $msg" -ForegroundColor Green }
+function Write-Warn($msg) { Write-Host "  [!] $msg" -ForegroundColor Yellow }
+function Write-Bad($msg)  { Write-Host "  [✗] $msg" -ForegroundColor Red }
+function Write-Step($msg) { Write-Host "`n$msg" -ForegroundColor Cyan }
+function Write-Dim($msg)  { Write-Host "  $msg" -ForegroundColor Gray }
+
+Write-Host @"
+┌──────────────────────────────────────────────┐
+│  ktw · KinoTeka Watch в Windows Terminal     │
+│  Прямой парсинг балансеров ⚡ и просмотр mpv │
+└──────────────────────────────────────────────┘
+"@ -ForegroundColor Cyan
+
+# 1. Проверка и установка Bun
+Write-Step "1. Рантайм"
+$BunPath = "$env:USERPROFILE\.bun\bin\bun.exe"
+if (Get-Command "bun" -ErrorAction SilentlyContinue) {
+    Write-Ok "Bun уже установлен в системе"
+} elseif (Test-Path $BunPath) {
+    $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
+    Write-Ok "Bun найден в $env:USERPROFILE\.bun\bin"
+} else {
+    Write-Dim "Устанавливаю Bun..."
+    try {
+        Invoke-RestMethod -Uri "https://bun.sh/install.ps1" | Invoke-Expression
+        $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
+        Write-Ok "Bun успешно установлен"
+    } catch {
+        Write-Warn "Не удалось установить Bun автоматически. Проверяю Node.js..."
+        if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
+            Write-Bad "Для работы KTW требуется Bun или Node.js."
+            exit 1
+        }
+        Write-Ok "Использую Node.js"
+    }
+}
+
+# 2. Проверка mpv
+Write-Step "2. Видеоплеер mpv"
+if (Get-Command "mpv" -ErrorAction SilentlyContinue) {
+    Write-Ok "mpv найден в PATH"
+} else {
+    Write-Warn "mpv не найден в PATH."
+    Write-Dim "Установи через Winget: winget install shinchiro.mpv"
+    Write-Dim "Или через Scoop:        scoop install mpv"
+}
+
+# 3. Исходники
+Write-Step "3. Исходники KTW"
+if (Test-Path "$InstallDir\.git") {
+    Write-Dim "Обновляю исходники в $InstallDir..."
+    try {
+        git -C $InstallDir fetch origin $RepoBranch
+        git -C $InstallDir checkout -f $RepoBranch
+        git -C $InstallDir reset --hard "origin/$RepoBranch"
+        Write-Ok "Обновлено до последней версии"
+    } catch {
+        Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue
+    }
+}
+
+if (-not (Test-Path "$InstallDir\.git")) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $InstallDir) | Out-Null
+    Write-Dim "Клонирую репозиторий в $InstallDir..."
+    git clone --depth 1 --branch $RepoBranch $RepoUrl $InstallDir
+    Write-Ok "Исходники скачаны в $InstallDir"
+}
+
+# 4. Зависимости
+Write-Step "4. Зависимости"
+Set-Location $InstallDir
+if (Get-Command "bun" -ErrorAction SilentlyContinue) {
+    bun install --production
+    Write-Ok "Зависимости установлены через Bun"
+} else {
+    npm install --omit=dev --no-audit --no-fund
+    Write-Ok "Зависимости установлены через npm"
+}
+
+# 5. Команда ktw
+Write-Step "5. Создание команды ktw"
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+
+$CmdContent = @"
+@echo off
+if exist "$env:USERPROFILE\.bun\bin\bun.exe" (
+    "$env:USERPROFILE\.bun\bin\bun.exe" "$InstallDir\cli\ktw.js" %*
+) else (
+    where bun >nul 2>nul && (
+        bun "$InstallDir\cli\ktw.js" %*
+    ) || (
+        node "$InstallDir\cli\ktw.js" %*
+    )
+)
+"@
+
+Set-Content -Path "$BinDir\ktw.cmd" -Value $CmdContent -Encoding ASCII
+Set-Content -Path "$BinDir\ktw2.cmd" -Value $CmdContent -Encoding ASCII
+Write-Ok "Команды созданы: $BinDir\ktw.cmd и ktw2.cmd"
+
+# 6. Проверка PATH
+$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($UserPath -notlike "*$BinDir*") {
+    [Environment]::SetEnvironmentVariable("Path", "$UserPath;$BinDir", "User")
+    Write-Ok "Каталог $BinDir добавлен в пользовательский PATH"
+}
+
+Write-Host @"
+
+  Готово! Запускай в Windows Terminal или PowerShell:
+    ktw
+    ktw матрица
+    ktw --stand
+
+"@ -ForegroundColor Green

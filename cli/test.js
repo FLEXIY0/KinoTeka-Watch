@@ -715,6 +715,52 @@ async function testLive() {
     }
 }
 
+async function testUiAndPosterDefensiveness() {
+    group('Защита UI и постеров от сбоев (posterLines & null/undefined)');
+
+    var app = require('./lib/app');
+    var posterMod = require('./lib/poster');
+
+    // 1. columns с undefined posterLines (регрессия: posterLines.length)
+    var r1 = app.columns(undefined, ['Строка 1', 'Строка 2'], 40);
+    assert(Array.isArray(r1) && r1.length === 2, 'columns(undefined, [...]) не падает и возвращает строки');
+
+    // 2. columns с null posterLines
+    var r2 = app.columns(null, ['Строка 1'], 40);
+    assert(Array.isArray(r2) && r2.length === 1, 'columns(null, [...]) не падает');
+
+    // 3. columns с null rightLines
+    var r3 = app.columns(['Постер 1', 'Постер 2'], null, 40);
+    assert(Array.isArray(r3) && r3.length === 2, 'columns([...], null) не падает');
+
+    // 4. columns с null rightWidth
+    var r4 = app.columns(['П1'], ['Р1'], null);
+    assert(Array.isArray(r4) && r4.length === 1, 'columns с null rightWidth не падает');
+
+    // 5. metaLine с null/undefined film
+    assert(app.metaLine(null) === '', 'metaLine(null) возвращает пустую строку');
+    assert(app.metaLine(undefined) === '', 'metaLine(undefined) возвращает пустую строку');
+    assert(app.metaLine({}) === '', 'metaLine({}) возвращает пустую строку');
+
+    // 6. filmHeader с null/undefined film
+    var fh1 = app.filmHeader(null, 40);
+    assert(Array.isArray(fh1) && fh1.length > 0, 'filmHeader(null) возвращает массив строк');
+
+    var fh2 = app.filmHeader(undefined, null);
+    assert(Array.isArray(fh2) && fh2.length > 0, 'filmHeader(undefined, null) возвращает массив строк');
+
+    // 7. poster placeholder с null/undefined/некорректными параметрами
+    var p1 = posterMod.placeholder(null, 22, 13);
+    assert(Array.isArray(p1) && p1.length === 13, 'placeholder(null) возвращает 13 строк');
+
+    var p2 = posterMod.placeholder(undefined, 0, 0);
+    assert(Array.isArray(p2) && p2.length === 13, 'placeholder(undefined, 0, 0) использует дефолтные размеры');
+
+    // 8. poster render с null/undefined url и title
+    var pr1 = await posterMod.render(null, null, 22, 13);
+    assert(Array.isArray(pr1) && pr1.length === 13, 'render(null, null) возвращает валидный постер-заглушку');
+}
+
 // ---------- запуск ----------
 
 var SUITES = [
@@ -738,6 +784,7 @@ var SUITES = [
     ['Качество', testQualityPick],
     ['Самообновление', testUpdateModule],
     ['Сессия mpv', testSessionPersistence],
+    ['Защита UI и постеров', testUiAndPosterDefensiveness],
     ['Живые', testLive]
 ];
 

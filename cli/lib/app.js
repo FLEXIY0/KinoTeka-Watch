@@ -116,13 +116,16 @@ function footer(hints) {
 
 // Склейка обложки и правой колонки в одну сетку
 function columns(posterLines, rightLines, rightWidth) {
-    var rows = Math.max(posterLines.length, rightLines.length);
+    var pLines = Array.isArray(posterLines) ? posterLines : [];
+    var rLines = Array.isArray(rightLines) ? rightLines : [];
+    var rows = Math.max(pLines.length, rLines.length);
     var lines = [];
+    var w = typeof rightWidth === 'number' ? rightWidth : 40;
 
     for (var i = 0; i < rows; i++) {
-        var left = posterLines[i] !== undefined ? posterLines[i] : ansi.repeat(' ', POSTER_COLS);
-        var right = rightLines[i] !== undefined ? rightLines[i] : '';
-        lines.push(' ' + left + style.reset + ansi.repeat(' ', GAP) + ansi.pad(right, rightWidth));
+        var left = pLines[i] !== undefined ? pLines[i] : ansi.repeat(' ', POSTER_COLS);
+        var right = rLines[i] !== undefined ? rLines[i] : '';
+        lines.push(' ' + left + style.reset + ansi.repeat(' ', GAP) + ansi.pad(right, w));
     }
 
     return lines;
@@ -130,10 +133,11 @@ function columns(posterLines, rightLines, rightWidth) {
 
 // Строка «1999 · фантастика · 136 мин · ★ 8.5»
 function metaLine(film) {
+    if (!film) return '';
     var parts = [];
 
     if (film.year) parts.push(String(film.year));
-    if (film.genres && film.genres.length > 0) parts.push(film.genres.slice(0, 2).join(', '));
+    if (film.genres && Array.isArray(film.genres) && film.genres.length > 0) parts.push(film.genres.slice(0, 2).join(', '));
     if (film.length) parts.push(film.length + ' мин');
     if (film.rating) parts.push((ansi.ascii ? '*' : '★') + ' ' + film.rating);
 
@@ -142,6 +146,8 @@ function metaLine(film) {
 
 // Шапка правой колонки
 function filmHeader(film, width, descriptionLines) {
+    film = film || {};
+    var w = typeof width === 'number' ? width : 40;
     var lines = [];
     var mini = getMiniPlayerBar();
     if (mini) {
@@ -149,17 +155,20 @@ function filmHeader(film, width, descriptionLines) {
         lines.push('');
     }
 
-    lines.push(style.bold(ansi.truncate(film.title, width)));
+    lines.push(style.bold(ansi.truncate(film.title || 'Видео', w)));
 
     if (film.original && film.original !== film.title) {
-        lines.push(style.muted(ansi.truncate(film.original, width)));
+        lines.push(style.muted(ansi.truncate(film.original, w)));
     }
 
-    lines.push(style.muted(ansi.truncate(metaLine(film), width)));
-    lines.push('');
+    var meta = metaLine(film);
+    if (meta) {
+        lines.push(style.muted(ansi.truncate(meta, w)));
+        lines.push('');
+    }
 
     if (descriptionLines > 0 && film.description) {
-        ansi.wrap(film.description, width, descriptionLines).forEach(function (line) {
+        ansi.wrap(film.description, w, descriptionLines).forEach(function (line) {
             lines.push(style.muted(line));
         });
         lines.push('');
@@ -569,7 +578,8 @@ async function historyScreen() {
             rightLines.push(style.muted('Плеер: ' + chosen.player + (chosen.translation ? (' · ' + chosen.translation) : '')));
         }
 
-        var cardLines = size.withPoster && posterLines.length > 0
+        var hasPoster = Array.isArray(posterLines) && posterLines.length > 0;
+        var cardLines = (size.withPoster && hasPoster)
             ? columns(posterLines, rightLines, size.rightWidth)
             : rightLines.map(function (l) { return '  ' + l; });
 
@@ -934,6 +944,9 @@ async function searchScreen(state, apiKey) {
 
 // Универсальный экран выбора с обложкой слева
 async function pickerScreen(film, posterLines, title, items, hints, descriptionLines, initialIndex, onCustomKey) {
+    posterLines = Array.isArray(posterLines) ? posterLines : [];
+    items = Array.isArray(items) ? items : [];
+    hints = Array.isArray(hints) ? hints : [];
     var selected = initialIndex && initialIndex < items.length ? initialIndex : 0;
 
     while (true) {
@@ -950,7 +963,8 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
             });
         }
 
-        var content = size.withPoster
+        var hasPoster = posterLines.length > 0;
+        var content = (size.withPoster && hasPoster)
             ? columns(posterLines, right, size.rightWidth)
             : right.map(function (line) { return ' ' + ansi.pad(line, size.width - 3); });
 
@@ -1074,6 +1088,7 @@ async function nextEpisodeCountdown(film, nextSeason, nextEpisode, countdownSeco
 
 // Интерактивный пульт управления mpv на лету (открывается по Ctrl+P, не закрывая плеер)
 async function playbackControllerScreen(posterLines) {
+    posterLines = Array.isArray(posterLines) ? posterLines : [];
     if (!activePlayback.session || !activePlayback.session.isAlive()) {
         await messageScreen('Пульт управления', [
             'Сейчас нет активного воспроизведения mpv.',
@@ -2164,5 +2179,9 @@ async function run(options) {
 }
 
 module.exports = {
-    run: run
+    run: run,
+    columns: columns,
+    filmHeader: filmHeader,
+    metaLine: metaLine,
+    metrics: metrics
 };

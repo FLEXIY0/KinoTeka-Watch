@@ -231,6 +231,31 @@ function checkPath() {
     return check('команда ktw', 'ok', found);
 }
 
+function checkPosterRendering() {
+    try {
+        var posterMod = require('./poster');
+        var pl = posterMod.placeholder('Test', 22, 13);
+        if (!Array.isArray(pl) || pl.length !== 13) {
+            return check('отрисовка постеров', 'fail', 'плейсхолдер вернул некорректный размер',
+                'очисти кеш обложек: ktw --doctor --fix');
+        }
+        var appMod = require('./app');
+        if (typeof appMod.columns === 'function') {
+            var c1 = appMod.columns(undefined, ['тест'], 40);
+            var c2 = appMod.columns(null, null, 40);
+            var c3 = appMod.columns(['п1'], undefined, 40);
+            if (!Array.isArray(c1) || !Array.isArray(c2) || !Array.isArray(c3)) {
+                return check('отрисовка постеров', 'fail', 'сетка падает на пустых обложках',
+                    'обнови ktw: ktw --update');
+            }
+        }
+        return check('отрисовка постеров', 'ok', 'сетка и плейсхолдеры защищены от сбоев');
+    } catch (err) {
+        return check('отрисовка постеров', 'fail', err.message,
+            'обнови ktw: ktw --update');
+    }
+}
+
 // ---------- сетевые проверки ----------
 
 async function checkMirrors() {
@@ -342,7 +367,8 @@ async function run(mode) {
         checkApiKey(),
         checkConfig(),
         checkCache(),
-        checkPath()
+        checkPath(),
+        checkPosterRendering()
     ];
 
     if (mode !== 'quick') {

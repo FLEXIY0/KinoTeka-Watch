@@ -21,8 +21,8 @@ var DICT = {
         translation_label: 'Любимая озвучка',
         quality_label: 'Качество по умолчанию',
         mode_label: 'Режим извлечения',
-        mode_hybrid: 'Гибридный ⚡ (прямой + браузер)',
-        mode_direct: 'Только прямой парсинг ⚡',
+        mode_hybrid: 'Гибридный [прямой + браузер]',
+        mode_direct: 'Только прямой парсинг [без браузера]',
         fullscreen_label: 'MPV на весь экран',
         hwdec_label: 'MPV декодирование',
         mirror_label: 'Зеркало Kinobox API',
@@ -61,7 +61,9 @@ var DICT = {
         key_reset: 'r сбросить',
         key_delete: 'd удалить',
         key_back: 'назад',
-        key_exit: 'выход'
+        key_exit: 'выход',
+        donate_label: 'Поддержать автора (Donatty)',
+        donate_val: 'donatty.com/nedoedal [Enter]'
     },
     en: {
         search_title: 'ktw',
@@ -81,8 +83,8 @@ var DICT = {
         translation_label: 'Preferred Audio',
         quality_label: 'Preferred Quality',
         mode_label: 'Extraction Mode',
-        mode_hybrid: 'Hybrid ⚡ (direct + browser)',
-        mode_direct: 'Direct parsing only ⚡',
+        mode_hybrid: 'Hybrid [direct + browser]',
+        mode_direct: 'Direct parsing only [no browser]',
         fullscreen_label: 'MPV Fullscreen',
         hwdec_label: 'MPV Hardware Decoding',
         mirror_label: 'Kinobox API Mirror',
@@ -121,7 +123,9 @@ var DICT = {
         key_reset: 'r reset',
         key_delete: 'd delete',
         key_back: 'back',
-        key_exit: 'exit'
+        key_exit: 'exit',
+        donate_label: 'Support author (Donatty)',
+        donate_val: 'donatty.com/nedoedal [Enter]'
     }
 };
 

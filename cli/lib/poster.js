@@ -128,6 +128,8 @@ async function renderWithMagick(bin, file, cols, rows) {
 
 // Заглушка, когда картинки нет или нечем её отрисовать
 function placeholder(title, cols, rows) {
+    cols = typeof cols === 'number' && cols > 0 ? cols : 22;
+    rows = typeof rows === 'number' && rows > 0 ? rows : 13;
     var letter = (String(title || '?').trim()[0] || '?').toUpperCase();
     var lines = [];
 
@@ -145,6 +147,10 @@ function placeholder(title, cols, rows) {
 
 // Выравнивание результата ровно под размер блока
 function fit(lines, cols, rows) {
+    cols = typeof cols === 'number' && cols > 0 ? cols : 22;
+    rows = typeof rows === 'number' && rows > 0 ? rows : 13;
+    lines = Array.isArray(lines) ? lines : [];
+
     var result = lines.slice(0, rows).map(function (line) {
         var width = ansi.visibleWidth(line);
 
@@ -166,7 +172,9 @@ function fit(lines, cols, rows) {
 
 // url -> массив строк размером cols x rows
 async function render(url, title, cols, rows) {
-    var key = url + ':' + cols + 'x' + rows;
+    cols = typeof cols === 'number' && cols > 0 ? cols : 22;
+    rows = typeof rows === 'number' && rows > 0 ? rows : 13;
+    var key = (url || '') + ':' + cols + 'x' + rows;
     if (memoryCache.has(key)) return memoryCache.get(key);
 
     var tool = detectTool();

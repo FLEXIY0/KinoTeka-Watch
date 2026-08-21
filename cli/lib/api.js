@@ -225,11 +225,135 @@ async function requestPlayers(param, value) {
     throw new Error('Плееры не получены: ' + (lastError ? lastError.message : 'нет ответа'));
 }
 
+// ---------- Прямые API-запросы к балансерам (адаптировано из Lampa online_mod.js) ----------
+//
+// Kinobox иногда не отдаёт все доступные плееры. Прямые запросы к API балансеров
+// по KP ID — резервный (и часто основной) источник, не зависящий от Kinobox.
+// Адреса взяты из рабочего плагина nb557/online_mod.js (567K+, >25 балансеров).
+
+var DIRECT_COLLAPS_MIRRORS = [
+    'https://api.kinogram.best/embed/kp/',
+    'https://api.ortified.ws/embed/kp/'
+];
+
+var CDNVIDEOHUB_API = 'https://plapi.cdnvideohub.com/api/v1/player/sv/playlist?pub=12&aggr=kp&id=';
+
+// Прямые запросы к балансерам по KP ID. Возвращает массив player-объектов
+// (формат как у normalizePlayers): source, translation, iframeUrl, direct.
+async function getPlayersDirectApi(kinopoiskId) {
+    var directPlayers = [];
+
+    // 1. Collaps через kinogram.best / ortified.ws — прямой embed по KP ID
+    for (var i = 0; i < DIRECT_COLLAPS_MIRRORS.length; i++) {
+        try {
+            var collapsUrl = DIRECT_COLLAPS_MIRRORS[i] + kinopoiskId;
+            var collapsRes = await http.request(collapsUrl, {
+                referer: 'https://kinobox.tv/',
+                timeout: 8000
+            });
+
+            if (collapsRes.ok && collapsRes.body.length > 1000) {
+                directPlayers.push({
+                    source: 'Collaps',
+                    translation: 'Мультиозвучка',
+                    quality: 'HLS',
+                    translations: [],
+                    iframeUrl: collapsUrl,
+                    direct: true,
+                    fromDirect: true
+                });
+                break; // Один рабочий Collaps достаточно
+            }
+        } catch (e) {}
+    }
+
+    // 2. CDNVideoHub — JSON API с озвучками
+    try {
+        var cvhRes = await http.request(CDNVIDEOHUB_API + kinopoiskId, {
+            accept: 'application/json',
+            timeout: 6000
+        });
+
+        if (cvhRes.ok && cvhRes.body.length > 10) {
+            var cvhData = null;
+            try { cvhData = JSON.parse(cvhRes.body); } catch (e) {}
+
+            if (cvhData && cvhData.items && cvhData.items.length > 0) {
+                var cvhTranslations = cvhData.items.map(function (item) {
+                    return {
+                        id: item.cvhId,
+                        name: item.voiceStudio || item.voiceType || 'Неизвестно',
+                        quality: '',
+                        iframeUrl: 'https://plapi.cdnvideohub.com/api/v1/player/sv/' + item.cvhId
+                    };
+                });
+
+                directPlayers.push({
+                    source: 'CDNVideoHub',
+                    translation: cvhTranslations[0].name,
+                    quality: '-',
+                    translations: cvhTranslations,
+                    iframeUrl: 'https://plapi.cdnvideohub.com/api/v1/player/sv/' + cvhData.items[0].cvhId,
+                    direct: false,
+                    fromDirect: true
+                });
+            }
+        }
+    } catch (e) {}
+
+    return directPlayers;
+}
+
 // Ссылки на iframe живут недолго, поэтому кеш здесь короткий — четверть часа.
 // Этого хватает, чтобы переход «серия → назад → другая серия» не ходил в сеть.
 function getPlayers(kinopoiskId) {
-    return cache.through('players', 'kp:' + kinopoiskId, function () {
-        return requestPlayers('kinopoisk', kinopoiskId);
+    return cache.through('players', 'kp:' + kinopoiskId, async function () {
+        // Запускаем Kinobox и прямые API параллельно — быстрее и надёжнее
+        var kinoboxPromise = requestPlayers('kinopoisk', kinopoiskId).catch(function () { return []; });
+        var directPromise = getPlayersDirectApi(kinopoiskId).catch(function () { return []; });
+
+        var results = await Promise.all([kinoboxPromise, directPromise]);
+        var kinoboxPlayers = results[0];
+        var directPlayers = results[1];
+
+        // Собираем прямые API источники в словарь для быстрого поиска
+        var directBySource = {};
+        directPlayers.forEach(function (dp) {
+            directBySource[(dp.source || '').toLowerCase()] = dp;
+        });
+
+        // Проходим Kinobox-плееры: если для того же балансера есть прямой API
+        // с другим URL (рабочим зеркалом) — **заменяем**, а не дублируем.
+        // Пример: Kinobox даёт Collaps → ortified.ws (422), а прямой API →
+        // kinogram.best (200, HLS) — ставим kinogram.best вместо мёртвого.
+        var usedDirectSources = {};
+        var merged = kinoboxPlayers.map(function (kp) {
+            var src = (kp.source || '').toLowerCase();
+            var directAlt = directBySource[src];
+
+            if (directAlt && directAlt.iframeUrl !== kp.iframeUrl) {
+                usedDirectSources[src] = true;
+                return directAlt; // рабочее зеркало вместо мёртвого
+            }
+
+            return kp;
+        });
+
+        // Добавляем прямые API, которых нет в Kinobox (CDNVideoHub и т.д.)
+        directPlayers.forEach(function (dp) {
+            var dpSrc = (dp.source || '').toLowerCase();
+            if (!usedDirectSources[dpSrc] && !kinoboxPlayers.some(function (kp) {
+                return (kp.source || '').toLowerCase() === dpSrc;
+            })) {
+                merged.push(dp);
+            }
+        });
+
+        if (merged.length === 0) {
+            throw new Error('Плееры не получены ни из Kinobox, ни из прямых API');
+        }
+
+        return merged;
     });
 }
 
@@ -269,5 +393,6 @@ module.exports = {
     getSeasons: getSeasons,
     getPlayers: getPlayers,
     getPlayersByTitle: getPlayersByTitle,
+    getPlayersDirectApi: getPlayersDirectApi,
     withEpisode: withEpisode
 };

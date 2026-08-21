@@ -1,12 +1,12 @@
 #!/bin/sh
 # Установка ktw — терминального клиента KinoTeka Watch.
 #
-#   curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/main/cli/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/FLEXIY0/KinoTeka-Watch/feature/direct-kinobox-tui/cli/install.sh | sh
 #
 # Рантайм выбирается через KTW_RUNTIME: bun (по умолчанию), node или auto.
-# Код одинаково работает на обоих — единственное требование к Node это версия
-# 18 или новее, где появился глобальный fetch. На слабых машинах Node часто уже
-# стоит, и тогда качать 90 МБ бинарника Bun незачем:
+# Код работает на обоих одинаково, требование к Node одно — версия 18 или новее,
+# где появился глобальный fetch. На слабых машинах Node обычно уже стоит, и
+# качать ради ktw 90 МБ бинарника Bun незачем:
 #
 #   curl -fsSL …/cli/install.sh | KTW_RUNTIME=node sh
 #
@@ -21,7 +21,15 @@ set -eu
 REPO_URL="${KTW_REPO:-https://github.com/FLEXIY0/KinoTeka-Watch.git}"
 REPO_BRANCH="${KTW_BRANCH:-main}"
 INSTALL_DIR="${KTW_HOME:-$HOME/.local/share/ktw2}"
-BIN_DIR="${KTW_BIN:-$HOME/.local/bin}"
+
+IS_TERMUX=0
+if [ -n "${TERMUX_VERSION:-}" ] || [ -d "/data/data/com.termux" ]; then
+    IS_TERMUX=1
+    BIN_DIR="${KTW_BIN:-${PREFIX:-/data/data/com.termux/files/usr}/bin}"
+else
+    BIN_DIR="${KTW_BIN:-$HOME/.local/bin}"
+fi
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ktw"
 
 # bun | node | auto (auto берёт то, что уже стоит в системе)
@@ -237,7 +245,8 @@ PKG_INSTALL=""
 PKG_UPDATED=0
 
 detect_pkg_mgr() {
-    if has apt-get; then PKG_MGR="apt-get"; PKG_INSTALL="apt-get install -y"
+    if [ "$IS_TERMUX" = "1" ] && has pkg; then PKG_MGR="pkg"; PKG_INSTALL="pkg install -y"
+    elif has apt-get; then PKG_MGR="apt-get"; PKG_INSTALL="apt-get install -y"
     elif has apk; then PKG_MGR="apk"; PKG_INSTALL="apk add --no-cache"
     elif has dnf; then PKG_MGR="dnf"; PKG_INSTALL="dnf install -y"
     elif has yum; then PKG_MGR="yum"; PKG_INSTALL="yum install -y"
@@ -246,6 +255,7 @@ detect_pkg_mgr() {
     elif has xbps-install; then PKG_MGR="xbps"; PKG_INSTALL="xbps-install -Sy"
     elif has emerge; then PKG_MGR="emerge"; PKG_INSTALL="emerge --quiet"
     elif has brew; then PKG_MGR="brew"; PKG_INSTALL="brew install"
+    elif has pkg; then PKG_MGR="pkg"; PKG_INSTALL="pkg install -y"
     fi
 }
 
@@ -253,7 +263,8 @@ detect_pkg_mgr() {
 ROOT_MODE=""
 
 detect_root_mode() {
-    if [ "$(id -u)" = "0" ]; then ROOT_MODE="root"
+    if [ "$IS_TERMUX" = "1" ]; then ROOT_MODE="none"
+    elif [ "$(id -u)" = "0" ]; then ROOT_MODE="root"
     elif has sudo; then ROOT_MODE="sudo"
     elif has doas; then ROOT_MODE="doas"
     elif has su; then ROOT_MODE="su"
@@ -353,23 +364,86 @@ require_tool() {
     return 1
 }
 
-# ---------- рантайм ----------
-#
-# Официальный `curl … bun.sh/install | bash` требует bash и unzip, а на голом
-# sysvinit-минимуме их может не быть, поэтому основной путь — прямая распаковка
-# релизного архива с GitHub, а bun.sh идёт запасным вариантом.
-#
-# Node ставится так же аккуратно: сначала уже установленный, потом пакет
-# дистрибутива, и только потом официальный tar.gz с nodejs.org в ~/.local/lib.
+# ---------- рантайм: Bun (приоритетно) с фолбэком на Node.js (v18+) ----------
 
-BUN_BIN=""
-NODE_BIN=""
-
-# Что в итоге выбрано: bun|node, путь к бинарю и чем ставить пакеты
-RUNTIME_KIND=""
+ACTIVE_RUNTIME="bun"
 RUNTIME_BIN=""
+BUN_BIN=""
 
-# Имя релизного архива под текущую машину
+# Нужен Node 18+: в нём появился глобальный fetch, на котором держится вся
+# работа с балансерами. Node постарше запустится и упадёт на первом запросе,
+# поэтому такой сразу считаем непригодным.
+node_is_new_enough() {
+    _node="$1"
+    _ver=$("$_node" -e 'process.stdout.write(String(process.versions.node.split(".")[0]))' 2>/dev/null) || return 1
+    [ -n "$_ver" ] || return 1
+    [ "$_ver" -ge 18 ] 2>/dev/null
+}
+
+node_is_musl() {
+    # Официальные сборки nodejs.org собраны под glibc; ldd на musl пишет «musl»
+    (ldd --version 2>&1 || true) | grep -qi musl
+}
+
+node_asset_arch() {
+    case "$(uname -m 2>/dev/null || echo x86_64)" in
+        x86_64|amd64)  printf 'x64' ;;
+        aarch64|arm64) printf 'arm64' ;;
+        armv7l|armv7)  printf 'armv7l' ;;
+        ppc64le)       printf 'ppc64le' ;;
+        *)             return 1 ;;
+    esac
+}
+
+# Официальный tar.gz с nodejs.org в ~/.local/lib — на случай, когда в
+# дистрибутиве Node слишком старый или его нет вовсе. Точное имя архива берём
+# из SHASUMS256.txt, чтобы не угадывать версию.
+node_from_release() {
+    node_is_musl && return 1
+
+    _arch=$(node_asset_arch) || return 1
+    _base="https://nodejs.org/dist/latest-v22.x"
+    _tmp="${TMPDIR:-/tmp}/ktw-node.$$"
+
+    rm -rf "$_tmp"
+    ensure_dir "$_tmp" || return 1
+
+    fetch_to "$_base/SHASUMS256.txt" "$_tmp/sums.txt" || { rm -rf "$_tmp"; return 1; }
+
+    _file=$(sed -n "s/.*  \\(node-v[0-9.]*-linux-$_arch\\.tar\\.gz\\)$/\\1/p" "$_tmp/sums.txt" | head -n 1)
+    [ -n "$_file" ] || { rm -rf "$_tmp"; return 1; }
+
+    fetch_to "$_base/$_file" "$_tmp/node.tar.gz" || { rm -rf "$_tmp"; return 1; }
+    tar -xzf "$_tmp/node.tar.gz" -C "$_tmp" 2>/dev/null || { rm -rf "$_tmp"; return 1; }
+
+    _root=$(find "$_tmp" -maxdepth 1 -type d -name 'node-v*' 2>/dev/null | head -n 1)
+    [ -n "$_root" ] && [ -x "$_root/bin/node" ] || { rm -rf "$_tmp"; return 1; }
+
+    ensure_dir "$HOME/.local/lib" || { rm -rf "$_tmp"; return 1; }
+    rm -rf "$HOME/.local/lib/node"
+    mv "$_root" "$HOME/.local/lib/node" || { rm -rf "$_tmp"; return 1; }
+    rm -rf "$_tmp"
+
+    node_is_new_enough "$HOME/.local/lib/node/bin/node"
+}
+
+use_bun() {
+    BUN_BIN="$1"
+    RUNTIME_BIN="$1"
+    ACTIVE_RUNTIME="bun"
+    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    PATH="$(dirname "$BUN_BIN"):$PATH"
+    export PATH
+}
+
+use_node() {
+    RUNTIME_BIN="$1"
+    ACTIVE_RUNTIME="node"
+    PATH="$(dirname "$RUNTIME_BIN"):$PATH"
+    export PATH
+}
+
+# Имя релизного архива Bun под текущую машину
 bun_asset() {
     _os=$(uname -s 2>/dev/null || echo Linux)
     _arch=$(uname -m 2>/dev/null || echo x86_64)
@@ -395,7 +469,7 @@ bun_asset() {
         _libc="-musl"
     fi
 
-    # Без AVX2 обычная сборка падает с SIGILL — для старых CPU есть baseline
+    # Без AVX2 обычная сборка падает с SIGILL — для старых CPU (Dell Adamo 13, Core 2 Duo) есть baseline
     _base=""
     if [ "$_arch" = "x64" ] && ! grep -qw avx2 /proc/cpuinfo 2>/dev/null; then
         _base="-baseline"
@@ -458,7 +532,7 @@ bun_from_release() {
     "$HOME/.bun/bin/bun" --version >/dev/null 2>&1
 }
 
-# Запасной путь — официальный установщик (нужен bash и unzip)
+# Запасной путь — официальный установщик
 bun_from_official() {
     has bash || return 1
     has unzip || install_pkg unzip >/dev/null 2>&1 || true
@@ -468,24 +542,13 @@ bun_from_official() {
     [ -x "$HOME/.bun/bin/bun" ] && "$HOME/.bun/bin/bun" --version >/dev/null 2>&1
 }
 
-use_bun() {
-    BUN_BIN="$1"
-    RUNTIME_KIND="bun"
-    RUNTIME_BIN="$1"
-    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-    PATH="$(dirname "$BUN_BIN"):$PATH"
-    export PATH
-}
-
-ensure_bun() {
-    # Уже в PATH
+ensure_bun_internal() {
     if has bun; then
         use_bun "$(command -v bun)"
         ok "bun $(bun --version 2>/dev/null)"
         return 0
     fi
 
-    # Ставился раньше, но PATH не подхватил
     for _candidate in "$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun; do
         if [ -x "$_candidate" ]; then
             use_bun "$_candidate"
@@ -494,8 +557,10 @@ ensure_bun() {
         fi
     done
 
-    say ""
-    dim "рантайм — Bun, ставлю в ~/.bun (без root, без systemd)"
+    # В Termux Bun не поддерживается напрямую из-за Android Bionic libc
+    if [ "$IS_TERMUX" = "1" ]; then
+        return 1
+    fi
 
     if spin_run "качаю Bun" bun_from_release && [ -x "$HOME/.bun/bin/bun" ]; then
         use_bun "$HOME/.bun/bin/bun"
@@ -503,13 +568,12 @@ ensure_bun() {
         return 0
     fi
 
-    if spin_run "ставлю Bun официальным скриптом" bun_from_official && [ -x "$HOME/.bun/bin/bun" ]; then
+    if spin_run "ставлю Bun скриптом" bun_from_official && [ -x "$HOME/.bun/bin/bun" ]; then
         use_bun "$HOME/.bun/bin/bun"
         ok "bun $(bun --version 2>/dev/null) установлен в ~/.bun/bin/bun"
         return 0
     fi
 
-    # Последняя попытка — пакет из репозитория дистрибутива (есть в Arch, Void)
     install_pkg bun >/dev/null 2>&1 || true
     if has bun; then
         use_bun "$(command -v bun)"
@@ -520,183 +584,103 @@ ensure_bun() {
     return 1
 }
 
-# ---------- Node ----------
-
-# Нужен Node 18+: в нём появился глобальный fetch, на котором держится вся
-# работа с балансерами. Более старый Node формально запустится, но упадёт на
-# первом же запросе, поэтому такой считаем непригодным.
-node_is_new_enough() {
-    _node="$1"
-    [ -x "$_node" ] || command -v "$_node" >/dev/null 2>&1 || return 1
-
-    _ver=$("$_node" -e 'process.stdout.write(String(process.versions.node.split(".")[0]))' 2>/dev/null) || return 1
-    [ -n "$_ver" ] || return 1
-    [ "$_ver" -ge 18 ] 2>/dev/null
-}
-
-use_node() {
-    NODE_BIN="$1"
-    RUNTIME_KIND="node"
-    RUNTIME_BIN="$1"
-    PATH="$(dirname "$1"):$PATH"
-    export PATH
-}
-
-# Официальные сборки nodejs.org собраны под glibc, на musl они не пойдут
-node_asset_arch() {
-    case "$(uname -m 2>/dev/null || echo x86_64)" in
-        x86_64|amd64)  printf 'x64' ;;
-        aarch64|arm64) printf 'arm64' ;;
-        armv7l|armv7)  printf 'armv7l' ;;
-        ppc64le)       printf 'ppc64le' ;;
-        *)             return 1 ;;
-    esac
-}
-
-# Имя архива берём из SHASUMS256.txt: так не нужно угадывать точную версию
-node_from_release() {
-    node_is_musl && return 1
-
-    _arch=$(node_asset_arch) || return 1
-    _base="https://nodejs.org/dist/latest-v22.x"
-    _tmp="${TMPDIR:-/tmp}/ktw-node.$$"
-
-    rm -rf "$_tmp"
-    ensure_dir "$_tmp" || return 1
-
-    if ! fetch_to "$_base/SHASUMS256.txt" "$_tmp/sums.txt"; then
-        rm -rf "$_tmp"
-        return 1
-    fi
-
-    _file=$(sed -n "s/.*  \(node-v[0-9.]*-linux-$_arch\.tar\.gz\)$/\1/p" "$_tmp/sums.txt" | head -n 1)
-
-    if [ -z "$_file" ]; then
-        rm -rf "$_tmp"
-        return 1
-    fi
-
-    if ! fetch_to "$_base/$_file" "$_tmp/node.tar.gz"; then
-        rm -rf "$_tmp"
-        return 1
-    fi
-
-    if ! tar -xzf "$_tmp/node.tar.gz" -C "$_tmp" 2>/dev/null; then
-        rm -rf "$_tmp"
-        return 1
-    fi
-
-    _root=$(find "$_tmp" -maxdepth 1 -type d -name 'node-v*' 2>/dev/null | head -n 1)
-
-    if [ -z "$_root" ] || [ ! -x "$_root/bin/node" ]; then
-        rm -rf "$_tmp"
-        return 1
-    fi
-
-    ensure_dir "$HOME/.local/lib" || { rm -rf "$_tmp"; return 1; }
-    rm -rf "$HOME/.local/lib/node"
-    mv "$_root" "$HOME/.local/lib/node" || { rm -rf "$_tmp"; return 1; }
-    rm -rf "$_tmp"
-
-    node_is_new_enough "$HOME/.local/lib/node/bin/node"
-}
-
-node_is_musl() {
-    # ldd на musl печатает «musl», на glibc — «GNU libc»
-    (ldd --version 2>&1 || true) | grep -qi musl
-}
-
+# Найти или поставить Node 18+. Отдельно от Bun, потому что этот путь выбирают
+# и намеренно: на слабой машине Node обычно уже есть, а Bun пришлось бы качать.
 ensure_node() {
-    if has node && node_is_new_enough node; then
+    if has node && node_is_new_enough "$(command -v node)"; then
         use_node "$(command -v node)"
-        ok "node $(node --version 2>/dev/null)"
+        ok "node $(node -v 2>/dev/null) из PATH"
         return 0
     fi
 
-    for _candidate in "$HOME/.local/lib/node/bin/node" /usr/local/bin/node /usr/bin/node /opt/node/bin/node; do
+    for _candidate in "$HOME/.local/lib/node/bin/node" /usr/local/bin/node /usr/bin/node "${PREFIX:-}/bin/node"; do
         if [ -x "$_candidate" ] && node_is_new_enough "$_candidate"; then
             use_node "$_candidate"
-            ok "node $("$_candidate" --version 2>/dev/null) ($_candidate)"
+            ok "node $("$_candidate" -v 2>/dev/null) ($_candidate)"
             return 0
         fi
     done
 
-    say ""
-    dim "рантайм — Node.js 18+"
+    if [ "$IS_TERMUX" = "1" ]; then
+        spin_run "ставлю nodejs в Termux" pkg install -y nodejs || true
+    else
+        install_pkg nodejs >/dev/null 2>&1 || install_pkg node >/dev/null 2>&1 || true
+        install_pkg npm >/dev/null 2>&1 || true
+    fi
 
-    # Пакет дистрибутива: на слабых машинах это самый дешёвый путь
-    install_pkg nodejs >/dev/null 2>&1 || true
-    install_pkg npm >/dev/null 2>&1 || true
-
-    if has node && node_is_new_enough node; then
+    if has node && node_is_new_enough "$(command -v node)"; then
         use_node "$(command -v node)"
-        ok "node $(node --version 2>/dev/null) из пакетов"
+        ok "node $(node -v 2>/dev/null) установлен"
         return 0
     fi
 
+    # Node есть, но старый: раньше на этом месте установка считалась удачной,
+    # а клиент падал на первом же запросе к балансеру
     if has node; then
-        dim "в системе Node $(node --version 2>/dev/null) — слишком старый, нужен 18+"
+        dim "в системе node $(node -v 2>/dev/null) — нужен 18+, качаю свежий"
     fi
 
     if spin_run "качаю Node с nodejs.org" node_from_release; then
         use_node "$HOME/.local/lib/node/bin/node"
-        ok "node $("$HOME/.local/lib/node/bin/node" --version 2>/dev/null) установлен в ~/.local/lib/node"
+        ok "node $("$HOME/.local/lib/node/bin/node" -v 2>/dev/null) установлен в ~/.local/lib/node"
         return 0
     fi
 
     return 1
 }
 
-# ---------- выбор рантайма ----------
-
 ensure_runtime() {
-    case "$RUNTIME_WANTED" in
-        node)
-            ensure_node && return 0
-            die "не смог поставить Node 18+. Поставь пакетом (apt install nodejs) и запусти снова"
-            ;;
-        auto)
-            # Берём то, что уже стоит, и ничего не качаем зря
-            if has bun; then
-                use_bun "$(command -v bun)"
-                ok "bun $(bun --version 2>/dev/null)"
-                return 0
-            fi
+    # Явный выбор рантайма: KTW_RUNTIME=node ставит без Bun вообще
+    if [ "$RUNTIME_WANTED" = "node" ]; then
+        ensure_node && return 0
+        die "не смог поставить Node 18+. Поставь пакетом ($PKG_MGR) и запусти снова"
+    fi
 
-            if has node && node_is_new_enough node; then
-                use_node "$(command -v node)"
-                ok "node $(node --version 2>/dev/null)"
-                return 0
-            fi
-            ;;
-    esac
+    # auto — берём то, что уже стоит, и ничего не качаем зря
+    if [ "$RUNTIME_WANTED" = "auto" ]; then
+        if has bun; then
+            use_bun "$(command -v bun)"
+            ok "bun $(bun --version 2>/dev/null)"
+            return 0
+        fi
 
-    ensure_bun && return 0
+        if has node && node_is_new_enough "$(command -v node)"; then
+            use_node "$(command -v node)"
+            ok "node $(node -v 2>/dev/null)"
+            return 0
+        fi
+    fi
 
-    # Bun не встал — это не повод сдаваться: код одинаково работает на Node
-    warn "Bun поставить не вышло, пробую Node"
+    # 1. Приоритетно пробуем Bun
+    if ensure_bun_internal; then
+        return 0
+    fi
+
+    # 2. Фолбэк на Node.js (32-bit x86, ARMv7, Termux Bionic, старые системы)
+    say ""
+    dim "Bun не поддерживается на этой архитектуре/ОС, переключаюсь на Node.js"
+
     ensure_node && return 0
 
     say ""
-    dim "не встал ни один рантайм. Поставь любой и запусти установщик снова:"
-    dim "  curl -fsSL https://bun.sh/install | bash"
-    dim "  или пакетом: $PKG_INSTALL nodejs"
-    dim "архитектура: $(uname -m 2>/dev/null || echo '?')"
-    die "без Bun или Node 18+ ktw не запустится"
+    dim "не вышло автоматически. Поставь Bun или Node.js (18+) вручную:"
+    dim "  Bun: curl -fsSL https://bun.sh/install | bash"
+    dim "  Node.js: через пакетный менеджер системы ($PKG_MGR)"
+    die "без Bun или Node.js клиент ktw не запустится"
 }
 
 SOURCES_CLONED=0
 
 fetch_sources() {
     # Скрипт запустили внутри уже склонированного репозитория
-    if [ -f "./cli/ktw.js" ] && [ -d "./.git" ]; then
+    if [ -f "./cli/ktw.js" ] && [ -d "./.git" ] && [ "$(pwd)" != "$INSTALL_DIR" ]; then
         INSTALL_DIR="$(pwd)"
         ok "исходники здесь: $INSTALL_DIR"
         return 0
     fi
 
-    if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/cli/ktw.js" ]; then
-        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -B \"$REPO_BRANCH\" \"origin/$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -f \"$REPO_BRANCH\" 2>/dev/null && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
             ok "обновлено до $(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null)"
             return 0
         fi
@@ -736,55 +720,57 @@ install_deps() {
     export PUPPETEER_SKIP_DOWNLOAD=true
     export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-    if [ "$RUNTIME_KIND" = "node" ]; then
-        if has npm; then
-            spin_run "ставлю пакеты через npm" npm install --omit=dev --no-audit --no-fund --silent \
-                || warn "npm install завершился с предупреждением"
-        else
-            warn "npm не найден — пакеты не поставлены"
-        fi
-    else
+    if [ "$ACTIVE_RUNTIME" = "bun" ] && has bun; then
         spin_run "ставлю пакеты через bun" bun install --production --no-progress \
             || warn "bun install завершился с предупреждением"
+    elif has npm; then
+        spin_run "ставлю пакеты через npm" npm install --omit=dev --no-audit --no-fund \
+            || warn "npm install завершился с предупреждением"
     fi
 
-    [ -d "$INSTALL_DIR/node_modules" ] || die "зависимости не поставились: нет $INSTALL_DIR/node_modules"
-    ok "пакеты установлены ($RUNTIME_KIND)"
+    [ -d "$INSTALL_DIR/node_modules" ] || die "не удалось создать node_modules в $INSTALL_DIR"
+    ok "пакеты установлены ($ACTIVE_RUNTIME)"
 }
 
 # Заполняется, если команду не получится вызвать по имени.
-# Тогда финальный блок объясняет, что делать, вместо бодрого «Запускай: ktw».
 PATH_PROBLEM=0
 PATH_RC=""
 
-# Лаунчер: ищет bun там, где мы его оставили, потом в PATH, потом по типовым
-# путям. Node.js не упоминается — его тут просто нет.
+# Лаунчер: ищет bun там, где мы его оставили, потом node, потом в PATH
 write_launcher() {
     _dest="$1"
     _tmp="$_dest.tmp.$$"
 
-    # Сначала пробуем рантайм, которым ставили, потом второй: код работает на
-    # обоих, и переустановленный Node не должен ломать команду, стоявшую на Bun.
+    rm -f "$_dest" "$_tmp"
+
     cat > "$_tmp" << EOF
 #!/bin/sh
-# ktw — KinoTeka Watch в терминале. Рантайм при установке: $RUNTIME_KIND.
+# ktw — KinoTeka Watch launcher (Bun-first with Node.js fallback)
 KTW_DIR="$INSTALL_DIR"
 KTW_RUNTIME_BIN="$RUNTIME_BIN"
 
+# 0. Рантайм, которым ставили: точный путь надёжнее поиска по каталогам
 [ -n "\$KTW_RUNTIME_BIN" ] && [ -x "\$KTW_RUNTIME_BIN" ] && exec "\$KTW_RUNTIME_BIN" "\$KTW_DIR/cli/ktw.js" "\$@"
 
-for _rt in "\$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun \\
-           "\$HOME/.local/lib/node/bin/node" /usr/local/bin/node /usr/bin/node /opt/node/bin/node; do
-    [ -x "\$_rt" ] && exec "\$_rt" "\$KTW_DIR/cli/ktw.js" "\$@"
+# 1. Приоритетный запуск через Bun
+for _bun in "$BUN_BIN" "\$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun; do
+    [ -n "\$_bun" ] && [ -x "\$_bun" ] && exec "\$_bun" "\$KTW_DIR/cli/ktw.js" "\$@"
 done
 
-for _rt in bun node; do
-    command -v "\$_rt" >/dev/null 2>&1 && exec "\$_rt" "\$KTW_DIR/cli/ktw.js" "\$@"
+if command -v bun >/dev/null 2>&1; then
+    exec bun "\$KTW_DIR/cli/ktw.js" "\$@"
+fi
+
+# 2. Универсальный фолбэк на Node.js
+for _node in "\$HOME/.local/lib/node/bin/node" /usr/local/bin/node /usr/bin/node "\${PREFIX:-}/bin/node"; do
+    [ -n "\$_node" ] && [ -x "\$_node" ] && exec "\$_node" "\$KTW_DIR/cli/ktw.js" "\$@"
 done
 
-echo "ktw: не найден ни bun, ни node. Поставь любой:" >&2
-echo "  curl -fsSL https://bun.sh/install | bash" >&2
-echo "  или: apt install nodejs   (нужен Node 18+)" >&2
+if command -v node >/dev/null 2>&1; then
+    exec node "\$KTW_DIR/cli/ktw.js" "\$@"
+fi
+
+echo "ktw: не найден рантайм (Bun или Node.js). Поставь Bun: curl -fsSL https://bun.sh/install | bash" >&2
 exit 1
 EOF
 
@@ -793,6 +779,13 @@ EOF
 }
 
 link_binary() {
+    # Убеждаемся, что ktw.js не поврежден и не является ссылкой на шелл-скрипт
+    if [ -L "$INSTALL_DIR/cli/ktw.js" ] || (head -n 2 "$INSTALL_DIR/cli/ktw.js" 2>/dev/null | grep -q '/bin/sh'); then
+        rm -f "$INSTALL_DIR/cli/ktw.js"
+        if [ -d "$INSTALL_DIR/.git" ]; then
+            git -C "$INSTALL_DIR" checkout -f HEAD -- cli/ktw.js 2>/dev/null || true
+        fi
+    fi
     chmod +x "$INSTALL_DIR/cli/ktw.js"
 
     # Каталог для команд: сначала выбранный, потом ~/bin, потом /usr/local/bin.
@@ -812,14 +805,16 @@ link_binary() {
         fi
     fi
 
+    rm -f "$BIN_DIR/ktw" "$BIN_DIR/ktw2"
     write_launcher "$BIN_DIR/ktw" || die "не смог записать $BIN_DIR/ktw"
     cp -f "$BIN_DIR/ktw" "$BIN_DIR/ktw2"
     ok "команды: $BIN_DIR/ktw и $BIN_DIR/ktw2"
 
     # Если доступен root/sudo, кладём копию в /usr/local/bin — тогда команда
-    # доступна в PATH мгновенно, без перелогина
+    # доступна в PATH мгновенно, без перелогина. Обязательно rm -f, чтобы
+    # cp не перезаписал файл по старому симлинку.
     if [ "$BIN_DIR" != "/usr/local/bin" ] && { [ "$(id -u)" = "0" ] || sudo -n true 2>/dev/null; }; then
-        if run_root "cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw2" 2>/dev/null; then
+        if run_root "rm -f /usr/local/bin/ktw /usr/local/bin/ktw2 && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw && cp -f '$BIN_DIR/ktw' /usr/local/bin/ktw2" 2>/dev/null; then
             ok "системные команды: /usr/local/bin/ktw и /usr/local/bin/ktw2"
             return 0
         fi
@@ -871,8 +866,16 @@ link_binary() {
 # Проверка, что клиент реально стартует. Ловит неполное дерево (недокачанный
 # или битый клон) сразу, а не при первом запуске непонятной ошибкой.
 verify_install() {
+    # Если ktw.js оказался поврежден, восстанавливаем из git
+    if [ -L "$INSTALL_DIR/cli/ktw.js" ] || (head -n 2 "$INSTALL_DIR/cli/ktw.js" 2>/dev/null | grep -q '/bin/sh'); then
+        rm -f "$INSTALL_DIR/cli/ktw.js"
+        if [ -d "$INSTALL_DIR/.git" ]; then
+            git -C "$INSTALL_DIR" checkout -f HEAD -- cli/ktw.js 2>/dev/null || true
+        fi
+    fi
+
     _out=$("$RUNTIME_BIN" "$INSTALL_DIR/cli/ktw.js" --help 2>&1 < /dev/null) && {
-        ok "клиент запускается"
+        ok "клиент запускается ($ACTIVE_RUNTIME)"
         return 0
     }
 

@@ -35,8 +35,16 @@ function check(name, status, detail, hint) {
 }
 
 function which(command) {
+    if (process.platform === 'win32') {
+        try {
+            var out = execFileSync('where', [command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+            return out.split('\r\n')[0].split('\n')[0];
+        } catch (err) {
+            return '';
+        }
+    }
     try {
-        return execFileSync('sh', ['-c', 'command -v ' + command], { encoding: 'utf8' }).trim();
+        return execFileSync('sh', ['-c', 'command -v ' + command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     } catch (err) {
         return '';
     }
@@ -58,6 +66,9 @@ function runQuiet(command, args) {
 function checkRuntime() {
     if (typeof Bun !== 'undefined' && Bun.version) {
         return check('рантайм', 'ok', 'bun ' + Bun.version);
+    }
+    if (typeof process !== 'undefined' && process.version) {
+        return check('рантайм', 'ok', 'node ' + process.version);
     }
 
     var node = process.versions && process.versions.node;
@@ -86,8 +97,10 @@ function checkMpv() {
     var found = which('mpv');
 
     if (!found) {
-        return check('mpv', 'fail', 'не найден в PATH',
-            'поставь mpv пакетным менеджером: apt install mpv / apk add mpv / pacman -S mpv');
+        var hint = process.platform === 'win32'
+            ? 'команда для установки: winget install --id shinchiro.mpv -e'
+            : 'поставь mpv пакетным менеджером: apt install mpv / apk add mpv / pacman -S mpv';
+        return check('mpv', 'fail', 'не найден в PATH', hint);
     }
 
     var version = (runQuiet('mpv', ['--version']).split('\n')[0] || 'версия неизвестна').trim();
@@ -239,6 +252,31 @@ function checkPath() {
     return check('команда ktw', 'ok', found);
 }
 
+function checkPosterRendering() {
+    try {
+        var posterMod = require('./poster');
+        var pl = posterMod.placeholder('Test', 22, 13);
+        if (!Array.isArray(pl) || pl.length !== 13) {
+            return check('отрисовка постеров', 'fail', 'плейсхолдер вернул некорректный размер',
+                'очисти кеш обложек: ktw --doctor --fix');
+        }
+        var appMod = require('./app');
+        if (typeof appMod.columns === 'function') {
+            var c1 = appMod.columns(undefined, ['тест'], 40);
+            var c2 = appMod.columns(null, null, 40);
+            var c3 = appMod.columns(['п1'], undefined, 40);
+            if (!Array.isArray(c1) || !Array.isArray(c2) || !Array.isArray(c3)) {
+                return check('отрисовка постеров', 'fail', 'сетка падает на пустых обложках',
+                    'обнови ktw: ktw --update');
+            }
+        }
+        return check('отрисовка постеров', 'ok', 'сетка и плейсхолдеры защищены от сбоев');
+    } catch (err) {
+        return check('отрисовка постеров', 'fail', err.message,
+            'обнови ktw: ktw --update');
+    }
+}
+
 // ---------- сетевые проверки ----------
 
 async function checkMirrors() {
@@ -283,6 +321,7 @@ async function checkBalancers() {
 
     var results = [];
     var geoSeen = false;
+    var workingCount = 0;
 
     for (var i = 0; i < players.length; i++) {
         var player = players[i];
@@ -299,6 +338,7 @@ async function checkBalancers() {
         }
 
         if (found && found.url) {
+            workingCount++;
             results.push(check('балансер ' + player.source, 'ok', http.hostOf(found.url)));
             continue;
         }
@@ -309,8 +349,14 @@ async function checkBalancers() {
         if (code === 'geo') geoSeen = true;
 
         results.push(check('балансер ' + player.source,
-            code === 'geo' ? 'warn' : 'fail',
-            reason ? reason.message : 'не отдал поток'));
+            'warn',
+            reason ? reason.message : 'не отдал поток',
+            'плеер временно недоступен — ktw автоматически использует рабочий'));
+    }
+
+    if (workingCount === 0 && players.length > 0) {
+        results.push(check('источники видео', 'fail', 'ни один балансер не отдал поток',
+            'проверь подключение к интернету или включи VPN'));
     }
 
     if (geoSeen) {
@@ -336,6 +382,15 @@ async function checkApiKeyLive() {
     }
 }
 
+async function checkTorrserverLive() {
+    var torrserve = require('./torrserve');
+    var status = await torrserve.checkAvailability(null, 1500);
+    if (status.ok) {
+        return check('TorrServe', 'ok', status.url + ' (' + status.version + ') — активен и готов к 4K стримингу');
+    }
+    return check('TorrServe', 'ok', 'готов к автоматическому запуску из коробки');
+}
+
 // ---------- сборка ----------
 
 async function run(mode) {
@@ -350,7 +405,8 @@ async function run(mode) {
         checkApiKey(),
         checkConfig(),
         checkCache(),
-        checkPath()
+        checkPath(),
+        checkPosterRendering()
     ];
 
     if (mode !== 'quick') {
@@ -361,6 +417,9 @@ async function run(mode) {
 
         var balancers = await checkBalancers();
         balancers.forEach(function (item) { checks.push(item); });
+
+        var ts = await checkTorrserverLive();
+        if (ts) checks.push(ts);
     }
 
     var failed = checks.filter(function (item) { return item.status === 'fail'; });

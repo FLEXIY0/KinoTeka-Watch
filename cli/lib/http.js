@@ -136,8 +136,11 @@ async function requestOk(url, options) {
     }
 
     // Ответ 200, но внутри страница «недоступно в вашем регионе»
-    if (GEO_RE.test(res.body) && res.body.length < 20000) {
-        throw BalancerError(refusalMessage('geo', 200, hostOf(url)), 'geo', { status: 200 });
+    if (res.status === 200 && GEO_RE.test(res.body)) {
+        var hasContent = /fileList\s*=|makePlayer|ENV_BASE_URL|player-venom|videoInfo|urlParams|#EXTM3U/i.test(res.body);
+        if (!hasContent && res.body.length < 5000) {
+            throw BalancerError(refusalMessage('geo', 200, hostOf(url)), 'geo', { status: 200 });
+        }
     }
 
     return res;

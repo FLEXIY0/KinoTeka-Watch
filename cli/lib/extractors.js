@@ -106,10 +106,33 @@ async function extractCollaps(iframeUrl, options) {
     var season = options.season ? parseInt(options.season, 10) : null;
     var episode = options.episode ? parseInt(options.episode, 10) : null;
 
-    var res = await http.requestOk(iframeUrl, {
-        referer: options.referer || 'https://kinobox.tv/',
-        timeout: options.timeout || 12000
-    });
+    var candidates = [iframeUrl];
+    if (/ortified\.ws|apicollaps\.cc|fprxnet\.org|collaps/i.test(iframeUrl)) {
+        var kinogramUrl = iframeUrl.replace(/https?:\/\/[^\/]+/i, 'https://api.kinogram.best');
+        if (kinogramUrl !== iframeUrl) candidates.push(kinogramUrl);
+    }
+
+    var res = null;
+    var lastError = null;
+
+    for (var i = 0; i < candidates.length; i++) {
+        try {
+            res = await http.requestOk(candidates[i], {
+                referer: options.referer || 'https://kinobox.tv/',
+                timeout: options.timeout || 12000
+            });
+            if (res && res.body && (res.body.indexOf('makePlayer') >= 0 || res.body.indexOf('data-name="mk"') >= 0 || /\.m3u8|\.mpd/.test(res.body))) {
+                break;
+            }
+        } catch (e) {
+            lastError = e;
+            if (e.code === 'geo' || e.code === 'gone') break;
+        }
+    }
+
+    if (!res || !res.body) {
+        throw lastError || BalancerError(http.hostOf(iframeUrl) + ': в ответе нет данных плеера', 'noplaylist');
+    }
 
     var html = res.body;
     var hlsUrl = null;
@@ -118,8 +141,14 @@ async function extractCollaps(iframeUrl, options) {
     var subtitles = [];
     var duration = 0;
     var title = '';
-
-    var makePlayerAt = html.indexOf('makePlayer');
+    var callMatch = html.match(/makePlayer\s*\(\s*\{/);
+    var makePlayerAt = callMatch ? callMatch.index : -1;
+    if (makePlayerAt < 0) {
+        var mkMatch = html.match(/<script[^>]*data-name="mk"[^>]*>([\s\S]*?)<\/script>/i);
+        if (mkMatch) {
+            makePlayerAt = html.indexOf(mkMatch[1]);
+        }
+    }
     var cfg = makePlayerAt >= 0 ? parseJsObject(sliceBalanced(html, makePlayerAt)) : null;
 
     if (cfg) {
@@ -236,7 +265,8 @@ function veoveoVariants(episode) {
                 name: variant.title || ('Дорожка ' + (idx + 1)),
                 url: variant.filepath || variant.m3u8MasterFilePath,
                 duration: variant.duration || 0,
-                index: idx
+                index: idx,
+                lang: languageOf(variant.title || '')
             };
         });
 }
@@ -312,14 +342,25 @@ async function extractVeoveo(iframeUrl, options) {
         chosen = variants.find(function (item) { return namesMatch(normalizeName(item.name), wanted); });
     }
 
-    if (!chosen) chosen = variants[0];
+    if (!chosen) {
+        var russian = variants.filter(function (v) { return languageOf(v.name) === 'rus'; });
+        chosen = russian.length > 0 ? russian[0] : variants[0];
+    }
 
     return baseResult('veoveo', chosen.url, res.url, {
         duration: chosen.duration || 0,
         title: target.title || '',
-        // Дорожки этого балансера — отдельные плейлисты, а не aid внутри одного
+        audioTracks: variants.map(function (item) {
+            return {
+                name: item.name,
+                url: item.url,
+                index: item.index,
+                audioId: item.index + 1,
+                lang: item.lang
+            };
+        }),
         variantTracks: variants.map(function (item) {
-            return { name: item.name, url: item.url, index: item.index };
+            return { name: item.name, url: item.url, index: item.index, lang: item.lang };
         })
     });
 }
@@ -525,7 +566,7 @@ async function extractGeneric(iframeUrl, options) {
 // ---------- маршрутизация ----------
 
 var ROUTES = [
-    { name: 'collaps', test: /ortified|collaps|fprxnet|interkh/i, run: extractCollaps },
+    { name: 'collaps', test: /ortified|collaps|fprxnet|interkh|kinogram/i, run: extractCollaps },
     { name: 'veoveo',  test: /tazaromikaz|voidboost|veoveo/i,     run: extractVeoveo },
     { name: 'alloha',  test: /stravers|alloha/i,                  run: extractAlloha },
     { name: 'kodik',   test: /kodik/i,                            run: extractKodik },
@@ -607,12 +648,14 @@ function namesMatch(a, b) {
 function languageOf(name) {
     var text = String(name || '');
 
-    if (/\((?:rus|ru)\)|\bрус/i.test(text)) return 'rus';
-    if (/\((?:ukr|ua)\)|\bукр/i.test(text)) return 'ukr';
-    if (/\((?:eng|en)\)|\bengl|оригинал|original/i.test(text)) return 'eng';
+    if (/\((?:rus|ru)\)|\bрус\b|\bдубл|\bмногогол|\bдвухгол|\bодногол|\bзакадр/i.test(text)) return 'rus';
+    if (/\b(?:lostfilm|hdrezka|rezka|fox|jaskier|newstudio|alexfilm|baibako|coldfilm|hamsterstudio|octopus|tvshows|kurazh|redheadsound|rhs|flarrow)\b/i.test(text)) return 'rus';
+    if (/\((?:ukr|ua)\)|\bукр\b|\bбагатог/i.test(text)) return 'ukr';
+    if (/\((?:eng|en)\)|\bengl\b|original\s*\(eng\)|оригинал\s*\(eng\)/i.test(text)) return 'eng';
 
-    // Кириллица в названии озвучки — почти всегда русская дорожка
+    // Кириллица в названии озвучки — русская дорожка
     if (/[а-яё]/i.test(text)) return 'rus';
+    if (/\beng\b|\boriginal\b/i.test(text)) return 'eng';
 
     return '';
 }

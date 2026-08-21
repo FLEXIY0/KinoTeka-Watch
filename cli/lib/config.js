@@ -18,16 +18,24 @@ var DEFAULTS = {
     preferredTranslation: '',  // 'Дублированный', 'LostFilm', 'Кубик в кубе', 'Оригинал'...
     preferredQuality: '',      // '1080', '720', 'max', 'min' или пусто
     mpvFullscreen: false,
+    mpvWindowSize: 'compact',  // 'compact' (40% в углу), 'medium' (60%), 'large' (85%), 'fullscreen'
     mpvHardwareDec: 'auto-safe',
     mpvCustomArgs: [],
     directOnly: false,         // режим только прямого парсинга без запуска браузера
     posterMode: 'auto',        // 'auto', 'ascii', 'off'
-    theme: 'classic_bw',
+    theme: 'classic',
     bannerStyle: 'ansi_shadow', // ANSI Shadow 3D блоки по умолчанию
     bannerSize: 'auto',         // 'auto', 'full', 'compact', 'mini'
     lang: 'ru',                 // 'ru', 'en'
+    torrserveUrl: 'http://127.0.0.1:8090', // адрес сервера TorrServer
     timeout: 40000
 };
+
+function ensureDir() {
+    try {
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    } catch (e) {}
+}
 
 function read() {
     try {
@@ -42,7 +50,7 @@ function save(patch) {
     var current = read();
     var updated = Object.assign({}, current, patch);
     try {
-        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+        ensureDir();
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2) + '\n', { mode: 0o600 });
     } catch (err) {
         // При ошибке прав записи просто возвращаем объект

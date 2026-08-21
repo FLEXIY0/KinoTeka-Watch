@@ -181,6 +181,7 @@ async function testMpvArgs() {
     assert(args.indexOf('--aid=3') >= 0, 'есть --aid=3 для звуковой дорожки');
     assert(args.some(function (a) { return a.indexOf('--sub-file=') === 0; }), 'подключены субтитры');
     assert(args.indexOf('--volume=80') >= 0, 'проброшены пользовательские аргументы');
+    assert(args.some(function (a) { return a.indexOf('--autofit=') === 0; }), 'компактный размер окна из коробки');
 
     // Именно так и получался немой mpv: --aid на дорожку, которой нет
     var bad = mpv.buildArgs({
@@ -581,6 +582,13 @@ async function testDoctor() {
         'краткий режим печатает поломку вместе с подсказкой');
 }
 
+async function testUpdateModule() {
+    group('Модуль самообновления');
+
+    var update = require('./lib/update');
+    assert(typeof update.runUpdate === 'function', 'runUpdate экспортирован');
+}
+
 async function testConfigAndHistory() {
     group('Конфигурация и история');
 
@@ -605,10 +613,19 @@ async function testConfigAndHistory() {
 
     history.saveProgress({
         filmId: 999998, title: 'Сериал', serial: true, season: 1, episode: 3,
-        timePos: 2800, duration: 3000
+        timePos: 2800, duration: 3000, userRating: 9
     });
     assert(history.isEpisodeWatched(999998, 1, 3) === true, 'серия помечена просмотренной');
     assert(history.isEpisodeWatched(999998, 1, 4) === false, 'непросмотренная серия — false');
+    assert(history.getProgress(999998).userRating === 9, 'оценка сохранена (9/10)');
+
+    history.setUserRating(999998, 10);
+    assert(history.getProgress(999998).userRating === 10, 'setUserRating обновляет оценку до 10');
+
+    history.toggleEpisodeWatched(999998, 1, 4);
+    assert(history.isEpisodeWatched(999998, 1, 4) === true, 'toggleEpisodeWatched отмечает серию');
+    history.unmarkEpisode(999998, 1, 4);
+    assert(history.isEpisodeWatched(999998, 1, 4) === false, 'unmarkEpisode сбрасывает серию');
 
     history.resetSerial(999998);
     assert(history.getWatchedEpisodesCount(999998) === 0, 'resetSerial сбрасывает прогресс');
@@ -632,6 +649,55 @@ async function testQualityPick() {
     assert(stream.pickVariant(variants, 'min').label === '480p', 'min -> самое низкое');
     assert(stream.pickVariant(variants, '720').label === '720p', '720 -> 720p');
     assert(stream.pickVariant([], '720') === null, 'пустой список -> null');
+}
+
+async function testUpdateModule() {
+    group('Модуль самообновления');
+    var update = require('./lib/update');
+    assert(typeof update.runUpdate === 'function', 'runUpdate экспортирован');
+}
+
+async function testSessionPersistence() {
+    group('Сохранение и подхват сессии mpv');
+    assert(typeof mpv.tryAttachExistingSession === 'function', 'tryAttachExistingSession экспортирован');
+    assert(typeof mpv.clearSessionFile === 'function', 'clearSessionFile экспортирован');
+    mpv.clearSessionFile();
+    var attached = await mpv.tryAttachExistingSession();
+    assert(attached === null, 'пустая сессия корректно возвращает null');
+}
+
+async function testDonattyIntegration() {
+    group('Интеграция с Donatty (донаты и топ поддержки)');
+    var donatty = require('./lib/donatty');
+
+    assert(typeof donatty.fetchTopDonators === 'function', 'fetchTopDonators экспортирован');
+    assert(typeof donatty.getCachedDonators === 'function', 'getCachedDonators экспортирован');
+    assert(typeof donatty.formatDonatorsBanner === 'function', 'formatDonatorsBanner экспортирован');
+
+    var emptyBanner = donatty.formatDonatorsBanner([]);
+    assert(emptyBanner.indexOf('donatty.com/nedoedal') >= 0, 'formatDonatorsBanner для пустого списка возвращает ссылку');
+
+    var sampleDonators = [
+        { name: 'nedoedal', value: 10 },
+        { name: 'Alex', value: 500 }
+    ];
+    var banner = donatty.formatDonatorsBanner(sampleDonators);
+    assert(banner.indexOf('nedoedal') >= 0 && banner.indexOf('10 ₽') >= 0, 'formatDonatorsBanner форматирует топ с именами и суммами');
+    assert(banner.indexOf('1.') >= 0 && banner.indexOf('2.') >= 0, 'formatDonatorsBanner содержит аккуратную нумерацию мест');
+}
+
+async function testTorrserveIntegration() {
+    group('Интеграция с TorrServe');
+    var torrserve = require('./lib/torrserve');
+    assert(typeof torrserve.checkAvailability === 'function', 'checkAvailability экспортирован');
+    assert(typeof torrserve.ensureRunning === 'function', 'ensureRunning экспортирован');
+    assert(typeof torrserve.getBinaryName === 'function', 'getBinaryName экспортирован');
+    assert(typeof torrserve.getBinaryPath === 'function', 'getBinaryPath экспортирован');
+    assert(typeof torrserve.buildStreamUrl === 'function', 'buildStreamUrl экспортирован');
+    assert(torrserve.getBinaryName().indexOf('TorrServer-') === 0, 'getBinaryName возвращает верное имя бинарника');
+    var streamUrl = torrserve.buildStreamUrl('magnet:?xt=urn:btih:ABC12345', 2, 'http://127.0.0.1:8090');
+    assert(streamUrl.indexOf('http://127.0.0.1:8090/stream?link=') === 0, 'buildStreamUrl строит верный URL');
+    assert(streamUrl.indexOf('&index=2') >= 0, 'buildStreamUrl включает индекс файла');
 }
 
 // ---------- живые проверки ----------
@@ -689,6 +755,52 @@ async function testLive() {
     }
 }
 
+async function testUiAndPosterDefensiveness() {
+    group('Защита UI и постеров от сбоев (posterLines & null/undefined)');
+
+    var app = require('./lib/app');
+    var posterMod = require('./lib/poster');
+
+    // 1. columns с undefined posterLines (регрессия: posterLines.length)
+    var r1 = app.columns(undefined, ['Строка 1', 'Строка 2'], 40);
+    assert(Array.isArray(r1) && r1.length === 2, 'columns(undefined, [...]) не падает и возвращает строки');
+
+    // 2. columns с null posterLines
+    var r2 = app.columns(null, ['Строка 1'], 40);
+    assert(Array.isArray(r2) && r2.length === 1, 'columns(null, [...]) не падает');
+
+    // 3. columns с null rightLines
+    var r3 = app.columns(['Постер 1', 'Постер 2'], null, 40);
+    assert(Array.isArray(r3) && r3.length === 2, 'columns([...], null) не падает');
+
+    // 4. columns с null rightWidth
+    var r4 = app.columns(['П1'], ['Р1'], null);
+    assert(Array.isArray(r4) && r4.length === 1, 'columns с null rightWidth не падает');
+
+    // 5. metaLine с null/undefined film
+    assert(app.metaLine(null) === '', 'metaLine(null) возвращает пустую строку');
+    assert(app.metaLine(undefined) === '', 'metaLine(undefined) возвращает пустую строку');
+    assert(app.metaLine({}) === '', 'metaLine({}) возвращает пустую строку');
+
+    // 6. filmHeader с null/undefined film
+    var fh1 = app.filmHeader(null, 40);
+    assert(Array.isArray(fh1) && fh1.length > 0, 'filmHeader(null) возвращает массив строк');
+
+    var fh2 = app.filmHeader(undefined, null);
+    assert(Array.isArray(fh2) && fh2.length > 0, 'filmHeader(undefined, null) возвращает массив строк');
+
+    // 7. poster placeholder с null/undefined/некорректными параметрами
+    var p1 = posterMod.placeholder(null, 22, 13);
+    assert(Array.isArray(p1) && p1.length === 13, 'placeholder(null) возвращает 13 строк');
+
+    var p2 = posterMod.placeholder(undefined, 0, 0);
+    assert(Array.isArray(p2) && p2.length === 13, 'placeholder(undefined, 0, 0) использует дефолтные размеры');
+
+    // 8. poster render с null/undefined url и title
+    var pr1 = await posterMod.render(null, null, 22, 13);
+    assert(Array.isArray(pr1) && pr1.length === 13, 'render(null, null) возвращает валидный постер-заглушку');
+}
+
 // ---------- запуск ----------
 
 var SUITES = [
@@ -710,6 +822,11 @@ var SUITES = [
     ['Доктор', testDoctor],
     ['Конфиг', testConfigAndHistory],
     ['Качество', testQualityPick],
+    ['Самообновление', testUpdateModule],
+    ['Сессия mpv', testSessionPersistence],
+    ['TorrServe', testTorrserveIntegration],
+    ['Защита UI и постеров', testUiAndPosterDefensiveness],
+    ['Donatty', testDonattyIntegration],
     ['Живые', testLive]
 ];
 

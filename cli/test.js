@@ -660,6 +660,26 @@ async function testSessionPersistence() {
     assert(attached === null, 'пустая сессия корректно возвращает null');
 }
 
+async function testDonattyIntegration() {
+    group('Интеграция с Donatty (донаты и топ поддержки)');
+    var donatty = require('./lib/donatty');
+
+    assert(typeof donatty.fetchTopDonators === 'function', 'fetchTopDonators экспортирован');
+    assert(typeof donatty.getCachedDonators === 'function', 'getCachedDonators экспортирован');
+    assert(typeof donatty.formatDonatorsBanner === 'function', 'formatDonatorsBanner экспортирован');
+
+    var emptyBanner = donatty.formatDonatorsBanner([]);
+    assert(emptyBanner.indexOf('donatty.com/nedoedal') >= 0, 'formatDonatorsBanner для пустого списка возвращает ссылку');
+
+    var sampleDonators = [
+        { name: 'nedoedal', value: 10 },
+        { name: 'Alex', value: 500 }
+    ];
+    var banner = donatty.formatDonatorsBanner(sampleDonators);
+    assert(banner.indexOf('nedoedal') >= 0 && banner.indexOf('10 ₽') >= 0, 'formatDonatorsBanner форматирует топ с именами и суммами');
+    assert(banner.indexOf('🥇') >= 0 && banner.indexOf('🥈') >= 0, 'formatDonatorsBanner содержит эмодзи медалей');
+}
+
 async function testTorrserveIntegration() {
     group('Интеграция с TorrServe');
     var torrserve = require('./lib/torrserve');
@@ -800,6 +820,7 @@ var SUITES = [
     ['Сессия mpv', testSessionPersistence],
     ['TorrServe', testTorrserveIntegration],
     ['Защита UI и постеров', testUiAndPosterDefensiveness],
+    ['Donatty', testDonattyIntegration],
     ['Живые', testLive]
 ];
 

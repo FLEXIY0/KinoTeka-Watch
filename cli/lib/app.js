@@ -20,6 +20,7 @@ var config = require('./config');
 var history = require('./history');
 var themes = require('./themes');
 var i18n = require('./i18n');
+var donatty = require('./donatty');
 
 var t = i18n.t;
 
@@ -785,6 +786,12 @@ async function searchScreen(state, apiKey) {
 
     var recentHistory = history.getRecent(4);
 
+    donatty.fetchTopDonators().then(function (list) {
+        if (list && list.length > 0) {
+            tui.redraw();
+        }
+    });
+
     function render(spinnerFrame) {
         var size = metrics();
         var content = [''];
@@ -862,7 +869,19 @@ async function searchScreen(state, apiKey) {
         var hints = (query.trim().length === 0 && recentHistory.length > 0)
             ? [glyph.up + glyph.down + ' ' + t('key_nav'), 'Enter ' + t('key_open'), 'e / → серии', 'Ctrl+S ' + t('key_settings'), 'Ctrl+H ' + t('key_history'), 'Esc ' + t('key_exit')]
             : [glyph.up + glyph.down + ' ' + t('key_nav'), 'Enter ' + t('key_open'), 'Ctrl+S ' + t('key_settings'), 'Ctrl+H ' + t('key_history'), 'Esc ' + t('key_exit')];
-        return tui.box('ktw', content, size.width, footer(hints));
+
+        var boxLines = tui.box('ktw', content, size.width, footer(hints));
+
+        // Отображение последних донатов / топа поддержки под футером
+        var donators = donatty.getCachedDonators();
+        if (donators && donators.length > 0) {
+            var donText = donatty.formatDonatorsBanner(donators, size.width);
+            var donCenter = Math.max(0, Math.floor((size.width - ansi.visibleWidth(donText)) / 2));
+            boxLines.push('');
+            boxLines.push(ansi.repeat(' ', donCenter) + style.warn(donText));
+        }
+
+        return boxLines;
     }
 
     async function runSearch() {
@@ -892,6 +911,10 @@ async function searchScreen(state, apiKey) {
         if (key === null) {
             pendingSearch = false;
             await runSearch();
+            continue;
+        }
+
+        if (key.name === 'redraw') {
             continue;
         }
 

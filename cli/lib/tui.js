@@ -100,6 +100,15 @@ function onResize() {
     else if (lastFrame) paint(lastFrame);
 }
 
+function redraw() {
+    if (waiters.length > 0) {
+        var w = waiters.shift();
+        w({ name: 'redraw' });
+    } else if (lastFrame) {
+        paint(lastFrame);
+    }
+}
+
 function enter() {
     if (active) return;
     active = true;
@@ -315,5 +324,6 @@ module.exports = {
     field: field,
     editText: editText,
     withSpinner: withSpinner,
+    redraw: redraw,
     setResizeHandler: function (handler) { resizeHandler = handler; }
 };

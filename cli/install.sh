@@ -512,14 +512,14 @@ SOURCES_CLONED=0
 
 fetch_sources() {
     # Скрипт запустили внутри уже склонированного репозитория
-    if [ -f "./cli/ktw.js" ] && [ -d "./.git" ]; then
+    if [ -f "./cli/ktw.js" ] && [ -d "./.git" ] && [ "$(pwd)" != "$INSTALL_DIR" ]; then
         INSTALL_DIR="$(pwd)"
         ok "исходники здесь: $INSTALL_DIR"
         return 0
     fi
 
-    if [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/cli/ktw.js" ]; then
-        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -B \"$REPO_BRANCH\" \"origin/$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        if spin_run "обновляю $INSTALL_DIR" sh -c "git -C \"$INSTALL_DIR\" fetch origin \"$REPO_BRANCH\" && git -C \"$INSTALL_DIR\" checkout -f \"$REPO_BRANCH\" 2>/dev/null && git -C \"$INSTALL_DIR\" reset --hard \"origin/$REPO_BRANCH\""; then
             ok "обновлено до $(git -C "$INSTALL_DIR" rev-parse --short HEAD 2>/dev/null)"
             return 0
         fi

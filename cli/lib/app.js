@@ -836,6 +836,174 @@ async function nextEpisodeCountdown(film, nextSeason, nextEpisode, countdownSeco
     return true;
 }
 
+// Интерактивный пульт управления воспроизведением mpv (адаптация на лету)
+async function playbackControllerScreen(session, film, player, translation, season, episode, options, state, variants, posterLines) {
+    var curTranslation = translation;
+    var curQuality = state.quality || (variants.length > 0 ? variants[0].height : 1080);
+    var epInfo = (season && episode) ? (' · S' + (season < 10 ? '0' : '') + season + 'E' + (episode < 10 ? '0' : '') + episode) : '';
+
+    var toast = null;
+    var toastTimer = null;
+
+    function setToast(msg) {
+        toast = msg;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast = null; }, 3000);
+    }
+
+    // Доступные звуковые дорожки из потока
+    var audioTracks = (session.stream && session.stream.audioTracks && session.stream.audioTracks.length > 0)
+        ? session.stream.audioTracks
+        : ((player && player.translations) || []);
+
+    while (session.isAlive()) {
+        var size = metrics();
+        var playbackState = session.getState();
+
+        var timePos = playbackState.timePos || 0;
+        var duration = playbackState.duration || 0;
+        var isPaused = playbackState.pause;
+        var vol = playbackState.volume !== undefined ? Math.round(playbackState.volume) : 100;
+        var spd = playbackState.speed !== undefined ? Number(playbackState.speed).toFixed(2) : '1.00';
+        var isFs = playbackState.fullscreen;
+
+        var pct = duration > 0 ? Math.min(100, Math.round((timePos / duration) * 100)) : 0;
+        var barW = Math.max(10, Math.min(30, size.width - 34));
+        var filled = Math.round((pct / 100) * barW);
+        var progressBar = style.good(ansi.repeat('▰', filled)) + style.muted(ansi.repeat('▱', Math.max(0, barW - filled)));
+
+        var timeStr = history.formatTime(timePos) + ' / ' + history.formatTime(duration);
+
+        var rightLines = [];
+        rightLines.push(style.bold(ansi.truncate(film.title + epInfo, size.rightWidth)));
+        rightLines.push(style.muted('Плеер: ') + style.accent(player.source + (player.direct ? ' ⚡' : '')) +
+            style.muted(' · Качество: ') + style.warn((curQuality || '1080') + 'p'));
+        rightLines.push('');
+
+        var statusIcon = isPaused ? style.warn('⏸ ПАУЗА') : style.good('▶ ВОСПРОИЗВЕДЕНИЕ');
+        rightLines.push(statusIcon + '  ' + style.bold(timeStr) + style.accent(' (' + pct + '%)'));
+        rightLines.push(progressBar);
+        rightLines.push('');
+
+        var trName = curTranslation ? curTranslation.name : 'по умолчанию';
+        rightLines.push(style.bold('Озвучка:  ') + style.accent(trName));
+        rightLines.push(style.bold('Громкость:') + ' ' + style.warn(vol + '%') +
+            style.bold('   Скорость:') + ' ' + style.accent(spd + 'x') +
+            (isFs ? style.good('   [FULLSCREEN]') : ''));
+        rightLines.push('');
+
+        if (toast) {
+            rightLines.push(style.good('⚡ ' + toast));
+        } else {
+            rightLines.push(style.muted('Горячие клавиши пульта управления (на лету):'));
+        }
+
+        var controlRows = [
+            style.accent('[Space/P]') + ' пауза   ' + style.accent('[A]') + ' озвучка   ' + style.accent('[Q]') + ' качество',
+            style.accent('[← / →]') + ' 10 сек   ' + style.accent('[↑ / ↓]') + ' громкость   ' + style.accent('[F]') + ' полный экран',
+            (film.serial ? (style.accent('[N]') + ' след. серия   ') : '') + style.accent('[S]') + ' настройки   ' + style.accent('[Esc]') + ' остановить'
+        ];
+
+        controlRows.forEach(function (r) { rightLines.push('  ' + r); });
+
+        var content = size.withPoster
+            ? columns(posterLines, rightLines, size.rightWidth)
+            : rightLines.map(function (l) { return ' ' + ansi.pad(l, size.width - 3); });
+
+        tui.paint(tui.box('Пульт воспроизведения mpv · KTW Live', [''].concat(content, ['']),
+            size.width, footer(['Esc остановить просмотр', 'A сменить озвучку', 'Q качество', 'Space пауза'])));
+
+        var key = await tui.readKey(400); // опрос каждые 400мс для плавной полосы прогресса
+
+        if (!session.isAlive()) break;
+        if (!key) continue;
+
+        if (key.name === 'escape' || (key.ctrl && key.name === 'c')) {
+            session.quit();
+            break;
+        }
+
+        if (key.name === 'space' || (key.name === 'p' && !key.ctrl)) {
+            session.ipc.togglePause();
+            setToast(isPaused ? 'Воспроизведение возобновлено' : 'Воспроизведение на паузе');
+        } else if (key.name === 'f' && !key.ctrl) {
+            session.ipc.toggleFullscreen();
+            setToast('Переключен режим экрана');
+        } else if (key.name === 'left') {
+            session.ipc.seek(-10);
+            setToast('Перемотка -10 сек');
+        } else if (key.name === 'right') {
+            session.ipc.seek(10);
+            setToast('Перемотка +10 сек');
+        } else if (key.name === 'up') {
+            session.ipc.changeVolume(5);
+            setToast('Громкость +5%');
+        } else if (key.name === 'down') {
+            session.ipc.changeVolume(-5);
+            setToast('Громкость -5%');
+        } else if (key.str === '[' || key.str === '{') {
+            session.ipc.changeSpeed(-0.1);
+            setToast('Скорость -0.1x');
+        } else if (key.str === ']' || key.str === '}') {
+            session.ipc.changeSpeed(0.1);
+            setToast('Скорость +0.1x');
+        } else if ((key.name === 'a' || key.str === 'a' || key.str === 'A' || key.str === 'ф' || key.str === 'Ф') && audioTracks.length > 1) {
+            // Выбор дорожки на лету
+            var trItems = audioTracks.map(function (at, idx) {
+                var isCur = (curTranslation && at.name === curTranslation.name) || (playbackState.aid === (at.audioId || (idx + 1)));
+                return {
+                    label: (isCur ? style.good('✓ ') : '  ') + at.name,
+                    hint: at.lang ? ('[' + at.lang.toUpperCase() + ']') : ''
+                };
+            });
+            var pickedTrIdx = await pickerScreen(film, posterLines, 'Смена озвучки на лету (без остановки видео)', trItems,
+                ['Enter применить', 'Esc назад'], ['Переключение дорожки происходит мгновенно прямо в mpv']);
+            if (typeof pickedTrIdx === 'number' && audioTracks[pickedTrIdx]) {
+                var selectedAt = audioTracks[pickedTrIdx];
+                curTranslation = selectedAt;
+                var aidToSet = selectedAt.audioId || (pickedTrIdx + 1);
+                session.ipc.setAudio(aidToSet);
+                setToast('Озвучка изменена: ' + selectedAt.name);
+            }
+        } else if ((key.name === 'q' || key.str === 'q' || key.str === 'Q' || key.str === 'й' || key.str === 'Й') && variants.length > 1) {
+            // Выбор качества на лету
+            var qItems = variants.map(function (v) {
+                var isCur = v.height === curQuality;
+                return {
+                    label: (isCur ? style.good('✓ ') : '  ') + v.label,
+                    hint: v.bandwidth ? (Math.round(v.bandwidth / 1000) + ' кбит/с') : ''
+                };
+            });
+            var pickedQIdx = await pickerScreen(film, posterLines, 'Смена качества на лету', qItems,
+                ['Enter применить', 'Esc назад'], ['mpv бесшовно адаптирует битрейт потока']);
+            if (typeof pickedQIdx === 'number' && variants[pickedQIdx]) {
+                var selectedV = variants[pickedQIdx];
+                curQuality = selectedV.height;
+                state.quality = curQuality;
+                if (selectedV.bandwidth) {
+                    session.ipc.setBitrate(selectedV.bandwidth);
+                }
+                setToast('Качество изменено: ' + selectedV.label);
+            }
+        } else if (key.name === 's' || (key.ctrl && key.name === 's')) {
+            await settingsScreen();
+            setToast('Настройки сохранены');
+        } else if (key.name === 'n' && film.serial) {
+            // Переход к следующей серии
+            session.quit();
+            return { ok: true, eofReached: true, nextRequested: true };
+        }
+    }
+
+    var finalState = session.getState();
+    return {
+        ok: true,
+        eofReached: finalState.eofReached || (finalState.duration > 0 && finalState.timePos / finalState.duration > 0.85),
+        timePos: finalState.timePos,
+        duration: finalState.duration
+    };
+}
+
 // Извлечение потока и воспроизведение в mpv
 async function playStream(film, player, translation, season, episode, options, state, posterLines, startTime) {
     var userConfig = config.read();
@@ -931,14 +1099,12 @@ async function playStream(film, player, translation, season, episode, options, s
         (translation && translation.name ? ' · ' + translation.name : '') +
         (found.label ? ' · ' + found.label : '');
 
-    // Запуск mpv с IPC отслеживанием
-    tui.exit();
-
-    var playResult;
+    // Запуск mpv с живым интерактивным пультом управления
+    var session;
     try {
-        playResult = await mpv.play(found, streamTitle, options.mpvArgs);
+        session = mpv.startLiveSession(found, streamTitle, options.mpvArgs);
+        session.stream = found;
     } catch (err) {
-        tui.enter();
         await messageScreen('mpv не запустился', [
             err.message,
             '',
@@ -948,13 +1114,8 @@ async function playStream(film, player, translation, season, episode, options, s
         return { ok: true, eofReached: false };
     }
 
-    tui.enter();
-    return {
-        ok: true,
-        eofReached: playResult.eofReached,
-        timePos: playResult.timePos,
-        duration: playResult.duration
-    };
+    var playResult = await playbackControllerScreen(session, film, player, translation, season, episode, options, state, variants, posterLines);
+    return playResult;
 }
 
 // Экран обратного отсчета для автозапуска следующей серии (Binge-Watching)

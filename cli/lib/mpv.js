@@ -133,12 +133,22 @@ function buildCommand(stream, title, extraArgs) {
     return 'mpv ' + quoted.join(' ');
 }
 
-// Подключение к MPV IPC сокету и отслеживание времени воспроизведения
+// Подключение к MPV IPC сокету и управление в реальном времени
 function monitorIpc(socketPath, onProgress) {
     var client = null;
     var timer = null;
     var attempts = 0;
-    var state = { timePos: 0, duration: 0, eofReached: false };
+    var state = {
+        timePos: 0,
+        duration: 0,
+        pause: false,
+        volume: 100,
+        speed: 1.0,
+        fullscreen: false,
+        aid: 1,
+        sid: 0,
+        eofReached: false
+    };
 
     function sendCommand(command, reqId) {
         if (!client || client.destroyed) return;
@@ -149,20 +159,28 @@ function monitorIpc(socketPath, onProgress) {
     }
 
     function tryConnect() {
-        if (attempts++ > 40) return; // 4 секунды попыток
+        if (attempts++ > 40) return;
 
         client = net.createConnection(socketPath, function () {
-            // Запрашиваем наблюдение за свойствами
             sendCommand(['observe_property', 1, 'time-pos']);
             sendCommand(['observe_property', 2, 'duration']);
             sendCommand(['observe_property', 3, 'eof-reached']);
+            sendCommand(['observe_property', 4, 'pause']);
+            sendCommand(['observe_property', 5, 'volume']);
+            sendCommand(['observe_property', 6, 'speed']);
+            sendCommand(['observe_property', 7, 'fullscreen']);
+            sendCommand(['observe_property', 8, 'aid']);
+            sendCommand(['observe_property', 9, 'sid']);
 
-            // Периодический опрос
             timer = setInterval(function () {
                 sendCommand(['get_property', 'time-pos'], 10);
                 sendCommand(['get_property', 'duration'], 11);
                 sendCommand(['get_property', 'eof-reached'], 12);
-            }, 2000);
+                sendCommand(['get_property', 'pause'], 13);
+                sendCommand(['get_property', 'volume'], 14);
+                sendCommand(['get_property', 'speed'], 15);
+                sendCommand(['get_property', 'fullscreen'], 16);
+            }, 1000);
         });
 
         client.on('data', function (data) {
@@ -171,19 +189,22 @@ function monitorIpc(socketPath, onProgress) {
                 if (!line.trim()) return;
                 try {
                     var parsed = JSON.parse(line);
-                    if (parsed.name === 'time-pos' && typeof parsed.data === 'number') {
-                        state.timePos = parsed.data;
-                    } else if (parsed.name === 'duration' && typeof parsed.data === 'number') {
-                        state.duration = parsed.data;
-                    } else if (parsed.name === 'eof-reached' && typeof parsed.data === 'boolean') {
-                        state.eofReached = parsed.data;
-                    } else if (parsed.request_id === 10 && typeof parsed.data === 'number') {
-                        state.timePos = parsed.data;
-                    } else if (parsed.request_id === 11 && typeof parsed.data === 'number') {
-                        state.duration = parsed.data;
-                    } else if (parsed.request_id === 12 && typeof parsed.data === 'boolean') {
-                        state.eofReached = parsed.data;
-                    }
+                    if (parsed.name === 'time-pos' && typeof parsed.data === 'number') state.timePos = parsed.data;
+                    else if (parsed.name === 'duration' && typeof parsed.data === 'number') state.duration = parsed.data;
+                    else if (parsed.name === 'pause' && typeof parsed.data === 'boolean') state.pause = parsed.data;
+                    else if (parsed.name === 'volume' && typeof parsed.data === 'number') state.volume = parsed.data;
+                    else if (parsed.name === 'speed' && typeof parsed.data === 'number') state.speed = parsed.data;
+                    else if (parsed.name === 'fullscreen' && typeof parsed.data === 'boolean') state.fullscreen = parsed.data;
+                    else if (parsed.name === 'aid') state.aid = parsed.data;
+                    else if (parsed.name === 'sid') state.sid = parsed.data;
+                    else if (parsed.name === 'eof-reached' && typeof parsed.data === 'boolean') state.eofReached = parsed.data;
+                    else if (parsed.request_id === 10 && typeof parsed.data === 'number') state.timePos = parsed.data;
+                    else if (parsed.request_id === 11 && typeof parsed.data === 'number') state.duration = parsed.data;
+                    else if (parsed.request_id === 12 && typeof parsed.data === 'boolean') state.eofReached = parsed.data;
+                    else if (parsed.request_id === 13 && typeof parsed.data === 'boolean') state.pause = parsed.data;
+                    else if (parsed.request_id === 14 && typeof parsed.data === 'number') state.volume = parsed.data;
+                    else if (parsed.request_id === 15 && typeof parsed.data === 'number') state.speed = parsed.data;
+                    else if (parsed.request_id === 16 && typeof parsed.data === 'boolean') state.fullscreen = parsed.data;
 
                     if (onProgress && (state.timePos > 0 || state.duration > 0)) {
                         onProgress(state);
@@ -201,6 +222,22 @@ function monitorIpc(socketPath, onProgress) {
 
     return {
         getState: function () { return state; },
+        sendCommand: sendCommand,
+        setAudio: function (audioId) { sendCommand(['set_property', 'aid', audioId]); },
+        setBitrate: function (bitrate) { sendCommand(['set_property', 'hls-bitrate', bitrate]); },
+        setSubtitle: function (subId) { sendCommand(['set_property', 'sid', subId]); },
+        setPause: function (val) { sendCommand(['set_property', 'pause', val]); },
+        togglePause: function () { sendCommand(['cycle', 'pause']); },
+        toggleFullscreen: function () { sendCommand(['cycle', 'fullscreen']); },
+        seek: function (seconds) { sendCommand(['seek', seconds, 'relative']); },
+        setVolume: function (vol) { sendCommand(['set_property', 'volume', Math.max(0, Math.min(150, vol))]); },
+        changeVolume: function (delta) { sendCommand(['add', 'volume', delta]); },
+        setSpeed: function (speed) { sendCommand(['set_property', 'speed', speed]); },
+        changeSpeed: function (delta) { sendCommand(['add', 'speed', delta]); },
+        loadFile: function (url, startTime) {
+            sendCommand(['loadfile', url, 'replace', startTime ? ('start=' + Math.floor(startTime)) : 'start=0']);
+        },
+        quit: function () { sendCommand(['quit']); },
         close: function () {
             if (timer) clearInterval(timer);
             if (client) {
@@ -210,41 +247,43 @@ function monitorIpc(socketPath, onProgress) {
     };
 }
 
-// Запуск mpv; резолвится объектом с кодом выхода и последним состоянием { code, timePos, duration, eofReached }
-function play(stream, title, extraArgs, onProgressCallback) {
-    return new Promise(function (resolve, reject) {
-        var socketPath = generateSocketPath();
-        var ipc = monitorIpc(socketPath, function (state) {
-            if (stream.filmInfo) {
-                history.saveProgress({
-                    filmId: stream.filmInfo.id,
-                    title: stream.filmInfo.title,
-                    year: stream.filmInfo.year,
-                    poster: stream.filmInfo.poster,
-                    serial: stream.filmInfo.serial,
-                    season: stream.season,
-                    episode: stream.episode,
-                    player: stream.player,
-                    translation: stream.translation,
-                    quality: stream.label,
-                    timePos: state.timePos,
-                    duration: state.duration,
-                    watched: state.eofReached || (state.duration > 0 && state.timePos / state.duration > 0.85)
-                });
-            }
-            if (onProgressCallback) onProgressCallback(state);
-        });
-
-        var args = buildArgs(stream, title, extraArgs, socketPath);
-        var child = spawn('mpv', args, { stdio: ['ignore', 'ignore', 'ignore'] });
-
-        function cleanupSocket() {
-            ipc.close();
-            if (process.platform !== 'win32') {
-                try { if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath); } catch (e) {}
-            }
+// Запуск сессии воспроизведения с живым IPC пультом
+function startLiveSession(stream, title, extraArgs, onProgressCallback) {
+    var socketPath = generateSocketPath();
+    var ipc = monitorIpc(socketPath, function (state) {
+        if (stream.filmInfo) {
+            history.saveProgress({
+                filmId: stream.filmInfo.id,
+                title: stream.filmInfo.title,
+                year: stream.filmInfo.year,
+                poster: stream.filmInfo.poster,
+                serial: stream.filmInfo.serial,
+                season: stream.season,
+                episode: stream.episode,
+                player: stream.player,
+                translation: stream.translation,
+                quality: stream.label,
+                timePos: state.timePos,
+                duration: state.duration,
+                watched: state.eofReached || (state.duration > 0 && state.timePos / state.duration > 0.85)
+            });
         }
+        if (onProgressCallback) onProgressCallback(state);
+    });
 
+    var args = buildArgs(stream, title, extraArgs, socketPath);
+    var child = spawn('mpv', args, { stdio: ['ignore', 'ignore', 'ignore'] });
+    var exited = false;
+    var exitCode = null;
+
+    function cleanupSocket() {
+        ipc.close();
+        if (process.platform !== 'win32') {
+            try { if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath); } catch (e) {}
+        }
+    }
+
+    var exitPromise = new Promise(function (resolve, reject) {
         child.on('error', function (err) {
             cleanupSocket();
             if (err.code === 'ENOENT') {
@@ -261,17 +300,18 @@ function play(stream, title, extraArgs, onProgressCallback) {
                         return;
                     } catch (e) {}
                 }
-                reject(new Error('mpv не найден в PATH. Установи mpv (pkg install mpv / apt install mpv) или запусти с --no-mpv'));
+                reject(new Error('mpv не найден в PATH. Установи mpv (winget install --id shinchiro.mpv -e / apt install mpv)'));
                 return;
             }
             reject(err);
         });
 
         child.on('exit', function (code) {
+            exited = true;
+            exitCode = code;
             var finalState = ipc.getState();
             cleanupSocket();
 
-            // Сохраняем финальный прогресс
             if (stream.filmInfo) {
                 history.saveProgress({
                     filmId: stream.filmInfo.id,
@@ -298,11 +338,34 @@ function play(stream, title, extraArgs, onProgressCallback) {
             });
         });
     });
+
+    return {
+        ipc: ipc,
+        child: child,
+        isAlive: function () { return !exited && child.exitCode === null; },
+        getState: function () { return ipc.getState(); },
+        waitExit: function () { return exitPromise; },
+        quit: function () {
+            ipc.quit();
+            setTimeout(function () {
+                if (!exited) {
+                    try { child.kill(); } catch (e) {}
+                }
+            }, 800);
+        }
+    };
+}
+
+// Запуск mpv (блокирующий вызов для headless/скриптов)
+function play(stream, title, extraArgs, onProgressCallback) {
+    var session = startLiveSession(stream, title, extraArgs, onProgressCallback);
+    return session.waitExit();
 }
 
 module.exports = {
     buildArgs: buildArgs,
     buildCommand: buildCommand,
     generateSocketPath: generateSocketPath,
+    startLiveSession: startLiveSession,
     play: play
 };

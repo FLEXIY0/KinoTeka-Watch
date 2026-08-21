@@ -543,7 +543,7 @@ async function extractGeneric(iframeUrl, options) {
 // ---------- маршрутизация ----------
 
 var ROUTES = [
-    { name: 'collaps', test: /ortified|collaps|fprxnet|interkh/i, run: extractCollaps },
+    { name: 'collaps', test: /ortified|collaps|fprxnet|interkh|kinogram/i, run: extractCollaps },
     { name: 'veoveo',  test: /tazaromikaz|voidboost|veoveo/i,     run: extractVeoveo },
     { name: 'alloha',  test: /stravers|alloha/i,                  run: extractAlloha },
     { name: 'kodik',   test: /kodik/i,                            run: extractKodik },

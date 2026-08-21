@@ -52,6 +52,8 @@ function buildArgs(stream, title, extraArgs, socketPath) {
         '--hr-seek=yes',
         '--hr-seek-framedrop=yes',
         '--input-cursor=yes',
+        '--hwdec=' + (userConfig.mpvHardwareDec || 'auto-safe'),
+        '--sws-scaler=fast-bilinear',
         '--osc=yes',
         '--script-opts=osc-scalewindowed=1.2,osc-scalefullscreen=1.2,osc-visibility=auto'
     ];
@@ -246,7 +248,20 @@ function play(stream, title, extraArgs, onProgressCallback) {
         child.on('error', function (err) {
             cleanupSocket();
             if (err.code === 'ENOENT') {
-                reject(new Error('mpv не найден в PATH. Установи mpv или запусти с --no-mpv'));
+                var isTermux = !!process.env.TERMUX_VERSION || fs.existsSync('/data/data/com.termux');
+                if (isTermux) {
+                    try {
+                        var openChild = spawn('termux-open-url', [stream.url], { stdio: 'ignore' });
+                        openChild.on('error', function () {
+                            try {
+                                spawn('am', ['start', '-a', 'android.intent.action.VIEW', '-d', stream.url, '-t', 'video/*'], { stdio: 'ignore' });
+                            } catch (e) {}
+                        });
+                        resolve({ code: 0, timePos: 0, duration: 0, eofReached: false });
+                        return;
+                    } catch (e) {}
+                }
+                reject(new Error('mpv не найден в PATH. Установи mpv (pkg install mpv / apt install mpv) или запусти с --no-mpv'));
                 return;
             }
             reject(err);

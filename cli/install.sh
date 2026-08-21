@@ -17,7 +17,15 @@ set -eu
 REPO_URL="${KTW_REPO:-https://github.com/FLEXIY0/KinoTeka-Watch.git}"
 REPO_BRANCH="${KTW_BRANCH:-claude/direct-tui-bun-install-d9bhfq}"
 INSTALL_DIR="${KTW_HOME:-$HOME/.local/share/ktw2}"
-BIN_DIR="${KTW_BIN:-$HOME/.local/bin}"
+
+IS_TERMUX=0
+if [ -n "${TERMUX_VERSION:-}" ] || [ -d "/data/data/com.termux" ]; then
+    IS_TERMUX=1
+    BIN_DIR="${KTW_BIN:-${PREFIX:-/data/data/com.termux/files/usr}/bin}"
+else
+    BIN_DIR="${KTW_BIN:-$HOME/.local/bin}"
+fi
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ktw"
 
 # ---------- оформление ----------
@@ -230,7 +238,8 @@ PKG_INSTALL=""
 PKG_UPDATED=0
 
 detect_pkg_mgr() {
-    if has apt-get; then PKG_MGR="apt-get"; PKG_INSTALL="apt-get install -y"
+    if [ "$IS_TERMUX" = "1" ] && has pkg; then PKG_MGR="pkg"; PKG_INSTALL="pkg install -y"
+    elif has apt-get; then PKG_MGR="apt-get"; PKG_INSTALL="apt-get install -y"
     elif has apk; then PKG_MGR="apk"; PKG_INSTALL="apk add --no-cache"
     elif has dnf; then PKG_MGR="dnf"; PKG_INSTALL="dnf install -y"
     elif has yum; then PKG_MGR="yum"; PKG_INSTALL="yum install -y"
@@ -239,6 +248,7 @@ detect_pkg_mgr() {
     elif has xbps-install; then PKG_MGR="xbps"; PKG_INSTALL="xbps-install -Sy"
     elif has emerge; then PKG_MGR="emerge"; PKG_INSTALL="emerge --quiet"
     elif has brew; then PKG_MGR="brew"; PKG_INSTALL="brew install"
+    elif has pkg; then PKG_MGR="pkg"; PKG_INSTALL="pkg install -y"
     fi
 }
 
@@ -246,7 +256,8 @@ detect_pkg_mgr() {
 ROOT_MODE=""
 
 detect_root_mode() {
-    if [ "$(id -u)" = "0" ]; then ROOT_MODE="root"
+    if [ "$IS_TERMUX" = "1" ]; then ROOT_MODE="none"
+    elif [ "$(id -u)" = "0" ]; then ROOT_MODE="root"
     elif has sudo; then ROOT_MODE="sudo"
     elif has doas; then ROOT_MODE="doas"
     elif has su; then ROOT_MODE="su"
@@ -346,16 +357,29 @@ require_tool() {
     return 1
 }
 
-# ---------- рантайм: только Bun ----------
-#
-# Node.js не используется вообще. Официальный `curl … bun.sh/install | bash`
-# требует bash и unzip, а на голом sysvinit-минимуме их может не быть, поэтому
-# основной путь — прямая распаковка релизного архива с GitHub, а bun.sh идёт
-# запасным вариантом.
+# ---------- рантайм: Bun (приоритетно) с фолбэком на Node.js (v18+) ----------
 
+ACTIVE_RUNTIME="bun"
+RUNTIME_BIN=""
 BUN_BIN=""
 
-# Имя релизного архива под текущую машину
+use_bun() {
+    BUN_BIN="$1"
+    RUNTIME_BIN="$1"
+    ACTIVE_RUNTIME="bun"
+    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    PATH="$(dirname "$BUN_BIN"):$PATH"
+    export PATH
+}
+
+use_node() {
+    RUNTIME_BIN="$1"
+    ACTIVE_RUNTIME="node"
+    PATH="$(dirname "$RUNTIME_BIN"):$PATH"
+    export PATH
+}
+
+# Имя релизного архива Bun под текущую машину
 bun_asset() {
     _os=$(uname -s 2>/dev/null || echo Linux)
     _arch=$(uname -m 2>/dev/null || echo x86_64)
@@ -381,7 +405,7 @@ bun_asset() {
         _libc="-musl"
     fi
 
-    # Без AVX2 обычная сборка падает с SIGILL — для старых CPU есть baseline
+    # Без AVX2 обычная сборка падает с SIGILL — для старых CPU (Dell Adamo 13, Core 2 Duo) есть baseline
     _base=""
     if [ "$_arch" = "x64" ] && ! grep -qw avx2 /proc/cpuinfo 2>/dev/null; then
         _base="-baseline"
@@ -444,7 +468,7 @@ bun_from_release() {
     "$HOME/.bun/bin/bun" --version >/dev/null 2>&1
 }
 
-# Запасной путь — официальный установщик (нужен bash и unzip)
+# Запасной путь — официальный установщик
 bun_from_official() {
     has bash || return 1
     has unzip || install_pkg unzip >/dev/null 2>&1 || true
@@ -454,22 +478,13 @@ bun_from_official() {
     [ -x "$HOME/.bun/bin/bun" ] && "$HOME/.bun/bin/bun" --version >/dev/null 2>&1
 }
 
-use_bun() {
-    BUN_BIN="$1"
-    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-    PATH="$(dirname "$BUN_BIN"):$PATH"
-    export PATH
-}
-
-ensure_bun() {
-    # Уже в PATH
+ensure_bun_internal() {
     if has bun; then
         use_bun "$(command -v bun)"
         ok "bun $(bun --version 2>/dev/null)"
         return 0
     fi
 
-    # Ставился раньше, но PATH не подхватил
     for _candidate in "$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun; do
         if [ -x "$_candidate" ]; then
             use_bun "$_candidate"
@@ -478,8 +493,10 @@ ensure_bun() {
         fi
     done
 
-    say ""
-    dim "рантайм — Bun, ставлю в ~/.bun (без root, без systemd)"
+    # В Termux Bun не поддерживается напрямую из-за Android Bionic libc
+    if [ "$IS_TERMUX" = "1" ]; then
+        return 1
+    fi
 
     if spin_run "качаю Bun" bun_from_release && [ -x "$HOME/.bun/bin/bun" ]; then
         use_bun "$HOME/.bun/bin/bun"
@@ -487,13 +504,12 @@ ensure_bun() {
         return 0
     fi
 
-    if spin_run "ставлю Bun официальным скриптом" bun_from_official && [ -x "$HOME/.bun/bin/bun" ]; then
+    if spin_run "ставлю Bun скриптом" bun_from_official && [ -x "$HOME/.bun/bin/bun" ]; then
         use_bun "$HOME/.bun/bin/bun"
         ok "bun $(bun --version 2>/dev/null) установлен в ~/.bun/bin/bun"
         return 0
     fi
 
-    # Последняя попытка — пакет из репозитория дистрибутива (есть в Arch, Void)
     install_pkg bun >/dev/null 2>&1 || true
     if has bun; then
         use_bun "$(command -v bun)"
@@ -501,11 +517,51 @@ ensure_bun() {
         return 0
     fi
 
+    return 1
+}
+
+ensure_runtime() {
+    # 1. Приоритетно пробуем Bun
+    if ensure_bun_internal; then
+        return 0
+    fi
+
+    # 2. Фолбэк на Node.js (32-bit x86, ARMv7, Termux Bionic, старые системы)
     say ""
-    dim "не вышло автоматически. Поставь Bun руками и запусти установщик снова:"
-    dim "  curl -fsSL https://bun.sh/install | bash"
-    dim "архитектура: $(uname -m 2>/dev/null || echo '?'), нужен x86_64 или aarch64"
-    die "без Bun ktw не запустится — Node.js этот клиент не поддерживает"
+    dim "Bun не поддерживается на этой архитектуре/ОС, переключаюсь на Node.js"
+
+    if has node; then
+        use_node "$(command -v node)"
+        ok "node $(node -v 2>/dev/null) из PATH"
+        return 0
+    fi
+
+    for _candidate in /usr/local/bin/node /usr/bin/node "${PREFIX:-}/bin/node"; do
+        if [ -x "$_candidate" ]; then
+            use_node "$_candidate"
+            ok "node $(node -v 2>/dev/null) ($_candidate)"
+            return 0
+        fi
+    done
+
+    if [ "$IS_TERMUX" = "1" ]; then
+        spin_run "ставлю nodejs в Termux" pkg install -y nodejs || true
+    else
+        install_pkg nodejs >/dev/null 2>&1 || install_pkg node >/dev/null 2>&1 || true
+        install_pkg npm >/dev/null 2>&1 || true
+    fi
+
+    if has node; then
+        use_node "$(command -v node)"
+        ok "node $(node -v 2>/dev/null) установлен"
+        return 0
+    fi
+
+    say ""
+    dim "не вышло автоматически. Поставь Bun или Node.js (18+) вручную:"
+    dim "  Bun: curl -fsSL https://bun.sh/install | bash"
+    dim "  Node.js: через пакетный менеджер системы ($PKG_MGR)"
+    die "без Bun или Node.js клиент ktw не запустится"
 }
 
 SOURCES_CLONED=0
@@ -542,7 +598,7 @@ fetch_sources() {
 # Записать значение в config.json, не потеряв остальные поля
 write_config() {
     ensure_dir "$CONFIG_DIR" || return 1
-    bun -e '
+    "$RUNTIME_BIN" -e '
         var fs = require("fs"), file = process.argv[1], key = process.argv[2], value = process.argv[3];
         var config = {};
         try { config = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) {}
@@ -559,20 +615,23 @@ install_deps() {
     export PUPPETEER_SKIP_DOWNLOAD=true
     export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-    spin_run "ставлю пакеты через bun" bun install --production --no-progress \
-        || warn "bun install завершился с предупреждением"
+    if [ "$ACTIVE_RUNTIME" = "bun" ] && has bun; then
+        spin_run "ставлю пакеты через bun" bun install --production --no-progress \
+            || warn "bun install завершился с предупреждением"
+    elif has npm; then
+        spin_run "ставлю пакеты через npm" npm install --omit=dev --no-audit --no-fund \
+            || warn "npm install завершился с предупреждением"
+    fi
 
-    [ -d "$INSTALL_DIR/node_modules" ] || die "bun install не создал node_modules в $INSTALL_DIR"
-    ok "пакеты установлены через bun"
+    [ -d "$INSTALL_DIR/node_modules" ] || die "не удалось создать node_modules в $INSTALL_DIR"
+    ok "пакеты установлены ($ACTIVE_RUNTIME)"
 }
 
 # Заполняется, если команду не получится вызвать по имени.
-# Тогда финальный блок объясняет, что делать, вместо бодрого «Запускай: ktw».
 PATH_PROBLEM=0
 PATH_RC=""
 
-# Лаунчер: ищет bun там, где мы его оставили, потом в PATH, потом по типовым
-# путям. Node.js не упоминается — его тут просто нет.
+# Лаунчер: ищет bun там, где мы его оставили, потом node, потом в PATH
 write_launcher() {
     _dest="$1"
     _tmp="$_dest.tmp.$$"
@@ -581,9 +640,10 @@ write_launcher() {
 
     cat > "$_tmp" << EOF
 #!/bin/sh
-# ktw — KinoTeka Watch в терминале. Рантайм: Bun.
+# ktw — KinoTeka Watch launcher (Bun-first with Node.js fallback)
 KTW_DIR="$INSTALL_DIR"
 
+# 1. Приоритетный запуск через Bun
 for _bun in "$BUN_BIN" "\$HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun /opt/bun/bin/bun; do
     [ -n "\$_bun" ] && [ -x "\$_bun" ] && exec "\$_bun" "\$KTW_DIR/cli/ktw.js" "\$@"
 done
@@ -592,7 +652,16 @@ if command -v bun >/dev/null 2>&1; then
     exec bun "\$KTW_DIR/cli/ktw.js" "\$@"
 fi
 
-echo "ktw: не найден bun. Поставь: curl -fsSL https://bun.sh/install | bash" >&2
+# 2. Универсальный фолбэк на Node.js
+for _node in /usr/local/bin/node /usr/bin/node "\${PREFIX:-}/bin/node"; do
+    [ -n "\$_node" ] && [ -x "\$_node" ] && exec "\$_node" "\$KTW_DIR/cli/ktw.js" "\$@"
+done
+
+if command -v node >/dev/null 2>&1; then
+    exec node "\$KTW_DIR/cli/ktw.js" "\$@"
+fi
+
+echo "ktw: не найден рантайм (Bun или Node.js). Поставь Bun: curl -fsSL https://bun.sh/install | bash" >&2
 exit 1
 EOF
 
@@ -696,8 +765,8 @@ verify_install() {
         fi
     fi
 
-    _out=$(bun "$INSTALL_DIR/cli/ktw.js" --help 2>&1 < /dev/null) && {
-        ok "клиент запускается"
+    _out=$("$RUNTIME_BIN" "$INSTALL_DIR/cli/ktw.js" --help 2>&1 < /dev/null) && {
+        ok "клиент запускается ($ACTIVE_RUNTIME)"
         return 0
     }
 
@@ -764,7 +833,7 @@ ensure_root_ready
 
 step "Зависимости"
 require_tool git git yes
-ensure_bun
+ensure_runtime
 require_tool mpv mpv yes
 require_tool chafa chafa no
 

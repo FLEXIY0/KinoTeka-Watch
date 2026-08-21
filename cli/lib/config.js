@@ -22,7 +22,7 @@ var DEFAULTS = {
     mpvCustomArgs: [],
     directOnly: false,         // режим только прямого парсинга без запуска браузера
     posterMode: 'auto',        // 'auto', 'ascii', 'off'
-    theme: 'classic_bw',
+    theme: 'classic',
     bannerStyle: 'ansi_shadow', // ANSI Shadow 3D блоки по умолчанию
     bannerSize: 'auto',         // 'auto', 'full', 'compact', 'mini'
     lang: 'ru',                 // 'ru', 'en'

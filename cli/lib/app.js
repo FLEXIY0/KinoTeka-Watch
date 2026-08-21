@@ -1268,7 +1268,7 @@ async function run(options) {
                     var playerItems = players.map(function (item) {
                         var directBadge = item.direct ? style.good(' [прямой]') : '';
                         var trCount = item.translations ? (item.translations.length + ' озв.') : '';
-                        var qBadge = item.quality || '';
+                        var qBadge = item.quality ? style.warn(item.quality) : '';
                         return {
                             label: item.source + directBadge,
                             hint: [trCount, qBadge].filter(Boolean).join(' · ')

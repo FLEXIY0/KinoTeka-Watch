@@ -635,6 +635,21 @@ async function testQualityPick() {
     assert(stream.pickVariant([], '720') === null, 'пустой список -> null');
 }
 
+async function testUpdateModule() {
+    group('Модуль самообновления');
+    var update = require('./lib/update');
+    assert(typeof update.runUpdate === 'function', 'runUpdate экспортирован');
+}
+
+async function testSessionPersistence() {
+    group('Сохранение и подхват сессии mpv');
+    assert(typeof mpv.tryAttachExistingSession === 'function', 'tryAttachExistingSession экспортирован');
+    assert(typeof mpv.clearSessionFile === 'function', 'clearSessionFile экспортирован');
+    mpv.clearSessionFile();
+    var attached = await mpv.tryAttachExistingSession();
+    assert(attached === null, 'пустая сессия корректно возвращает null');
+}
+
 // ---------- живые проверки ----------
 
 async function testLive() {
@@ -712,6 +727,7 @@ var SUITES = [
     ['Конфиг', testConfigAndHistory],
     ['Качество', testQualityPick],
     ['Самообновление', testUpdateModule],
+    ['Сессия mpv', testSessionPersistence],
     ['Живые', testLive]
 ];
 

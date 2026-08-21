@@ -238,6 +238,7 @@ function monitorIpc(socketPath, onProgress) {
             sendCommand(['loadfile', url, 'replace', startTime ? ('start=' + Math.floor(startTime)) : 'start=0']);
         },
         quit: function () { sendCommand(['quit']); },
+        isClosed: function () { return !client || client.destroyed; },
         close: function () {
             if (timer) clearInterval(timer);
             if (client) {
@@ -245,6 +246,100 @@ function monitorIpc(socketPath, onProgress) {
             }
         }
     };
+}
+
+var SESSION_FILE = path.join(config.CONFIG_DIR, 'active_session.json');
+
+function saveSessionFile(data) {
+    try {
+        fs.mkdirSync(config.CONFIG_DIR, { recursive: true });
+        fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2) + '\n');
+    } catch (e) {}
+}
+
+function clearSessionFile() {
+    try {
+        if (fs.existsSync(SESSION_FILE)) fs.unlinkSync(SESSION_FILE);
+    } catch (e) {}
+}
+
+function readSessionFile() {
+    try {
+        if (!fs.existsSync(SESSION_FILE)) return null;
+        return JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    } catch (e) {
+        return null;
+    }
+}
+
+// Попытка подключиться к уже работающему mpv при перезаходе в ktw
+function tryAttachExistingSession(onProgressCallback) {
+    return new Promise(function (resolve) {
+        var data = readSessionFile();
+        if (!data || !data.socketPath) return resolve(null);
+
+        var socketPath = data.socketPath;
+        var client = net.createConnection(socketPath);
+
+        var timeout = setTimeout(function () {
+            try { client.destroy(); } catch (e) {}
+            clearSessionFile();
+            resolve(null);
+        }, 800);
+
+        client.once('connect', function () {
+            clearTimeout(timeout);
+            client.destroy();
+
+            var ipc = monitorIpc(socketPath, function (state) {
+                if (data.filmInfo) {
+                    history.saveProgress({
+                        filmId: data.filmInfo.id,
+                        title: data.filmInfo.title,
+                        year: data.filmInfo.year,
+                        poster: data.filmInfo.poster,
+                        serial: data.filmInfo.serial,
+                        season: data.season,
+                        episode: data.episode,
+                        player: data.player,
+                        translation: data.translation,
+                        quality: data.stream ? data.stream.label : '',
+                        timePos: state.timePos,
+                        duration: state.duration,
+                        watched: state.eofReached || (state.duration > 0 && state.timePos / state.duration > 0.85)
+                    });
+                }
+                if (onProgressCallback) onProgressCallback(state);
+            });
+
+            resolve({
+                ipc: ipc,
+                socketPath: socketPath,
+                film: data.filmInfo,
+                stream: data.stream,
+                player: { source: data.player, direct: true },
+                translation: data.translation ? { name: data.translation } : null,
+                season: data.season,
+                episode: data.episode,
+                variants: data.variants || [],
+                isAlive: function () {
+                    var st = ipc.getState();
+                    return !ipc.isClosed() && (st.duration > 0 || st.timePos > 0 || !st.eofReached);
+                },
+                getState: function () { return ipc.getState(); },
+                quit: function () {
+                    ipc.quit();
+                    clearSessionFile();
+                }
+            });
+        });
+
+        client.on('error', function () {
+            clearTimeout(timeout);
+            clearSessionFile();
+            resolve(null);
+        });
+    });
 }
 
 // Запуск сессии воспроизведения с живым IPC пультом
@@ -276,8 +371,26 @@ function startLiveSession(stream, title, extraArgs, onProgressCallback) {
     var exited = false;
     var exitCode = null;
 
+    saveSessionFile({
+        socketPath: socketPath,
+        filmInfo: stream.filmInfo,
+        stream: {
+            url: stream.url,
+            label: stream.label,
+            audioTracks: stream.audioTracks,
+            variants: stream.variants
+        },
+        player: stream.player,
+        translation: stream.translation,
+        season: stream.season,
+        episode: stream.episode,
+        variants: stream.variants || [],
+        timestamp: Date.now()
+    });
+
     function cleanupSocket() {
         ipc.close();
+        clearSessionFile();
         if (process.platform !== 'win32') {
             try { if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath); } catch (e) {}
         }
@@ -347,6 +460,7 @@ function startLiveSession(stream, title, extraArgs, onProgressCallback) {
         waitExit: function () { return exitPromise; },
         quit: function () {
             ipc.quit();
+            clearSessionFile();
             setTimeout(function () {
                 if (!exited) {
                     try { child.kill(); } catch (e) {}
@@ -367,5 +481,7 @@ module.exports = {
     buildCommand: buildCommand,
     generateSocketPath: generateSocketPath,
     startLiveSession: startLiveSession,
+    tryAttachExistingSession: tryAttachExistingSession,
+    clearSessionFile: clearSessionFile,
     play: play
 };

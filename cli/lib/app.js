@@ -1362,6 +1362,21 @@ async function run(options) {
 
     tui.enter();
 
+    // Автоматически подтягиваем уже работающий mpv при перезаходе в ktw
+    try {
+        var existing = await mpv.tryAttachExistingSession();
+        if (existing) {
+            activePlayback.session = existing;
+            activePlayback.film = existing.film;
+            activePlayback.player = existing.player;
+            activePlayback.translation = existing.translation;
+            activePlayback.season = existing.season;
+            activePlayback.episode = existing.episode;
+            activePlayback.variants = existing.variants;
+            activePlayback.stream = existing.stream;
+        }
+    } catch (e) {}
+
     try {
         while (true) {
             var userConfig = config.read();

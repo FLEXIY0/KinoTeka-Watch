@@ -602,12 +602,29 @@ async function historyScreen() {
         content.push('');
 
         var headerTitle = t('history_title') + ' (' + (selected + 1) + '/' + items.length + ')';
-        tui.paint(tui.box(headerTitle, content, size.width,
-            footer(['←/→ карточки', 'Enter ' + t('key_play'), '* оценка', 'r ' + t('key_reset'), 'd ' + t('key_delete'), 'Esc ' + t('key_back')])));
+        var historyHints = chosen.serial
+            ? ['←/→ карточки', 'Enter ' + t('key_play'), 'e серии сезона', '* оценка', 'r ' + t('key_reset'), 'd ' + t('key_delete'), 'Esc ' + t('key_back')]
+            : ['←/→ карточки', 'Enter ' + t('key_play'), '* оценка', 'r ' + t('key_reset'), 'd ' + t('key_delete'), 'Esc ' + t('key_back')];
+
+        tui.paint(tui.box(headerTitle, content, size.width, footer(historyHints)));
 
         var key = await tui.readKey();
 
         if (key.name === 'escape') return null;
+
+        // Хоткей 'e' / Tab — перейти сразу к выбору серий этого сезона
+        if (chosen.serial && (key.name === 'e' || key.name === 'tab' || key.str === 'e' || key.str === 'E' || key.str === 'у' || key.str === 'У')) {
+            return {
+                id: chosen.filmId,
+                title: chosen.title,
+                year: chosen.year,
+                poster: chosen.poster,
+                serial: true,
+                openSeason: chosen.season || 1,
+                openEpisode: chosen.episode || 1,
+                openEpisodesOnly: true
+            };
+        }
 
         if ((key.ctrl && key.name === 'p') || key.name === 'f4') {
             if (activePlayback.session && activePlayback.session.isAlive()) {
@@ -820,7 +837,9 @@ async function searchScreen(state, apiKey) {
 
         content.push('');
 
-        var hints = [glyph.up + glyph.down + ' ' + t('key_nav'), 'Enter ' + t('key_open'), 'Ctrl+S ' + t('key_settings'), 'Ctrl+H ' + t('key_history'), 'Esc ' + t('key_exit')];
+        var hints = (query.trim().length === 0 && recentHistory.length > 0)
+            ? [glyph.up + glyph.down + ' ' + t('key_nav'), 'Enter ' + t('key_open'), 'e / → серии', 'Ctrl+S ' + t('key_settings'), 'Ctrl+H ' + t('key_history'), 'Esc ' + t('key_exit')]
+            : [glyph.up + glyph.down + ' ' + t('key_nav'), 'Enter ' + t('key_open'), 'Ctrl+S ' + t('key_settings'), 'Ctrl+H ' + t('key_history'), 'Esc ' + t('key_exit')];
         return tui.box('ktw', content, size.width, footer(hints));
     }
 
@@ -893,6 +912,26 @@ async function searchScreen(state, apiKey) {
                 recentHistory = history.getRecent(4);
                 tui.paint(render());
                 continue;
+            }
+        }
+
+        // Хоткей перехода сразу к выбору серий для элементов «Продолжить просмотр»
+        var isEpKey = key.name === 'e' || key.name === 'tab' || key.name === 'right' ||
+                      key.str === 'e' || key.str === 'E' || key.str === 'у' || key.str === 'У';
+
+        if (isEpKey && query.trim().length === 0 && recentHistory.length > 0 && selected < recentHistory.length) {
+            var targetH = recentHistory[selected];
+            if (targetH && (targetH.serial || targetH.season)) {
+                return {
+                    id: targetH.filmId,
+                    title: targetH.title,
+                    year: targetH.year,
+                    poster: targetH.poster,
+                    serial: true,
+                    openSeason: targetH.season || 1,
+                    openEpisode: targetH.episode || 1,
+                    openEpisodesOnly: true
+                };
             }
         }
 
@@ -1969,6 +2008,12 @@ async function run(options) {
                     }
                 }
 
+                if (film.openEpisodesOnly) {
+                    if (film.openSeason) season = film.openSeason;
+                    screen = 'episodes';
+                    continue;
+                }
+
                 screen = seasons.length > 0 && !(season && episode) ? 'seasons' : 'players';
                 continue;
             }
@@ -2013,6 +2058,11 @@ async function run(options) {
                 var current = seasons.filter(function (item) { return item.number === season; })[0];
                 var curEpisodes = (current ? current.episodes : []);
                 var epSelectedIndex = 0;
+                if (film.openEpisode) {
+                    var foundIdx = curEpisodes.findIndex(function (e) { return e.number === film.openEpisode; });
+                    if (foundIdx >= 0) epSelectedIndex = foundIdx;
+                    film.openEpisode = null;
+                }
                 var epAction = null;
 
                 while (true) {

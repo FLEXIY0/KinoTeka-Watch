@@ -705,7 +705,8 @@ async function historyScreen() {
                 resumeEpisode: chosen.episode,
                 resumeTime: chosen.timePos,
                 resumePlayer: chosen.player,
-                resumeTranslation: chosen.translation
+                resumeTranslation: chosen.translation,
+                resumeQuality: chosen.quality
             };
         }
     }
@@ -885,7 +886,8 @@ async function searchScreen(state, apiKey) {
                     resumeEpisode: h.episode,
                     resumeTime: h.timePos,
                     resumePlayer: h.player,
-                    resumeTranslation: h.translation
+                    resumeTranslation: h.translation,
+                    resumeQuality: h.quality
                 };
             }
 
@@ -991,9 +993,9 @@ async function pickerScreen(film, posterLines, title, items, hints, descriptionL
 }
 
 // Выбор качества из мастер-плейлиста
-async function pickQuality(film, posterLines, found, variants, options, state, player) {
+async function pickQuality(film, posterLines, found, variants, options, state, player, resumeQuality) {
     var userConfig = config.read();
-    var wanted = options.quality || userConfig.preferredQuality;
+    var wanted = options.quality || resumeQuality || userConfig.preferredQuality;
     var chosen = wanted ? stream.pickVariant(variants, wanted) : null;
 
     if (!chosen) {
@@ -1242,7 +1244,7 @@ async function playbackControllerScreen(posterLines) {
 }
 
 // Извлечение потока и воспроизведение в mpv (фоновый режим с адаптацией на лету)
-async function playStream(film, player, translation, season, episode, options, state, posterLines, startTime) {
+async function playStream(film, player, translation, season, episode, options, state, posterLines, startTime, resumeQuality) {
     var userConfig = config.read();
     var source = translation && translation.iframeUrl ? translation.iframeUrl : player.iframeUrl;
     var iframeUrl = api.withEpisode(source, season, episode);
@@ -1314,7 +1316,7 @@ async function playStream(film, player, translation, season, episode, options, s
             size.width, footer(['почти всё']));
     });
 
-    var selectedQuality = await pickQuality(film, posterLines, found, variants, options, state, player);
+    var selectedQuality = await pickQuality(film, posterLines, found, variants, options, state, player, resumeQuality);
     if (!selectedQuality) return { ok: false, back: true };
     if (selectedQuality === 'settings') return { ok: false, settings: true };
 
@@ -1493,6 +1495,9 @@ async function run(options) {
     var autoUsed = false;
     var screen = options.settings ? 'settings' : 'search';
     var startTime = 0;
+    var resumePlayer = null;
+    var resumeTranslation = null;
+    var resumeQuality = null;
 
     var directId = api.parseFilmId(options.query);
     if (directId) {
@@ -1544,11 +1549,17 @@ async function run(options) {
 
                 // Если выбран пункт из истории с сохраненным прогрессом
                 if (film.resumeTime !== undefined) {
-                    startTime = film.resumeTime;
-                    season = film.resumeSeason;
-                    episode = film.resumeEpisode;
+                    startTime = film.resumeTime || 0;
+                    season = film.resumeSeason || null;
+                    episode = film.resumeEpisode || null;
+                    resumePlayer = film.resumePlayer || null;
+                    resumeTranslation = film.resumeTranslation || null;
+                    resumeQuality = film.resumeQuality || null;
                 } else {
                     startTime = 0;
+                    resumePlayer = null;
+                    resumeTranslation = null;
+                    resumeQuality = null;
                 }
 
                 screen = film.keyless ? 'players' : 'load';
@@ -1568,6 +1579,9 @@ async function run(options) {
                 startTime = chosenHistory.resumeTime || 0;
                 season = chosenHistory.resumeSeason || null;
                 episode = chosenHistory.resumeEpisode || null;
+                resumePlayer = chosenHistory.resumePlayer || null;
+                resumeTranslation = chosenHistory.resumeTranslation || null;
+                resumeQuality = chosenHistory.resumeQuality || null;
                 screen = 'load';
                 players = [];
                 posterLines = [];
@@ -1630,13 +1644,26 @@ async function run(options) {
                 if (!film.serial && !startTime && film.id) {
                     var savedProg = history.getProgress(film.id);
                     if (savedProg && savedProg.timePos > 60 && !savedProg.watched) {
+                        var resumeHint = (savedProg.percentage ? savedProg.percentage + '%' : '') +
+                            (savedProg.player ? ' · ' + savedProg.player : '') +
+                            (savedProg.translation ? ' · ' + savedProg.translation : '');
                         var resumeChoices = [
-                            { label: '▶ Продолжить с ' + history.formatTime(savedProg.timePos), hint: savedProg.percentage + '%' },
+                            { label: '▶ Продолжить с ' + history.formatTime(savedProg.timePos), hint: resumeHint },
                             { label: '↺ Начать с начала', hint: '00:00' }
                         ];
                         var rIndex = await pickerScreen(film, posterLines, 'Возобновление', resumeChoices,
                             [glyph.up + glyph.down + ' выбор', 'Enter подтвердить', 'Esc назад'], 2);
-                        if (rIndex === 0) startTime = savedProg.timePos;
+                        if (rIndex === 0) {
+                            startTime = savedProg.timePos;
+                            resumePlayer = savedProg.player || null;
+                            resumeTranslation = savedProg.translation || null;
+                            resumeQuality = savedProg.quality || null;
+                        } else {
+                            startTime = 0;
+                            resumePlayer = null;
+                            resumeTranslation = null;
+                            resumeQuality = null;
+                        }
                     }
                 }
 
@@ -1754,16 +1781,30 @@ async function run(options) {
                 // Проверяем сохраненную позицию для этой серии
                 var epProg = history.getProgress(film.id, season, episode);
                 if (epProg && epProg.timePos > 60 && !epProg.watched) {
+                    var epResumeHint = (epProg.percentage ? epProg.percentage + '%' : '') +
+                        (epProg.player ? ' · ' + epProg.player : '') +
+                        (epProg.translation ? ' · ' + epProg.translation : '');
                     var epResumeChoices = [
-                        { label: 'Продолжить с ' + history.formatTime(epProg.timePos), hint: epProg.percentage + '%' },
-                        { label: 'Начать с начала', hint: '00:00' }
+                        { label: '▶ Продолжить с ' + history.formatTime(epProg.timePos), hint: epResumeHint },
+                        { label: '↺ Начать с начала', hint: '00:00' }
                     ];
                     var epRIndex = await pickerScreen(film, posterLines, 'Возобновление серии', epResumeChoices,
                         [glyph.up + glyph.down + ' выбор', 'Enter подтвердить', 'Esc назад'], 0);
-                    if (epRIndex === 0) startTime = epProg.timePos;
-                    else startTime = 0;
-                } else {
-                    startTime = 0;
+                    if (epRIndex === 0) {
+                        startTime = epProg.timePos;
+                        resumePlayer = epProg.player || null;
+                        resumeTranslation = epProg.translation || null;
+                        resumeQuality = epProg.quality || null;
+                    } else {
+                        startTime = 0;
+                        resumePlayer = null;
+                        resumeTranslation = null;
+                        resumeQuality = null;
+                    }
+                } else if (epProg && (epProg.player || epProg.translation)) {
+                    resumePlayer = epProg.player || null;
+                    resumeTranslation = epProg.translation || null;
+                    resumeQuality = epProg.quality || null;
                 }
 
                 screen = 'players';
@@ -1799,11 +1840,11 @@ async function run(options) {
 
                 var chosenPlayer = null;
 
-                var preferredP = options.player || (!autoUsed ? userConfig.preferredPlayer : null);
+                var preferredP = options.player || resumePlayer || (!autoUsed ? userConfig.preferredPlayer : null);
                 if (preferredP) {
                     var wantedP = preferredP.toLowerCase();
                     chosenPlayer = players.find(function (item) {
-                        return item.source.toLowerCase().indexOf(wantedP) === 0;
+                        return item.source.toLowerCase() === wantedP || item.source.toLowerCase().indexOf(wantedP) === 0;
                     }) || null;
                 }
 
@@ -1886,11 +1927,13 @@ async function run(options) {
 
                 translation = null;
 
-                var preferredTr = options.translation || (!autoUsed ? userConfig.preferredTranslation : null);
+                var preferredTr = options.translation || resumeTranslation || (!autoUsed ? userConfig.preferredTranslation : null);
                 if (preferredTr && variants.length > 0) {
                     var wantedTr = preferredTr.toLowerCase();
                     translation = variants.find(function (item) {
-                        return item.name.toLowerCase().indexOf(wantedTr) >= 0;
+                        return item.name.toLowerCase() === wantedTr ||
+                            item.name.toLowerCase().indexOf(wantedTr) >= 0 ||
+                            wantedTr.indexOf(item.name.toLowerCase()) >= 0;
                     }) || null;
                 }
 
@@ -1931,7 +1974,7 @@ async function run(options) {
                     translation = variants[translationIndex] || null;
                 }
 
-                var playResult = await playStream(film, player, translation, season, episode, options, state, posterLines, startTime);
+                var playResult = await playStream(film, player, translation, season, episode, options, state, posterLines, startTime, resumeQuality);
                 autoUsed = true;
                 startTime = 0;
 

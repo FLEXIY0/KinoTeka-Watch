@@ -293,13 +293,16 @@ async function searchTorrents(query, season, episode) {
         'https://jacred.xyz/api/v1/search?query=' + encodeURIComponent(searchQuery)
     ];
 
+    // Извлекаем чистое название для фильтрации (убираем год)
+    var cleanTitle = query.replace(/\s*\d{4}\s*$/, '').trim().toLowerCase();
+
     for (var u of urls) {
         try {
             var raw = await new Promise(function (resolve, reject) {
                 var client = u.indexOf('https:') === 0 ? https : http;
                 var req = client.get(u, {
                     rejectUnauthorized: false,
-                    timeout: 5000,
+                    timeout: 8000,
                     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
                 }, function (res) {
                     var c = [];
@@ -312,7 +315,31 @@ async function searchTorrents(query, season, episode) {
 
             var data = JSON.parse(raw);
             if (Array.isArray(data) && data.length > 0) {
-                return data.map(function (item) {
+                // Фильтруем: оставляем только раздачи, где название фильма
+                // совпадает с запросом (по info.name или по title)
+                var filtered = data.filter(function (item) {
+                    var itemName = '';
+                    if (item.info && item.info.name) {
+                        itemName = item.info.name.toLowerCase();
+                    }
+                    var itemTitle = (item.title || '').toLowerCase();
+
+                    // Проверяем совпадение по названию из info.name или по title
+                    return itemName.indexOf(cleanTitle) >= 0 ||
+                           cleanTitle.indexOf(itemName) >= 0 ||
+                           itemTitle.indexOf(cleanTitle) >= 0;
+                });
+
+                // Если после фильтрации ничего — берём все, но сортируем
+                if (filtered.length === 0) filtered = data;
+
+                // Сортируем по количеству сидов (лучшее наверху)
+                filtered.sort(function (a, b) {
+                    return (b.seeders || 0) - (a.seeders || 0);
+                });
+
+                // Берём только топ-20 самых живых раздач
+                return filtered.slice(0, 20).map(function (item) {
                     var quality = '1080p';
                     if (item.info && item.info.quality) {
                         quality = item.info.quality >= 2160 ? '4K UHD' : (item.info.quality + 'p');

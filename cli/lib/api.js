@@ -316,16 +316,35 @@ function getPlayers(kinopoiskId) {
         var kinoboxPlayers = results[0];
         var directPlayers = results[1];
 
-        // Дедупликация: если прямой API дал Collaps, а Kinobox тоже — оставляем Kinobox-версию
-        var kinoboxSources = {};
-        kinoboxPlayers.forEach(function (p) {
-            kinoboxSources[(p.source || '').toLowerCase()] = true;
+        // Собираем прямые API источники в словарь для быстрого поиска
+        var directBySource = {};
+        directPlayers.forEach(function (dp) {
+            directBySource[(dp.source || '').toLowerCase()] = dp;
         });
 
-        var merged = kinoboxPlayers.slice();
+        // Проходим Kinobox-плееры: если для того же балансера есть прямой API
+        // с другим URL (рабочим зеркалом) — **заменяем**, а не дублируем.
+        // Пример: Kinobox даёт Collaps → ortified.ws (422), а прямой API →
+        // kinogram.best (200, HLS) — ставим kinogram.best вместо мёртвого.
+        var usedDirectSources = {};
+        var merged = kinoboxPlayers.map(function (kp) {
+            var src = (kp.source || '').toLowerCase();
+            var directAlt = directBySource[src];
+
+            if (directAlt && directAlt.iframeUrl !== kp.iframeUrl) {
+                usedDirectSources[src] = true;
+                return directAlt; // рабочее зеркало вместо мёртвого
+            }
+
+            return kp;
+        });
+
+        // Добавляем прямые API, которых нет в Kinobox (CDNVideoHub и т.д.)
         directPlayers.forEach(function (dp) {
-            var dpSource = (dp.source || '').toLowerCase();
-            if (!kinoboxSources[dpSource]) {
+            var dpSrc = (dp.source || '').toLowerCase();
+            if (!usedDirectSources[dpSrc] && !kinoboxPlayers.some(function (kp) {
+                return (kp.source || '').toLowerCase() === dpSrc;
+            })) {
                 merged.push(dp);
             }
         });

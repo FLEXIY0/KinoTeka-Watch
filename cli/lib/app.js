@@ -1464,7 +1464,55 @@ async function playStream(film, player, translation, season, episode, options, s
 
         if (!magnet) return { ok: false, back: true };
 
-        var streamUrl = torrserve.buildStreamUrl(magnet);
+        var fileIndex = null;
+        try {
+            await torrserve.addTorrent(magnet, film.title);
+            var files = await torrserve.getTorrentFiles(magnet);
+            if (files && files.length > 0) {
+                var videoFiles = files.filter(function (f) {
+                    return /\.(mkv|mp4|avi|ts|mov|m2ts|webm)$/i.test(f.name);
+                });
+
+                if (videoFiles.length === 1) {
+                    fileIndex = videoFiles[0].id;
+                } else if (videoFiles.length > 1) {
+                    var matched = null;
+                    if (episode) {
+                        var epNum = parseInt(episode, 10);
+                        var sNum = season ? parseInt(season, 10) : null;
+                        matched = videoFiles.find(function (f) {
+                            var n = f.name.toLowerCase();
+                            if (sNum && new RegExp('s0*' + sNum + '[._ -]*e0*' + epNum + '\\b', 'i').test(n)) return true;
+                            if (new RegExp('\\b[es]0*' + epNum + '\\b|[^0-9]0*' + epNum + '[._ -]*(?:серия|ep|seria|episode|из|of|\\.)', 'i').test(n)) return true;
+                            return false;
+                        });
+                    }
+
+                    if (matched) {
+                        fileIndex = matched.id;
+                    } else {
+                        var fileItems = videoFiles.map(function (f) {
+                            var sizeMb = (f.length / (1024 * 1024)).toFixed(0) + ' MB';
+                            var cleanName = f.name.split('/').pop().split('\\').pop();
+                            return {
+                                label: style.bold('[' + sizeMb + ']') + ' ' + ansi.truncate(cleanName, 60),
+                                hint: ''
+                            };
+                        });
+
+                        var chosenFileIdx = await pickerScreen(film, posterLines, 'TorrServe · Выбор серии / файла', fileItems,
+                            [glyph.up + glyph.down + ' выбор', 'Enter смотреть', 'Esc назад'], 2);
+
+                        if (chosenFileIdx === 'back') return { ok: false, back: true };
+                        if (chosenFileIdx >= 0 && chosenFileIdx < videoFiles.length) {
+                            fileIndex = videoFiles[chosenFileIdx].id;
+                        }
+                    }
+                }
+            }
+        } catch (e) {}
+
+        var streamUrl = torrserve.buildStreamUrl(magnet, fileIndex);
         var tsStream = {
             url: streamUrl,
             referer: '',

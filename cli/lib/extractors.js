@@ -106,10 +106,33 @@ async function extractCollaps(iframeUrl, options) {
     var season = options.season ? parseInt(options.season, 10) : null;
     var episode = options.episode ? parseInt(options.episode, 10) : null;
 
-    var res = await http.requestOk(iframeUrl, {
-        referer: options.referer || 'https://kinobox.tv/',
-        timeout: options.timeout || 12000
-    });
+    var candidates = [iframeUrl];
+    if (/ortified\.ws|apicollaps\.cc|fprxnet\.org|collaps/i.test(iframeUrl)) {
+        var kinogramUrl = iframeUrl.replace(/https?:\/\/[^\/]+/i, 'https://api.kinogram.best');
+        if (kinogramUrl !== iframeUrl) candidates.push(kinogramUrl);
+    }
+
+    var res = null;
+    var lastError = null;
+
+    for (var i = 0; i < candidates.length; i++) {
+        try {
+            res = await http.requestOk(candidates[i], {
+                referer: options.referer || 'https://kinobox.tv/',
+                timeout: options.timeout || 12000
+            });
+            if (res && res.body && (res.body.indexOf('makePlayer') >= 0 || res.body.indexOf('data-name="mk"') >= 0 || /\.m3u8|\.mpd/.test(res.body))) {
+                break;
+            }
+        } catch (e) {
+            lastError = e;
+            if (e.code === 'geo' || e.code === 'gone') break;
+        }
+    }
+
+    if (!res || !res.body) {
+        throw lastError || BalancerError(http.hostOf(iframeUrl) + ': в ответе нет данных плеера', 'noplaylist');
+    }
 
     var html = res.body;
     var hlsUrl = null;

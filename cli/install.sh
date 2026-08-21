@@ -601,6 +601,13 @@ EOF
 }
 
 link_binary() {
+    # Убеждаемся, что ktw.js не поврежден и не является ссылкой на шелл-скрипт
+    if [ -L "$INSTALL_DIR/cli/ktw.js" ] || (head -n 2 "$INSTALL_DIR/cli/ktw.js" 2>/dev/null | grep -q '/bin/sh'); then
+        rm -f "$INSTALL_DIR/cli/ktw.js"
+        if [ -d "$INSTALL_DIR/.git" ]; then
+            git -C "$INSTALL_DIR" checkout -f HEAD -- cli/ktw.js 2>/dev/null || true
+        fi
+    fi
     chmod +x "$INSTALL_DIR/cli/ktw.js"
 
     # Каталог для команд: сначала выбранный, потом ~/bin, потом /usr/local/bin.
@@ -681,6 +688,14 @@ link_binary() {
 # Проверка, что клиент реально стартует. Ловит неполное дерево (недокачанный
 # или битый клон) сразу, а не при первом запуске непонятной ошибкой.
 verify_install() {
+    # Если ktw.js оказался поврежден, восстанавливаем из git
+    if [ -L "$INSTALL_DIR/cli/ktw.js" ] || (head -n 2 "$INSTALL_DIR/cli/ktw.js" 2>/dev/null | grep -q '/bin/sh'); then
+        rm -f "$INSTALL_DIR/cli/ktw.js"
+        if [ -d "$INSTALL_DIR/.git" ]; then
+            git -C "$INSTALL_DIR" checkout -f HEAD -- cli/ktw.js 2>/dev/null || true
+        fi
+    fi
+
     _out=$(bun "$INSTALL_DIR/cli/ktw.js" --help 2>&1 < /dev/null) && {
         ok "клиент запускается"
         return 0
